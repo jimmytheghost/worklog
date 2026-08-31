@@ -1,11 +1,4 @@
-export type Metric = "commits" | "pushes";
-
-export type DayActivity = {
-  date: string;
-  commits: number | null;
-  pushes: number | null;
-  aiAttributed: boolean;
-};
+import type { DashboardSnapshot, DayActivity } from "./data/snapshot";
 
 export const metrics = [
   { label: "Commits", value: "1,284", delta: "+18%", context: "this year" },
@@ -29,10 +22,10 @@ export const agentTree = [
 ] as const;
 
 export const activity = [
-  { time: "22:18", title: "Push observed", subject: "agent-dashboard / main", detail: "3 commits", source: "GitHub", tone: "lime" },
-  { time: "21:54", title: "Sub-agent completed", subject: "Define event ledger", detail: "18m", source: "Codex", tone: "orange" },
-  { time: "21:43", title: "Commit discovered", subject: "agentic-toolkit", detail: "b42d9ac", source: "Local Git", tone: "lime" },
-  { time: "20:09", title: "Agent linked", subject: "ryders-guitar-lab", detail: "Correlated", source: "Codex", tone: "orange" },
+  { id: "fixture-push", time: "22:18", title: "Push observed", subject: "agent-dashboard / main", detail: "3 commits", source: "GitHub", tone: "lime" },
+  { id: "fixture-agent-completed", time: "21:54", title: "Sub-agent completed", subject: "Define event ledger", detail: "18m", source: "Codex", tone: "orange" },
+  { id: "fixture-commit", time: "21:43", title: "Commit discovered", subject: "agentic-toolkit", detail: "b42d9ac", source: "Local Git", tone: "lime" },
+  { id: "fixture-agent-linked", time: "20:09", title: "Agent linked", subject: "ryders-guitar-lab", detail: "Correlated", source: "Codex", tone: "orange" },
 ] as const;
 
 function pseudoCount(index: number, salt: number): number {
@@ -65,3 +58,20 @@ export function createActivityDays(today = new Date("2026-08-30T12:00:00-06:00")
 
   return days;
 }
+
+export const dashboardFixture: DashboardSnapshot = {
+  generatedAt: "2026-08-31T04:00:00.000Z",
+  timezone: "America/Denver",
+  metrics,
+  activityDays: createActivityDays(),
+  projects,
+  agents: agentTree,
+  recentActivity: activity,
+  coverage: { commits: "Complete commit history", pushes: "Pushes observed since May 14, 2026" },
+  collectors: [
+    { name: "GitHub", status: "partial", detail: "Push history is prospective" },
+    { name: "Local Git", status: "healthy", detail: "Last sync 2m ago" },
+    { name: "Codex", status: "healthy", detail: "Last sync 1m ago" },
+    { name: "OpenAI usage", status: "not_configured", detail: "Optional source" },
+  ],
+};

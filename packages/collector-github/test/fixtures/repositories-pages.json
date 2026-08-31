@@ -1,0 +1,29 @@
+[
+  [
+    {
+      "id": 1001,
+      "name": "agent-dashboard",
+      "full_name": "JimmyTheGhost/agent-dashboard",
+      "owner": { "login": "JimmyTheGhost" },
+      "default_branch": "main",
+      "private": true,
+      "visibility": "private",
+      "created_at": "2026-08-30T01:00:00Z",
+      "updated_at": "2026-08-31T01:00:00Z",
+      "description": "ignored"
+    }
+  ],
+  [
+    {
+      "id": 1002,
+      "name": "public-tool",
+      "full_name": "JimmyTheGhost/public-tool",
+      "owner": { "login": "JimmyTheGhost" },
+      "default_branch": "trunk",
+      "private": false,
+      "visibility": "public",
+      "created_at": "2025-01-02T03:04:05Z",
+      "updated_at": "2026-08-20T01:00:00Z"
+    }
+  ]
+]

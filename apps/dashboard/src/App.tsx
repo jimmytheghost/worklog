@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { activity, agentTree, createActivityDays, metrics, projects, type DayActivity, type Metric } from "./fixtures";
+import { defaultSnapshotClient, useSnapshot, type DashboardSnapshot, type DayActivity, type Metric, type SnapshotClient } from "./data/snapshot";
 
 const Icon = ({ name, size = 18 }: { name: "grid" | "folder" | "agent" | "usage" | "settings" | "arrow" | "branch" | "clock"; size?: number }) => {
   const paths = {
@@ -22,7 +22,20 @@ const navItems = [
   { label: "Usage", icon: "usage" },
 ] as const;
 
-function Header() {
+function Header({ snapshot, degraded = false }: { snapshot?: DashboardSnapshot; degraded?: boolean }) {
+  const hasCollectorError = snapshot?.collectors.some((collector) => collector.status === "error") ?? false;
+  const hasPartialCoverage = snapshot?.collectors.some((collector) => collector.status === "partial") ?? false;
+  const hasConnectedCollector = snapshot?.collectors.some((collector) => collector.status === "healthy" || collector.status === "partial") ?? false;
+  const healthLabel = degraded
+    ? "Using local sample data"
+    : hasCollectorError
+      ? "Collector needs attention"
+      : hasPartialCoverage
+        ? "Coverage is partial"
+        : hasConnectedCollector
+          ? "Collectors connected"
+          : "No collectors connected";
+  const isWarning = degraded || hasCollectorError || hasPartialCoverage || !hasConnectedCollector;
   return <header className="topbar">
     <a className="brand" href="#main" aria-label="Agent Dashboard overview">
       <span className="brand-mark"><span /><span /><span /></span>
@@ -32,17 +45,17 @@ function Header() {
       {navItems.map((item, index) => <a key={item.label} className={index === 0 ? "active" : ""} href={index === 0 ? "#main" : `#${item.label.toLowerCase()}`} aria-current={index === 0 ? "page" : undefined}><Icon name={item.icon} />{item.label}</a>)}
     </nav>
     <div className="system-state">
-      <button className="sync-button" type="button" aria-label="Collectors healthy, synced two minutes ago">
-        <span className="status-dot" />
-        <span><strong>All collectors healthy</strong><small>Synced 2m ago</small></span>
+      <button className="sync-button" type="button" aria-label={`${healthLabel}, ${degraded ? "live snapshot unavailable" : "snapshot loaded"}`}>
+        <span className={`status-dot ${isWarning ? "warning" : ""}`} />
+        <span><strong>{healthLabel}</strong><small>{degraded ? "Live snapshot unavailable" : "Snapshot loaded"}</small></span>
       </button>
       <button className="icon-button" type="button" aria-label="Settings"><Icon name="settings" /></button>
     </div>
   </header>;
 }
 
-function MetricStrip() {
-  return <section className="metric-strip" aria-label="Year-to-date metrics">
+function MetricStrip({ metrics }: Pick<DashboardSnapshot, "metrics">) {
+  return <section className="metric-strip" aria-label="Activity summary metrics">
     {metrics.map((metric) => <article className="metric" key={metric.label}>
       <p>{metric.label}</p>
       <div><strong>{metric.value}</strong><span>{metric.delta}</span></div>
@@ -64,10 +77,10 @@ function friendlyDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function Heatmap() {
-  const days = useMemo(() => createActivityDays(), []);
+function Heatmap({ days, coverage }: { days: DayActivity[]; coverage: DashboardSnapshot["coverage"] }) {
   const [metric, setMetric] = useState<Metric>("commits");
-  const [selected, setSelected] = useState<DayActivity>(() => days[days.length - 2]!);
+  const initialSelection = useMemo(() => [...days].reverse().find((day) => day.commits !== null) ?? days[0]!, [days]);
+  const [selected, setSelected] = useState<DayActivity>(initialSelection);
   const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const handleKey = (event: React.KeyboardEvent, index: number) => {
@@ -117,7 +130,7 @@ function Heatmap() {
     </div>
     <footer className="heatmap-footer">
       <div className="legend"><span>Less</span>{["zero", "low", "mid", "high", "peak"].map((level) => <i className={level} key={level} />)}<span>More</span><b><span /> AI-attributed</b></div>
-      <p><span className="coverage-icon">◒</span><strong>Complete commit history</strong> · Pushes observed since May 14, 2026</p>
+      <p><span className="coverage-icon">◒</span><strong>{coverage.commits}</strong> · {coverage.pushes}</p>
     </footer>
   </section>;
 }
@@ -126,9 +139,9 @@ function SectionHeader({ eyebrow, title, action }: { eyebrow: string; title?: st
   return <header className="section-header"><div><span className="eyebrow">{eyebrow}</span>{title && <h2>{title}</h2>}</div><a href="#details">{action}<Icon name="arrow" size={15} /></a></header>;
 }
 
-function ProjectsPanel() {
+function ProjectsPanel({ projects }: Pick<DashboardSnapshot, "projects">) {
   return <section className="support-panel projects-panel" aria-labelledby="projects-title">
-    <SectionHeader eyebrow="Active projects · 7" title="Where the work is moving" action="View all" />
+    <SectionHeader eyebrow={`Active projects · ${projects.length}`} title="Where the work is moving" action="View all" />
     <div className="project-table" role="table" aria-label="Active projects">
       <div className="project-head" role="row"><span role="columnheader" id="projects-title">Repository</span><span role="columnheader">Commits</span><span role="columnheader">Agents</span><span role="columnheader">Updated</span></div>
       {projects.map((project) => <a className="project-row" href="#project" role="row" key={project.name}>
@@ -139,46 +152,81 @@ function ProjectsPanel() {
   </section>;
 }
 
-function AgentsPanel() {
+function AgentsPanel({ agents }: { agents: DashboardSnapshot["agents"] }) {
+  const running = agents.filter((agent) => agent.status === "Running").length;
   return <section className="support-panel agents-panel" aria-labelledby="agents-title">
-    <SectionHeader eyebrow="Agents · Today" title="One task in motion" action="Open graph" />
+    <SectionHeader eyebrow="Agents · Today" title={agents.length === 0 ? "No agent data yet" : running === 1 ? "One task in motion" : `${running} tasks in motion`} action="Open graph" />
     <ol className="agent-tree" id="agents-title">
-      {agentTree.map((agent) => <li key={agent.name} style={{ "--depth": agent.depth } as React.CSSProperties} className={`agent-row depth-${agent.depth}`}>
+      {agents.map((agent) => <li key={agent.name} style={{ "--depth": agent.depth } as React.CSSProperties} className={`agent-row depth-${agent.depth}`}>
         <span className={`agent-node ${agent.status.toLowerCase()}`}><Icon name="agent" size={14} /></span>
         <span className="agent-copy"><strong>{agent.name}</strong><small>{agent.meta}</small></span>
         <span className={`status-label ${agent.status.toLowerCase()}`}>{agent.status}</span>
         <span className="duration">{agent.duration}</span>
       </li>)}
     </ol>
-    <div className="agent-summary"><p><span>3</span> agents spawned</p><p><span>1</span> running now</p><p><span>30m</span> total runtime</p></div>
+    <div className="agent-summary"><p><span>{agents.length}</span> agents observed</p><p><span>{running}</span> running now</p><p><span>{agents.filter((agent) => agent.depth > 0).length}</span> sub-agents</p></div>
   </section>;
 }
 
-function ActivityFeed() {
+function ActivityFeed({ activity }: { activity: DashboardSnapshot["recentActivity"] }) {
   return <section className="feed-panel" aria-labelledby="feed-title">
     <SectionHeader eyebrow="Recent activity" action="View timeline" />
     <h2 className="sr-only" id="feed-title">Recent activity</h2>
     <ol className="activity-feed">
-      {activity.map((event) => <li key={`${event.time}-${event.title}`}>
+      {activity.map((event) => <li key={event.id}>
         <time>{event.time}</time><span className={`feed-mark ${event.tone}`} /><span className="feed-title"><strong>{event.title}</strong><small>{event.subject}</small></span><code>{event.detail}</code><span className="source-badge">{event.source}</span><button type="button" aria-label={`Inspect ${event.title}`}><Icon name="arrow" size={16} /></button>
       </li>)}
     </ol>
   </section>;
 }
 
-export function App() {
+function LoadingOverview() {
+  return <main id="main" aria-busy="true" aria-label="Loading dashboard snapshot">
+    <section className="page-intro loading-intro"><div><span className="skeleton short" /><span className="skeleton title" /><span className="skeleton copy" /></div></section>
+    <section className="metric-strip loading-metrics" aria-label="Loading summary metrics">{Array.from({ length: 4 }, (_, index) => <div className="metric" key={index}><span className="skeleton short" /><span className="skeleton value" /><span className="skeleton short" /></div>)}</section>
+    <section className="activity-panel loading-panel"><div className="panel-toolbar"><span className="skeleton short" /></div><div className="loading-grid" aria-hidden="true">{Array.from({ length: 105 }, (_, index) => <span key={index} />)}</div><p>Reading the local event ledger…</p></section>
+  </main>;
+}
+
+function SnapshotError({ error }: { error: Error }) {
+  return <main id="main" className="error-page">
+    <section className="error-state" role="alert"><span className="error-glyph">!</span><p className="eyebrow">Collector unavailable</p><h1>The activity snapshot could not be loaded.</h1><p>{error.message}. The service remains read-only; no local data was changed.</p><button type="button" onClick={() => window.location.reload()}>Try again</button></section>
+  </main>;
+}
+
+function CollectorNotice({ error, snapshot }: { error: Error; snapshot: DashboardSnapshot }) {
+  return <aside className="collector-notice" role="status"><span className="error-glyph">!</span><div><strong>Live collectors are unavailable</strong><p>{error.message}. Showing the bundled development snapshot from {friendlyDate(snapshot.generatedAt.slice(0, 10))}.</p></div></aside>;
+}
+
+function CollectorHealthNotice({ snapshot }: { snapshot: DashboardSnapshot }) {
+  const failed = snapshot.collectors.filter((collector) => collector.status === "error");
+  if (failed.length === 0) return null;
+  return <aside className="collector-notice" role="status"><span className="error-glyph">!</span><div><strong>{failed.length === 1 ? `${failed[0]!.name} collector needs attention` : `${failed.length} collectors need attention`}</strong><p>{failed.map((collector) => `${collector.name}: ${collector.detail}`).join(" · ")}. Other snapshot data remains available.</p></div></aside>;
+}
+
+export type AppProps = { snapshotClient?: SnapshotClient; fallbackSnapshot?: DashboardSnapshot };
+
+export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot }: AppProps) {
+  const snapshotState = useSnapshot(snapshotClient, fallbackSnapshot);
+
+  if (snapshotState.status === "loading") return <><a className="skip-link" href="#main">Skip to dashboard</a><Header /><LoadingOverview /></>;
+  if (!snapshotState.snapshot) return <><a className="skip-link" href="#main">Skip to dashboard</a><Header degraded /><SnapshotError error={snapshotState.error} /></>;
+  const snapshot = snapshotState.snapshot;
+
   return <>
     <a className="skip-link" href="#main">Skip to dashboard</a>
-    <Header />
+    <Header snapshot={snapshot} degraded={snapshotState.usingFallback} />
     <main id="main">
+      {snapshotState.status === "error" && <CollectorNotice error={snapshotState.error} snapshot={snapshot} />}
+      {snapshotState.status === "success" && <CollectorHealthNotice snapshot={snapshot} />}
       <section className="page-intro">
         <div><p className="eyebrow"><span /> Activity · America / Denver</p><h1>Work, shipped.</h1><p>A daily record of commits, pushes, and the agents behind them.</p></div>
         <div className="range-summary"><span className="eyebrow">Reporting range</span><button type="button">Last 12 months <span>⌄</span></button><small><Icon name="clock" size={13} /> Sep 01, 2025 — Aug 30, 2026</small></div>
       </section>
-      <MetricStrip />
-      <Heatmap />
-      <div className="support-grid"><ProjectsPanel /><AgentsPanel /></div>
-      <ActivityFeed />
+      <MetricStrip metrics={snapshot.metrics} />
+      <Heatmap days={snapshot.activityDays} coverage={snapshot.coverage} />
+      <div className="support-grid"><ProjectsPanel projects={snapshot.projects} /><AgentsPanel agents={snapshot.agents} /></div>
+      <ActivityFeed activity={snapshot.recentActivity} />
       <footer className="app-footer"><p><span className="status-dot" />Local ledger online</p><p>Read-only · Metadata only · <a href="#sources">Inspect data sources</a></p></footer>
     </main>
   </>;

@@ -1,6 +1,6 @@
 # Agent Dashboard Data Contract
 
-Status: Phase 0 draft
+Status: Accepted MVP contract
 
 Default local timezone: `America/Denver`
 

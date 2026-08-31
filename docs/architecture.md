@@ -1,6 +1,6 @@
 # Agent Dashboard Architecture
 
-Status: Phase 1 foundation
+Status: Phase 2 GitHub vertical slice
 
 ## Shape
 
@@ -62,7 +62,7 @@ The package does not know about HTTP, storage, React, authentication, or source 
 - Reads source data without executing repository-owned code.
 - Preserves the last successful data when a later sync fails.
 
-The current Phase 1 service uses deterministic fixtures. Real storage and collectors enter in later vertical slices.
+The Phase 2 service uses the durable SQLite ledger and authenticated GitHub collector in normal operation. Deterministic fixture mode remains available only for tests and deliberate development fallback.
 
 ### `@agent-dashboard/dashboard`
 
@@ -71,7 +71,7 @@ The current Phase 1 service uses deterministic fixtures. Real storage and collec
 - Provides accessible keyboard and tabular equivalents for visualizations.
 - Keeps commits and pushes, as well as local Codex and official API usage, separate.
 
-The current Overview is fixture-driven so visual and interaction decisions can be validated before live ingestion.
+The Overview consumes the local service snapshot and retains an explicit development-only fixture fallback for disconnected UI work.
 
 ## Security boundary
 
