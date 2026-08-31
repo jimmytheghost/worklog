@@ -7,9 +7,27 @@ The project is currently in its definition phase. The durable product decisions 
 - [`docs/product-brief.md`](docs/product-brief.md)
 - [`docs/data-contract.md`](docs/data-contract.md)
 - [`docs/design-direction.md`](docs/design-direction.md)
+- [`docs/architecture.md`](docs/architecture.md)
 
 ## Status
 
-Phase 0: product contract, data semantics, and visual direction.
+Phase 1: a fixture-driven Overview, shared domain contract, and loopback-only local service.
 
-Implementation will begin with a local TypeScript application backed by SQLite. The MVP is read-only and does not send telemetry or ingest source code, prompts, or response content.
+The implementation is a local TypeScript application and will use SQLite for its durable event ledger. The MVP is read-only and does not send telemetry or ingest source code, prompts, or response content.
+
+## Development
+
+Requirements: Node.js 24 or newer and pnpm 11.
+
+```sh
+pnpm install
+pnpm dev
+```
+
+The dashboard runs at `http://127.0.0.1:5173` and the local service defaults to `http://127.0.0.1:4317`.
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm build
+```
