@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-30T03:00:00Z","type":"session_meta","payload":{"id":"session-missing","parent_thread_id":null}}
+{"timestamp":"2026-08-30T03:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":9,"output_tokens":2,"total_tokens":11}}}}

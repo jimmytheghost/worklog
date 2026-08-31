@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@agent-dashboard/collector-codex": "workspace:*",
     "@agent-dashboard/collector-github": "workspace:*",
     "@agent-dashboard/domain": "workspace:*",
     "@agent-dashboard/storage": "workspace:*",

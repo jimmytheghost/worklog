@@ -56,7 +56,7 @@ function Header({ snapshot, degraded = false }: { snapshot?: DashboardSnapshot; 
 
 function MetricStrip({ metrics }: Pick<DashboardSnapshot, "metrics">) {
   return <section className="metric-strip" aria-label="Activity summary metrics">
-    {metrics.map((metric) => <article className="metric" key={metric.label}>
+    {metrics.map((metric) => <article className={`metric ${metric.label === "Observed tokens" ? "observed-usage" : ""}`} key={metric.label}>
       <p>{metric.label}</p>
       <div><strong>{metric.value}</strong><span>{metric.delta}</span></div>
       <small>{metric.context}</small>
@@ -156,16 +156,28 @@ function AgentsPanel({ agents }: { agents: DashboardSnapshot["agents"] }) {
   const running = agents.filter((agent) => agent.status === "Running").length;
   return <section className="support-panel agents-panel" aria-labelledby="agents-title">
     <SectionHeader eyebrow="Agents · Today" title={agents.length === 0 ? "No agent data yet" : running === 1 ? "One task in motion" : `${running} tasks in motion`} action="Open graph" />
-    <ol className="agent-tree" id="agents-title">
-      {agents.map((agent) => <li key={agent.name} style={{ "--depth": agent.depth } as React.CSSProperties} className={`agent-row depth-${agent.depth}`}>
+    {agents.length === 0 ? <div className="agent-empty" id="agents-title">
+      <span className="agent-node"><Icon name="agent" size={16} /></span>
+      <div><strong>No local Codex sessions observed</strong><p>New tasks and sub-agents will appear here after the local Codex source records them.</p></div>
+    </div> : <ol className="agent-tree" id="agents-title">
+      {agents.map((agent) => <li key={agent.id} style={{ "--depth": agent.depth } as React.CSSProperties} className={`agent-row depth-${Math.min(agent.depth, 2)}`}>
         <span className={`agent-node ${agent.status.toLowerCase()}`}><Icon name="agent" size={14} /></span>
         <span className="agent-copy"><strong>{agent.name}</strong><small>{agent.meta}</small></span>
         <span className={`status-label ${agent.status.toLowerCase()}`}>{agent.status}</span>
         <span className="duration">{agent.duration}</span>
       </li>)}
-    </ol>
+    </ol>}
     <div className="agent-summary"><p><span>{agents.length}</span> agents observed</p><p><span>{running}</span> running now</p><p><span>{agents.filter((agent) => agent.depth > 0).length}</span> sub-agents</p></div>
   </section>;
+}
+
+function CodexSourceNotice({ snapshot }: { snapshot: DashboardSnapshot }) {
+  const hasObservedTokens = snapshot.metrics.some((metric) => metric.label === "Observed tokens" && metric.value !== "—");
+  if (snapshot.agents.length === 0 && !hasObservedTokens) return null;
+  return <aside className="codex-source-notice" role="note" aria-label="Experimental Codex data source">
+    <span className="experimental-badge">Experimental source</span>
+    <p><strong>Codex activity is observed from local metadata.</strong> Agent relationships and token totals may be incomplete; observed tokens are not billing usage.</p>
+  </aside>;
 }
 
 function ActivityFeed({ activity }: { activity: DashboardSnapshot["recentActivity"] }) {
@@ -219,6 +231,7 @@ export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot }
     <main id="main">
       {snapshotState.status === "error" && <CollectorNotice error={snapshotState.error} snapshot={snapshot} />}
       {snapshotState.status === "success" && <CollectorHealthNotice snapshot={snapshot} />}
+      <CodexSourceNotice snapshot={snapshot} />
       <section className="page-intro">
         <div><p className="eyebrow"><span /> Activity · America / Denver</p><h1>Work, shipped.</h1><p>A daily record of commits, pushes, and the agents behind them.</p></div>
         <div className="range-summary"><span className="eyebrow">Reporting range</span><button type="button">Last 12 months <span>⌄</span></button><small><Icon name="clock" size={13} /> Sep 01, 2025 — Aug 30, 2026</small></div>

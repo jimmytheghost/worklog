@@ -8,6 +8,8 @@ import {
   FRESHNESS_LEVELS,
   METRIC_UNITS,
   OCCURRED_AT_SOURCES,
+  AGENT_ROLES,
+  REASONING_EFFORTS,
   SOURCE_SYSTEMS,
   type AnyNormalizedEvent,
   type EventPayloads,
@@ -19,6 +21,11 @@ const nonEmptyString = z.string().min(1);
 const instant = z.iso.datetime({ offset: true });
 const sha = z.string().regex(/^[0-9a-fA-F]{40,64}$/).transform((value) => value.toLowerCase());
 const tokenCount = z.number().int().nonnegative();
+const workspaceIdentityHash = z
+  .string()
+  .regex(/^[0-9a-fA-F]{64}$/)
+  .transform((value) => value.toLowerCase());
+const metadataLabel = z.string().trim().min(1).max(256);
 
 export const attributionSchema = z.enum(ATTRIBUTIONS);
 export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
@@ -69,10 +76,20 @@ export const eventPayloadSchemas = {
   "codex.task.started": z.strictObject({
     sourceTaskId: nonEmptyString,
     workspacePathHash: nonEmptyString.optional(),
+    workspaceIdentityHash: workspaceIdentityHash.optional(),
+    label: metadataLabel.optional(),
   }),
   "codex.session.started": z.strictObject({
     sourceSessionId: nonEmptyString,
     model: nonEmptyString.optional(),
+    reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
+    agentRole: z.enum(AGENT_ROLES).optional(),
+    parentSessionId: nonEmptyString.optional(),
+  }),
+  "codex.session.state_observed": z.strictObject({
+    sourceSessionId: nonEmptyString,
+    status: z.enum(["active", "completed", "failed", "cancelled", "interrupted", "unknown"]),
+    durationMilliseconds: z.number().int().nonnegative().optional(),
   }),
   "codex.subagent.spawned": z.strictObject({
     parentSessionId: nonEmptyString,
@@ -82,14 +99,38 @@ export const eventPayloadSchemas = {
     outcome: z.enum(["completed", "failed", "cancelled", "interrupted", "unknown"]),
     durationMilliseconds: z.number().int().nonnegative().optional(),
   }),
-  "codex.usage.recorded": z.strictObject({
-    inputTokens: tokenCount.optional(),
-    outputTokens: tokenCount.optional(),
-    cachedTokens: tokenCount.optional(),
-    reasoningTokens: tokenCount.optional(),
-    bucketStart: instant.optional(),
-    bucketEnd: instant.optional(),
-  }),
+  "codex.usage.recorded": z.union([
+    z.strictObject({
+      inputTokens: tokenCount.optional(),
+      outputTokens: tokenCount.optional(),
+      cachedTokens: tokenCount.optional(),
+      reasoningTokens: tokenCount.optional(),
+      bucketStart: instant.optional(),
+      bucketEnd: instant.optional(),
+    }),
+    // Cumulative snapshots must be reduced to the latest record per session
+    // before aggregation; summing snapshots directly double-counts tokens.
+    z.strictObject({
+      counterKind: z.literal("cumulative"),
+      sourceSessionId: nonEmptyString,
+      countersAvailable: z.literal(true).optional(),
+      inputTokens: tokenCount,
+      cachedTokens: tokenCount,
+      cacheWriteTokens: tokenCount,
+      outputTokens: tokenCount,
+      reasoningTokens: tokenCount,
+      totalTokens: tokenCount,
+      bucketStart: instant,
+      bucketEnd: instant,
+    }),
+    z.strictObject({
+      counterKind: z.literal("cumulative"),
+      sourceSessionId: nonEmptyString,
+      countersAvailable: z.literal(false),
+      bucketStart: instant,
+      bucketEnd: instant,
+    }),
+  ]),
   "openai.api_usage.recorded": z.strictObject({
     inputTokens: tokenCount.optional(),
     outputTokens: tokenCount.optional(),
@@ -158,6 +199,7 @@ export const normalizedEventSchema = z.discriminatedUnion("eventType", [
   eventSchemas[11]!,
   eventSchemas[12]!,
   eventSchemas[13]!,
+  eventSchemas[14]!,
 ]) as z.ZodType<AnyNormalizedEvent>;
 
 export const metricResultSchema = z

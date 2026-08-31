@@ -1,8 +1,10 @@
+import type { CodexCollector } from "@agent-dashboard/collector-codex";
 import type { GitHubCollector } from "@agent-dashboard/collector-github";
 import type { Storage } from "@agent-dashboard/storage";
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { ServiceEventHub } from "./events.js";
+import { CodexSyncCoordinator } from "./codex-sync.js";
 import { snapshotFixture } from "./fixtures/snapshot.js";
 import { GitHubSyncCoordinator } from "./github-sync.js";
 import { buildStorageSnapshot } from "./snapshot.js";
@@ -16,9 +18,11 @@ type BuildAppOptions = {
   sseMaxHeartbeats?: number;
   storage?: Storage;
   githubCollector?: Pick<GitHubCollector, "collect">;
+  codexCollector?: Pick<CodexCollector, "collect">;
   eventHub?: ServiceEventHub;
   fixtureMode?: boolean;
   githubSyncOnStart?: boolean;
+  codexSyncOnStart?: boolean;
   timeZone?: string;
   now?: () => Date;
 };
@@ -28,9 +32,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const eventHub = options.eventHub ?? new ServiceEventHub();
   const now = options.now ?? (() => new Date());
   const fixtureMode = options.fixtureMode ?? options.storage === undefined;
-  const coordinator =
+  const githubCoordinator =
     options.storage !== undefined && options.githubCollector !== undefined
       ? new GitHubSyncCoordinator(options.storage, options.githubCollector, eventHub, now)
+      : undefined;
+  const codexCoordinator =
+    options.storage !== undefined && options.codexCollector !== undefined
+      ? new CodexSyncCoordinator(options.storage, options.codexCollector, eventHub, now)
       : undefined;
 
   app.get("/health", async () => ({
@@ -38,7 +46,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     service: "@agent-dashboard/service",
     version: "0.0.0",
     now: now().toISOString(),
-    githubSync: coordinator?.state.status ?? "disabled",
+    githubSync: githubCoordinator?.state.status ?? "disabled",
+    codexSync: codexCoordinator?.state.status ?? "disabled",
   }));
 
   app.get("/api/snapshot", async (_request, reply) => {
@@ -54,14 +63,26 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   app.post("/api/sync/github", async (_request, reply) => {
-    if (coordinator === undefined) {
+    if (githubCoordinator === undefined) {
       return reply.code(503).send({
         status: "unavailable",
         error: "GitHub synchronization is not configured",
       });
     }
 
-    const state = await coordinator.sync();
+    const state = await githubCoordinator.sync();
+    return reply.code(state.status === "failed" ? 503 : 200).send(state);
+  });
+
+  app.post("/api/sync/codex", async (_request, reply) => {
+    if (codexCoordinator === undefined) {
+      return reply.code(503).send({
+        status: "unavailable",
+        error: "Codex synchronization is not configured",
+      });
+    }
+
+    const state = await codexCoordinator.sync();
     return reply.code(state.status === "failed" ? 503 : 200).send(state);
   });
 
@@ -83,7 +104,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     writeEvent("connected", {
       schemaVersion: 1,
       connectedAt: now().toISOString(),
-      githubSync: coordinator?.state ?? { status: "disabled" },
+      githubSync: githubCoordinator?.state ?? { status: "disabled" },
+      codexSync: codexCoordinator?.state ?? { status: "disabled" },
     });
 
     const unsubscribe = eventHub.subscribe(({ event, data }) => writeEvent(event, data));
@@ -118,11 +140,20 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     reply.raw.once("error", cleanup);
   });
 
-  if (options.githubSyncOnStart === true && coordinator !== undefined) {
+  if (options.githubSyncOnStart === true && githubCoordinator !== undefined) {
     app.addHook("onReady", async () => {
-      const state = await coordinator.sync();
+      const state = await githubCoordinator.sync();
       if (state.status === "failed") {
         app.log.warn({ code: state.error?.code }, "GitHub synchronization on start failed");
+      }
+    });
+  }
+
+  if (options.codexSyncOnStart === true && codexCoordinator !== undefined) {
+    app.addHook("onReady", async () => {
+      const state = await codexCoordinator.sync();
+      if (state.status === "failed") {
+        app.log.warn({ code: state.error?.code }, "Codex synchronization on start failed");
       }
     });
   }

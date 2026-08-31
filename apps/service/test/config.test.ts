@@ -11,6 +11,7 @@ describe("service configuration", () => {
       databasePath: DEFAULT_DATABASE_PATH,
       timeZone: "America/Denver",
       githubSyncOnStart: false,
+      codexSyncOnStart: false,
       logLevel: "info",
       sseHeartbeatMs: 15_000,
     });
@@ -25,6 +26,7 @@ describe("service configuration", () => {
         SERVICE_DATABASE_PATH: ":memory:",
         SERVICE_TIMEZONE: "UTC",
         GITHUB_SYNC_ON_START: "true",
+        CODEX_SYNC_ON_START: "1",
         SERVICE_LOG_LEVEL: "silent",
         SERVICE_SSE_HEARTBEAT_MS: "3000",
       }),
@@ -35,6 +37,7 @@ describe("service configuration", () => {
       databasePath: ":memory:",
       timeZone: "UTC",
       githubSyncOnStart: true,
+      codexSyncOnStart: true,
       logLevel: "silent",
       sseHeartbeatMs: 3000,
     });
@@ -51,6 +54,9 @@ describe("service configuration", () => {
       /valid IANA timezone/,
     );
     expect(() => readConfig({ GITHUB_SYNC_ON_START: "sometimes" })).toThrowError(
+      /Invalid service configuration/,
+    );
+    expect(() => readConfig({ CODEX_SYNC_ON_START: "sometimes" })).toThrowError(
       /Invalid service configuration/,
     );
   });

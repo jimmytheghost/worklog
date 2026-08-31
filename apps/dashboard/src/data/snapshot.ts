@@ -15,7 +15,7 @@ export type DashboardSnapshot = {
   metrics: readonly { label: string; value: string; delta: string; context: string }[];
   activityDays: DayActivity[];
   projects: readonly { name: string; branch: string; commits: number; status: string; agents: number; updated: string }[];
-  agents: readonly { depth: number; name: string; meta: string; status: string; duration: string }[];
+  agents: readonly { id: string; depth: number; name: string; meta: string; status: string; duration: string }[];
   recentActivity: readonly { id: string; time: string; title: string; subject: string; detail: string; source: string; tone: "lime" | "orange" }[];
   coverage: { commits: string; pushes: string };
   collectors: readonly { name: string; status: "healthy" | "partial" | "error" | "not_configured"; detail: string }[];
@@ -88,6 +88,28 @@ function toTitle(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function agentDepths(agents: ApiSnapshot["agents"]) {
+  const byId = new Map(agents.map((agent) => [agent.sessionId, agent]));
+  const depths = new Map<string, number>();
+
+  const visit = (sessionId: string, path = new Set<string>()): number => {
+    const known = depths.get(sessionId);
+    if (known !== undefined) return known;
+    const agent = byId.get(sessionId);
+    if (!agent?.parentSessionId || !byId.has(agent.parentSessionId) || path.has(sessionId)) {
+      depths.set(sessionId, 0);
+      return 0;
+    }
+    const nextPath = new Set(path).add(sessionId);
+    const depth = visit(agent.parentSessionId, nextPath) + 1;
+    depths.set(sessionId, depth);
+    return depth;
+  };
+
+  for (const agent of agents) visit(agent.sessionId);
+  return depths;
+}
+
 function activityCalendar(sourceDays: ApiSnapshot["activityDays"]): DayActivity[] {
   const latest = sourceDays.at(-1)?.date ?? new Date().toISOString().slice(0, 10);
   const end = new Date(`${latest}T12:00:00Z`);
@@ -115,8 +137,7 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
   const pushMetric = metricByName.get("pushes");
   const agentCounts = new Map<string, number>();
   for (const agent of api.agents) agentCounts.set(agent.projectId, (agentCounts.get(agent.projectId) ?? 0) + 1);
-  const sessionDepth = new Map<string, number>();
-  for (const agent of api.agents) sessionDepth.set(agent.sessionId, agent.parentSessionId ? (sessionDepth.get(agent.parentSessionId) ?? 0) + 1 : 0);
+  const sessionDepth = agentDepths(api.agents);
 
   return {
     generatedAt: api.generatedAt,
@@ -125,7 +146,7 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
       { label: "Commits", value: formatMetric(commitMetric?.value ?? null, "commits"), delta: "Current", context: "selected range" },
       { label: "Pushes", value: formatMetric(pushMetric?.value ?? null, "pushes"), delta: "Observed", context: pushMetric?.completeness ?? "unknown" },
       { label: "Active days", value: formatMetric(metricByName.get("active_days")?.value ?? null, "active_days"), delta: "Local", context: "selected range" },
-      { label: "Observed tokens", value: formatMetric(metricByName.get("codex_observed_tokens")?.value ?? null, "tokens"), delta: "Codex", context: "local metadata" },
+      { label: "Observed tokens", value: formatMetric(metricByName.get("codex_observed_tokens")?.value ?? null, "tokens"), delta: "Local", context: metricByName.has("codex_observed_tokens") ? "Observed locally — not billing usage" : "No local token metadata yet" },
     ],
     activityDays: activityCalendar(api.activityDays),
     projects: api.projects.map((project) => ({
@@ -137,6 +158,7 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
       updated: relativeTime(project.lastActivityAt, api.generatedAt),
     })),
     agents: api.agents.map((agent) => ({
+      id: agent.sessionId,
       depth: sessionDepth.get(agent.sessionId) ?? 0,
       name: agent.label,
       meta: `${agent.parentSessionId ? "Sub-agent" : "Codex"} · ${agent.model}`,

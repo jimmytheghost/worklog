@@ -33,6 +33,7 @@ const configSchema = z.object({
   SERVICE_DATABASE_PATH: z.string().trim().min(1).default(DEFAULT_DATABASE_PATH),
   SERVICE_TIMEZONE: timeZone.default("America/Denver"),
   GITHUB_SYNC_ON_START: booleanFromEnvironment,
+  CODEX_SYNC_ON_START: booleanFromEnvironment,
   SERVICE_LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
@@ -46,6 +47,7 @@ export type ServiceConfig = {
   databasePath: string;
   timeZone: string;
   githubSyncOnStart: boolean;
+  codexSyncOnStart: boolean;
   logLevel: z.infer<typeof configSchema>["SERVICE_LOG_LEVEL"];
   sseHeartbeatMs: number;
 };
@@ -68,6 +70,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Servic
     databasePath: parsed.data.SERVICE_DATABASE_PATH,
     timeZone: parsed.data.SERVICE_TIMEZONE,
     githubSyncOnStart: parsed.data.GITHUB_SYNC_ON_START,
+    codexSyncOnStart: parsed.data.CODEX_SYNC_ON_START,
     logLevel: parsed.data.SERVICE_LOG_LEVEL,
     sseHeartbeatMs: parsed.data.SERVICE_SSE_HEARTBEAT_MS,
   };

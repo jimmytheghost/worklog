@@ -1,4 +1,10 @@
-import type { Completeness, Freshness, SourceSystem } from "@agent-dashboard/domain";
+import type {
+  AgentRole,
+  Completeness,
+  Freshness,
+  ReasoningEffort,
+  SourceSystem,
+} from "@agent-dashboard/domain";
 
 export interface SourceInput {
   id: string;
@@ -65,4 +71,61 @@ export interface DailyGitActivityQuery {
   endLocalDateExclusive: string;
   timeZone?: string | undefined;
   repositoryIds?: readonly string[] | undefined;
+}
+
+export type CodexSessionStatus =
+  | "active"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted"
+  | "unknown";
+
+export interface CodexSessionReadModel {
+  id: string;
+  taskId: string | null;
+  parentSessionId: string | null;
+  repositoryId: string | null;
+  label: string | null;
+  model: string | null;
+  reasoningEffort: ReasoningEffort | null;
+  role: AgentRole;
+  status: CodexSessionStatus;
+  startedAt: string;
+  completedAt: string | null;
+  durationMilliseconds: number | null;
+  totalObservedTokens: number | null;
+}
+
+export interface CodexTaskReadModel {
+  id: string;
+  repositoryId: string | null;
+  label: string | null;
+  primarySessionId: string | null;
+  model: string | null;
+  reasoningEffort: ReasoningEffort | null;
+  status: CodexSessionStatus;
+  startedAt: string;
+  completedAt: string | null;
+  durationMilliseconds: number | null;
+  totalObservedTokens: number | null;
+  sessionIds: string[];
+}
+
+export type CodexTokenKnowledge = "complete" | "partial" | "unknown";
+
+export interface CodexObservedTokenQuery {
+  /** Inclusive UTC instant. Sessions are matched by their start instant. */
+  start: string;
+  /** Exclusive UTC instant. Usage snapshots at this instant belong to the next interval. */
+  end: string;
+}
+
+export interface CodexObservedTokenResult {
+  /** Sum of trustworthy latest cumulative snapshots; never substitutes zero for unknown sessions. */
+  knownSubtotal: number;
+  knowledge: CodexTokenKnowledge;
+  sessionsObserved: number;
+  sessionsKnown: number;
+  sessionsUnknown: number;
 }

@@ -30,6 +30,22 @@ export type OccurredAtSource = (typeof OCCURRED_AT_SOURCES)[number];
 export const METRIC_UNITS = ["count", "tokens", "milliseconds", "currency"] as const;
 export type MetricUnit = (typeof METRIC_UNITS)[number];
 
+export const REASONING_EFFORTS = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+  "unknown",
+] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
+export const AGENT_ROLES = ["primary", "subagent", "unknown"] as const;
+export type AgentRole = (typeof AGENT_ROLES)[number];
+
 export const EVENT_TYPES = [
   "git.commit.discovered",
   "github.push.observed",
@@ -38,6 +54,7 @@ export const EVENT_TYPES = [
   "repository.metadata_changed",
   "codex.task.started",
   "codex.session.started",
+  "codex.session.state_observed",
   "codex.subagent.spawned",
   "codex.session.completed",
   "codex.usage.recorded",
@@ -81,10 +98,20 @@ export interface EventPayloads {
   "codex.task.started": {
     sourceTaskId: string;
     workspacePathHash?: string | undefined;
+    workspaceIdentityHash?: string | undefined;
+    label?: string | undefined;
   };
   "codex.session.started": {
     sourceSessionId: string;
     model?: string | undefined;
+    reasoningEffort?: ReasoningEffort | undefined;
+    agentRole?: AgentRole | undefined;
+    parentSessionId?: string | undefined;
+  };
+  "codex.session.state_observed": {
+    sourceSessionId: string;
+    status: CodexSessionState;
+    durationMilliseconds?: number | undefined;
   };
   "codex.subagent.spawned": {
     parentSessionId: string;
@@ -94,14 +121,10 @@ export interface EventPayloads {
     outcome: "completed" | "failed" | "cancelled" | "interrupted" | "unknown";
     durationMilliseconds?: number | undefined;
   };
-  "codex.usage.recorded": {
-    inputTokens?: number | undefined;
-    outputTokens?: number | undefined;
-    cachedTokens?: number | undefined;
-    reasoningTokens?: number | undefined;
-    bucketStart?: string | undefined;
-    bucketEnd?: string | undefined;
-  };
+  "codex.usage.recorded":
+    | LegacyCodexUsagePayload
+    | CumulativeCodexUsagePayload
+    | UnavailableCumulativeCodexUsagePayload;
   "openai.api_usage.recorded": {
     inputTokens?: number | undefined;
     outputTokens?: number | undefined;
@@ -119,6 +142,54 @@ export interface EventPayloads {
   };
   "association.recorded": AssociationPayload;
   "association.corrected": AssociationPayload & { supersedesAssociationId: string };
+}
+
+export type CodexSessionState =
+  | "active"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted"
+  | "unknown";
+
+export interface LegacyCodexUsagePayload {
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+  cachedTokens?: number | undefined;
+  reasoningTokens?: number | undefined;
+  bucketStart?: string | undefined;
+  bucketEnd?: string | undefined;
+}
+
+/**
+ * A cumulative counter snapshot for one source session.
+ *
+ * Before summing usage across sessions, consumers MUST reduce these records to
+ * the latest bucket per `sourceSessionId`. Summing every cumulative record would
+ * repeatedly count the same tokens.
+ */
+export interface CumulativeCodexUsagePayload {
+  counterKind: "cumulative";
+  sourceSessionId: string;
+  /** Omitted by v1 records; omission is backward-compatible with `true`. */
+  countersAvailable?: true | undefined;
+  inputTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  bucketStart: string;
+  bucketEnd: string;
+}
+
+/** Explicitly supersedes an older known cumulative snapshot with unknown counters. */
+export interface UnavailableCumulativeCodexUsagePayload {
+  counterKind: "cumulative";
+  sourceSessionId: string;
+  countersAvailable: false;
+  bucketStart: string;
+  bucketEnd: string;
 }
 
 export interface AssociationPayload {

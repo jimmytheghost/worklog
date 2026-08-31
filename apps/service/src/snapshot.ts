@@ -1,11 +1,22 @@
-import { localDateForInstant, utcRangeForLocalDate, type MetricResult } from "@agent-dashboard/domain";
+import {
+  localDateForInstant,
+  parseMetricResult,
+  utcRangeForLocalDate,
+  type MetricResult,
+} from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
 
 import { GITHUB_SOURCE_ID } from "./github-sync.js";
+import { CODEX_COVERAGE_KEY } from "./codex-sync.js";
 
 type SnapshotStorage = Pick<
   Storage,
-  "getCoverage" | "listProjects" | "listRecentEvents" | "queryDailyGitActivity"
+  | "getCoverage"
+  | "listProjects"
+  | "listRecentEvents"
+  | "queryDailyGitActivity"
+  | "queryCodexObservedTokens"
+  | "listRecentCodexSessions"
 >;
 
 const DAYS_IN_SNAPSHOT = 365;
@@ -62,6 +73,7 @@ export function buildStorageSnapshot(
   };
   const commitCoverage = storage.getCoverage(`${GITHUB_SOURCE_ID}:commits`, now);
   const pushCoverage = storage.getCoverage(`${GITHUB_SOURCE_ID}:pushes`, now);
+  const codexCoverage = storage.getCoverage(CODEX_COVERAGE_KEY, now);
   const hasGitHubData = commitCoverage !== undefined || pushCoverage !== undefined;
   const activity = hasGitHubData
     ? storage.queryDailyGitActivity({
@@ -70,24 +82,29 @@ export function buildStorageSnapshot(
         timeZone: options.timeZone,
       })
     : [];
-  const commitCount = hasGitHubData
+  const commitCount = commitCoverage !== undefined
     ? activity.reduce((total, day) => total + day.commits, 0)
     : null;
-  const pushCount = hasGitHubData
+  const pushCount = pushCoverage !== undefined
     ? activity.reduce((total, day) => total + day.pushes, 0)
     : null;
-  const activeDays = hasGitHubData
+  const activeDays = commitCoverage !== undefined
     ? activity.filter((day) => day.commits > 0 || day.pushes > 0).length
     : null;
+  const codexSessions = storage.listRecentCodexSessions(500);
+  const codexTokenAggregate = storage.queryCodexObservedTokens({
+    start: range.start,
+    end: range.end,
+  });
 
   const metric = (
     name: string,
     value: number | null,
     sourceSystems: MetricResult["sourceSystems"],
     coverage: typeof commitCoverage,
-  ): MetricResult => ({
+  ): MetricResult => parseMetricResult({
     metric: name,
-    value,
+    value: coverage === undefined ? null : value,
     unit: "count",
     interval: range,
     dimensions: {},
@@ -100,6 +117,28 @@ export function buildStorageSnapshot(
       ? {}
       : { lastSucceededAt: coverage.lastSucceededAt }),
     freshness: coverage?.freshness ?? "never",
+  });
+
+  const codexTokenMetric = parseMetricResult({
+    metric: "codex_observed_tokens",
+    value:
+      codexCoverage === undefined || codexTokenAggregate.knowledge === "unknown"
+        ? null
+        : codexTokenAggregate.knownSubtotal,
+    unit: "tokens",
+    interval: range,
+    dimensions: { usageNamespace: "codex_local" },
+    sourceSystems: ["codex_local"],
+    completeness:
+      codexCoverage === undefined ? "unavailable" : codexTokenAggregate.knowledge,
+    ...(codexCoverage?.coverageEnd === undefined ? {} : { coverageEnd: codexCoverage.coverageEnd }),
+    ...(codexCoverage?.coverageReason === undefined
+      ? {}
+      : { coverageReason: codexCoverage.coverageReason }),
+    ...(codexCoverage?.lastSucceededAt === undefined
+      ? {}
+      : { lastSucceededAt: codexCoverage.lastSucceededAt }),
+    freshness: codexCoverage?.freshness ?? "never",
   });
 
   const recentEvents = storage.listRecentEvents(100);
@@ -153,16 +192,7 @@ export function buildStorageSnapshot(
       metric("commits", commitCount, ["github"], commitCoverage),
       metric("pushes", pushCount, ["github"], pushCoverage),
       metric("active_days", activeDays, ["github"], commitCoverage),
-      {
-        metric: "codex_observed_tokens",
-        value: null,
-        unit: "tokens",
-        interval: range,
-        dimensions: { usageNamespace: "codex_local" },
-        sourceSystems: ["codex_local"],
-        completeness: "unavailable",
-        freshness: "never",
-      } satisfies MetricResult,
+      codexTokenMetric,
     ],
     activityDays: activity.map((day) => ({
       date: day.localDate,
@@ -171,7 +201,17 @@ export function buildStorageSnapshot(
       codexAttributedCommits: 0,
     })),
     projects: projectRows,
-    agents: [],
+    agents: codexSessions.map((session) => ({
+      sessionId: session.id,
+      parentSessionId: session.parentSessionId,
+      projectId: session.repositoryId ?? "",
+      label:
+        session.label ?? (session.parentSessionId === null ? "Codex task" : "Codex sub-agent"),
+      model: session.model ?? "Unknown model",
+      status: session.status === "active" ? "running" : session.status,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt,
+    })),
     recentActivity: recentEvents.slice(0, 20).map((event) => ({
       eventId: event.eventId,
       eventType: event.eventType,
@@ -201,10 +241,10 @@ export function buildStorageSnapshot(
       },
       {
         sourceSystem: "codex_local",
-        status: "not_configured",
-        freshness: "never",
-        completeness: "unavailable",
-        lastSucceededAt: null,
+        status: codexCoverage === undefined ? "not_configured" : "connected",
+        freshness: codexCoverage?.freshness ?? "never",
+        completeness: codexCoverage?.completeness ?? "unavailable",
+        lastSucceededAt: codexCoverage?.lastSucceededAt ?? null,
       },
       {
         sourceSystem: "openai_usage",

@@ -4,7 +4,7 @@ export const metrics = [
   { label: "Commits", value: "1,284", delta: "+18%", context: "this year" },
   { label: "Pushes", value: "418", delta: "+42", context: "observed" },
   { label: "Active days", value: "226", delta: "62%", context: "of the year" },
-  { label: "Observed tokens", value: "18.4M", delta: "+2.1M", context: "this month" },
+  { label: "Observed tokens", value: "18.4M", delta: "Local", context: "Observed locally — not billing usage" },
 ] as const;
 
 export const projects = [
@@ -15,10 +15,10 @@ export const projects = [
 ] as const;
 
 export const agentTree = [
-  { depth: 0, name: "Build agent dashboard", meta: "Codex · gpt-5", status: "Running", duration: "34m" },
-  { depth: 1, name: "Define event ledger", meta: "Data agent", status: "Complete", duration: "18m" },
-  { depth: 1, name: "Build overview UI", meta: "UI agent", status: "Running", duration: "12m" },
-  { depth: 2, name: "Audit accessibility", meta: "QA sub-agent", status: "Queued", duration: "—" },
+  { id: "fixture-root", depth: 0, name: "Build agent dashboard", meta: "Codex · gpt-5", status: "Running", duration: "34m" },
+  { id: "fixture-ledger", depth: 1, name: "Define event ledger", meta: "Data agent", status: "Complete", duration: "18m" },
+  { id: "fixture-ui", depth: 1, name: "Build overview UI", meta: "UI agent", status: "Running", duration: "12m" },
+  { id: "fixture-a11y", depth: 2, name: "Audit accessibility", meta: "QA sub-agent", status: "Queued", duration: "—" },
 ] as const;
 
 export const activity = [

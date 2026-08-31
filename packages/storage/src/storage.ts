@@ -7,7 +7,10 @@ import {
   parseNormalizedEvent,
   utcRangeForLocalDate,
   type AnyNormalizedEvent,
+  type CumulativeCodexUsagePayload,
   type Freshness,
+  type NormalizedEvent,
+  type UnavailableCumulativeCodexUsagePayload,
 } from "@agent-dashboard/domain";
 import BetterSqlite3 from "better-sqlite3";
 import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
@@ -15,7 +18,12 @@ import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
 import { normalizedEvents, projects, sourceCoverage, sources, syncCursors } from "./schema.js";
+import { buildCodexReadModels } from "./codex-read-models.js";
 import type {
+  CodexSessionReadModel,
+  CodexTaskReadModel,
+  CodexObservedTokenQuery,
+  CodexObservedTokenResult,
   DailyGitActivity,
   DailyGitActivityQuery,
   ProjectInput,
@@ -28,6 +36,31 @@ import type {
 
 const defaultMigrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
 export const MAX_RECENT_EVENTS_LIMIT = 500;
+export const MAX_CODEX_READ_MODEL_LIMIT = 500;
+const MAX_CODEX_RECONSTRUCTION_EVENTS = 10_000;
+
+type CumulativeUsageEvent = NormalizedEvent<"codex.usage.recorded"> & {
+  payload: CumulativeCodexUsagePayload | UnavailableCumulativeCodexUsagePayload;
+};
+
+function isCumulativeUsageEvent(event: AnyNormalizedEvent): event is CumulativeUsageEvent {
+  return event.eventType === "codex.usage.recorded" && "counterKind" in event.payload;
+}
+
+function shouldReplaceCumulativeUsage(
+  current: CumulativeUsageEvent | undefined,
+  candidate: CumulativeUsageEvent,
+): boolean {
+  if (current === undefined) return true;
+  const candidateBucketEnd = Date.parse(candidate.payload.bucketEnd);
+  const currentBucketEnd = Date.parse(current.payload.bucketEnd);
+  if (candidateBucketEnd !== currentBucketEnd) return candidateBucketEnd > currentBucketEnd;
+  if (candidate.observedAt !== current.observedAt) return candidate.observedAt > current.observedAt;
+  const candidateUnavailable = candidate.payload.countersAvailable === false;
+  const currentUnavailable = current.payload.countersAvailable === false;
+  if (candidateUnavailable !== currentUnavailable) return candidateUnavailable;
+  return candidate.eventId > current.eventId;
+}
 
 function nowUtc(): string {
   return new Date().toISOString();
@@ -109,6 +142,12 @@ function storedEventToNormalizedEvent(
     payload: JSON.parse(row.payloadJson),
     ...(row.rawRecordHash === null ? {} : { rawRecordHash: row.rawRecordHash }),
   });
+}
+
+function assertCodexReadLimit(limit: number): void {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_CODEX_READ_MODEL_LIMIT) {
+    throw new RangeError(`limit must be an integer between 1 and ${MAX_CODEX_READ_MODEL_LIMIT}`);
+  }
 }
 
 export interface OpenStorageOptions {
@@ -266,6 +305,120 @@ export class Storage {
       .from(normalizedEvents)
       .orderBy(desc(normalizedEvents.occurredAt), desc(normalizedEvents.eventId))
       .limit(limit)
+      .all()
+      .map(storedEventToNormalizedEvent);
+  }
+
+  listRecentCodexSessions(limit: number): CodexSessionReadModel[] {
+    assertCodexReadLimit(limit);
+    return buildCodexReadModels(this.loadCodexEvents()).sessions.slice(0, limit);
+  }
+
+  listRecentCodexTasks(limit: number): CodexTaskReadModel[] {
+    assertCodexReadLimit(limit);
+    return buildCodexReadModels(this.loadCodexEvents()).tasks.slice(0, limit);
+  }
+
+  queryCodexObservedTokens(query: CodexObservedTokenQuery): CodexObservedTokenResult {
+    assertUtcInstant(query.start, "start");
+    assertUtcInstant(query.end, "end");
+    if (Date.parse(query.end) <= Date.parse(query.start)) {
+      throw new RangeError("end must be after start for a half-open UTC interval");
+    }
+
+    const startRows = this.db
+      .select()
+      .from(normalizedEvents)
+      .where(
+        and(
+          eq(normalizedEvents.eventType, "codex.session.started"),
+          gte(normalizedEvents.occurredAt, query.start),
+          lt(normalizedEvents.occurredAt, query.end),
+        ),
+      )
+      .all();
+    const starts = startRows.map(storedEventToNormalizedEvent).filter(
+      (event): event is Extract<AnyNormalizedEvent, { eventType: "codex.session.started" }> =>
+        event.eventType === "codex.session.started",
+    );
+    const stableSessionIds = new Set(starts.map((event) => event.sessionId ?? event.entityId));
+    const sourceToStableSessionId = new Map(
+      starts.map((event) => [event.payload.sourceSessionId, event.sessionId ?? event.entityId]),
+    );
+    if (stableSessionIds.size === 0) {
+      return {
+        knownSubtotal: 0,
+        knowledge: "complete",
+        sessionsObserved: 0,
+        sessionsKnown: 0,
+        sessionsUnknown: 0,
+      };
+    }
+
+    const usageRows = this.db
+      .select()
+      .from(normalizedEvents)
+      .where(
+        and(
+          eq(normalizedEvents.eventType, "codex.usage.recorded"),
+          lt(normalizedEvents.occurredAt, query.end),
+        ),
+      )
+      .all();
+    const latestBySession = new Map<string, CumulativeUsageEvent>();
+    for (const parsed of usageRows.map(storedEventToNormalizedEvent)) {
+      if (!isCumulativeUsageEvent(parsed)) continue;
+      const sessionId =
+        parsed.sessionId !== undefined && stableSessionIds.has(parsed.sessionId)
+          ? parsed.sessionId
+          : sourceToStableSessionId.get(parsed.payload.sourceSessionId);
+      if (sessionId === undefined || !stableSessionIds.has(sessionId)) continue;
+      if (
+        Date.parse(parsed.payload.bucketEnd) < Date.parse(query.start) ||
+        Date.parse(parsed.payload.bucketEnd) >= Date.parse(query.end)
+      ) {
+        continue;
+      }
+      const current = latestBySession.get(sessionId);
+      if (shouldReplaceCumulativeUsage(current, parsed)) latestBySession.set(sessionId, parsed);
+    }
+
+    let knownSubtotal = 0;
+    let sessionsKnown = 0;
+    for (const sessionId of stableSessionIds) {
+      const usage = latestBySession.get(sessionId);
+      if (usage === undefined || usage.payload.countersAvailable === false) continue;
+      knownSubtotal += usage.payload.totalTokens;
+      sessionsKnown += 1;
+    }
+    const sessionsObserved = stableSessionIds.size;
+    const sessionsUnknown = sessionsObserved - sessionsKnown;
+    return {
+      knownSubtotal,
+      knowledge:
+        sessionsUnknown === 0 ? "complete" : sessionsKnown === 0 ? "unknown" : "partial",
+      sessionsObserved,
+      sessionsKnown,
+      sessionsUnknown,
+    };
+  }
+
+  private loadCodexEvents(): AnyNormalizedEvent[] {
+    return this.db
+      .select()
+      .from(normalizedEvents)
+      .where(
+        inArray(normalizedEvents.eventType, [
+          "codex.task.started",
+          "codex.session.started",
+          "codex.session.state_observed",
+          "codex.subagent.spawned",
+          "codex.session.completed",
+          "codex.usage.recorded",
+        ]),
+      )
+      .orderBy(desc(normalizedEvents.occurredAt), desc(normalizedEvents.eventId))
+      .limit(MAX_CODEX_RECONSTRUCTION_EVENTS)
       .all()
       .map(storedEventToNormalizedEvent);
   }

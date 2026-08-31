@@ -1,6 +1,6 @@
 # Agent Dashboard Architecture
 
-Status: Phase 2 GitHub vertical slice
+Status: Phase 3 GitHub and local Codex vertical slices
 
 ## Shape
 
@@ -10,6 +10,9 @@ Agent Dashboard is a local TypeScript workspace with two applications and shared
 apps/dashboard        React and Vite interface
 apps/service          Fastify localhost service and collectors
 packages/domain       Source-neutral events, validation, and aggregation
+packages/storage      SQLite event ledger and privacy-safe read models
+packages/collector-github  Read-only GitHub normalization
+packages/collector-codex   Experimental metadata-only local Codex adapter
 ```
 
 The browser interface never reads GitHub credentials, Codex state, or repositories directly. Collectors run in the local service, normalize privacy-safe metadata through the domain package, and persist it in the application database. The dashboard consumes source-qualified API responses and live update notifications.
@@ -62,7 +65,15 @@ The package does not know about HTTP, storage, React, authentication, or source 
 - Reads source data without executing repository-owned code.
 - Preserves the last successful data when a later sync fails.
 
-The Phase 2 service uses the durable SQLite ledger and authenticated GitHub collector in normal operation. Deterministic fixture mode remains available only for tests and deliberate development fallback.
+The Phase 3 service uses the durable SQLite ledger, authenticated GitHub collector, and experimental local Codex collector in normal operation. Codex collection is opt-in at startup or available through an explicit sync endpoint. Deterministic fixture mode remains available only for tests and deliberate development fallback.
+
+### `@agent-dashboard/collector-codex`
+
+- Opens known local SQLite sources read-only and parses rollout records through a strict metadata allowlist.
+- Hashes workspace identities and sanitizes warnings before they leave the collector.
+- Emits agent lifecycle, parent/sub-agent relationships, model/reasoning metadata, and only the latest cumulative usage observation per session.
+- Treats missing counters as unknown and marks all coverage experimental, partial, and unsupported.
+- Never parses or copies prompts, responses, commands, tool output, diffs, credentials, source code, or raw paths.
 
 ### `@agent-dashboard/dashboard`
 
@@ -88,7 +99,8 @@ The Overview consumes the local service snapshot and retains an explicit develop
 - Service tests exercise configuration and routes through Fastify injection.
 - Interface tests cover primary Overview interactions.
 - Browser QA validates desktop and narrow layouts, keyboard semantics, and browser errors.
-- Future collector fixtures will be sanitized and versioned so upstream format changes can be detected safely.
+- Sanitized, versioned collector fixtures detect required and additive upstream schema drift safely.
+- Database privacy checks reject prohibited payload keys after live reconciliation.
 
 ## Directed agent workflow
 
