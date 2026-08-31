@@ -41,18 +41,20 @@ export GITHUB_SYNC_ON_START="${GITHUB_SYNC_ON_START:-1}"
 export CODEX_SYNC_ON_START="${CODEX_SYNC_ON_START:-1}"
 
 echo "Starting Agent Dashboard..."
-echo "The dashboard will open automatically at $DASHBOARD_URL"
+echo "The dashboard will open automatically after live data is ready at $DASHBOARD_URL"
 echo "Press Control-C to stop it."
 echo
 
 (
-  for _ in {1..120}; do
-    if curl --silent --fail "$DASHBOARD_URL" >/dev/null 2>&1; then
+  for _ in {1..600}; do
+    if curl --silent --fail "$DASHBOARD_URL" >/dev/null 2>&1 \
+      && curl --silent --fail "$DASHBOARD_URL/api/snapshot" >/dev/null 2>&1; then
       open "$DASHBOARD_URL"
       exit 0
     fi
-    sleep 0.25
+    sleep 0.5
   done
+  echo "Dashboard startup timed out before live data became available."
 ) &
 OPENER_PID=$!
 

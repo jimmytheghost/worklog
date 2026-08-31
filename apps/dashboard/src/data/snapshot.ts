@@ -12,6 +12,7 @@ export type DayActivity = {
 export type DashboardSnapshot = {
   generatedAt: string;
   timezone: string;
+  reportingRange: { start: string; end: string; formatted: string };
   metrics: readonly { label: string; value: string; delta: string; context: string }[];
   activityDays: DayActivity[];
   projects: readonly { name: string; branch: string; commits: number; status: string; agents: number; updated: string }[];
@@ -32,6 +33,7 @@ type ApiSnapshot = {
   schemaVersion: number;
   generatedAt: string;
   timezone: string;
+  range: { start: string; end: string; timezone: string };
   summary: ApiMetric[];
   activityDays: Array<{ date: string; commits: number; pushes: number; codexAttributedCommits: number }>;
   projects: Array<{ projectId: string; name: string; branch: string; commits: number; lastActivityAt: string; status: string }>;
@@ -41,6 +43,7 @@ type ApiSnapshot = {
 };
 
 export type SnapshotClient = (signal?: AbortSignal) => Promise<DashboardSnapshot>;
+export type SnapshotRefreshSubscriber = (refresh: () => void) => () => void;
 
 export type SnapshotState =
   | { status: "loading"; snapshot: null; error: null; usingFallback: false }
@@ -63,7 +66,7 @@ const EVENT_LABELS: Record<string, string> = {
 function isApiSnapshot(value: unknown): value is ApiSnapshot {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Partial<ApiSnapshot>;
-  return snapshot.schemaVersion === 1 && typeof snapshot.generatedAt === "string" && Array.isArray(snapshot.summary) && Array.isArray(snapshot.activityDays) && Array.isArray(snapshot.projects) && Array.isArray(snapshot.agents) && Array.isArray(snapshot.recentActivity) && Array.isArray(snapshot.sources);
+  return snapshot.schemaVersion === 1 && typeof snapshot.generatedAt === "string" && snapshot.range !== undefined && typeof snapshot.range.start === "string" && typeof snapshot.range.end === "string" && typeof snapshot.range.timezone === "string" && Array.isArray(snapshot.summary) && Array.isArray(snapshot.activityDays) && Array.isArray(snapshot.projects) && Array.isArray(snapshot.agents) && Array.isArray(snapshot.recentActivity) && Array.isArray(snapshot.sources);
 }
 
 function formatMetric(value: number | null, metric: string) {
@@ -110,11 +113,32 @@ function agentDepths(agents: ApiSnapshot["agents"]) {
   return depths;
 }
 
-function activityCalendar(sourceDays: ApiSnapshot["activityDays"]): DayActivity[] {
-  const latest = sourceDays.at(-1)?.date ?? new Date().toISOString().slice(0, 10);
-  const end = new Date(`${latest}T12:00:00Z`);
+function localDateForInstant(value: string | Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone,
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function formatRangeDate(value: string): string {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function reportingRange(range: ApiSnapshot["range"]) {
+  const start = localDateForInstant(range.start, range.timezone);
+  const finalInstant = new Date(new Date(range.end).getTime() - 1);
+  const end = localDateForInstant(finalInstant, range.timezone);
+  return { start, end, formatted: `${formatRangeDate(start)} — ${formatRangeDate(end)}` };
+}
+
+function activityCalendar(sourceDays: ApiSnapshot["activityDays"], range: ReturnType<typeof reportingRange>): DayActivity[] {
+  const end = new Date(`${range.end}T12:00:00Z`);
   const start = new Date(end);
-  start.setUTCDate(end.getUTCDate() - 370 - end.getUTCDay());
+  start.setUTCDate(end.getUTCDate() - 370);
   const observed = new Map(sourceDays.map((day) => [day.date, day]));
 
   return Array.from({ length: 371 }, (_, index) => {
@@ -122,10 +146,11 @@ function activityCalendar(sourceDays: ApiSnapshot["activityDays"]): DayActivity[
     date.setUTCDate(start.getUTCDate() + index);
     const key = date.toISOString().slice(0, 10);
     const day = observed.get(key);
+    const isCovered = key >= range.start && key <= range.end;
     return {
       date: key,
-      commits: day?.commits ?? null,
-      pushes: day?.pushes ?? null,
+      commits: day?.commits ?? (isCovered ? 0 : null),
+      pushes: day?.pushes ?? (isCovered ? 0 : null),
       aiAttributed: Boolean(day && day.codexAttributedCommits > 0),
     };
   });
@@ -138,17 +163,19 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
   const agentCounts = new Map<string, number>();
   for (const agent of api.agents) agentCounts.set(agent.projectId, (agentCounts.get(agent.projectId) ?? 0) + 1);
   const sessionDepth = agentDepths(api.agents);
+  const range = reportingRange(api.range);
 
   return {
     generatedAt: api.generatedAt,
     timezone: api.timezone,
+    reportingRange: range,
     metrics: [
       { label: "Commits", value: formatMetric(commitMetric?.value ?? null, "commits"), delta: "Current", context: "selected range" },
       { label: "Pushes", value: formatMetric(pushMetric?.value ?? null, "pushes"), delta: "Observed", context: pushMetric?.completeness ?? "unknown" },
       { label: "Active days", value: formatMetric(metricByName.get("active_days")?.value ?? null, "active_days"), delta: "Local", context: "selected range" },
       { label: "Observed tokens", value: formatMetric(metricByName.get("codex_observed_tokens")?.value ?? null, "tokens"), delta: "Local", context: metricByName.has("codex_observed_tokens") ? "Observed locally — not billing usage" : "No local token metadata yet" },
     ],
-    activityDays: activityCalendar(api.activityDays),
+    activityDays: activityCalendar(api.activityDays, range),
     projects: api.projects.map((project) => ({
       name: project.name,
       branch: project.branch,
@@ -198,22 +225,77 @@ export function createSnapshotClient(fetcher: typeof fetch = fetch): SnapshotCli
 
 export const defaultSnapshotClient = createSnapshotClient();
 
-export function useSnapshot(client: SnapshotClient, fallback?: DashboardSnapshot): SnapshotState {
+const TERMINAL_SYNC_STATUSES = new Set(["succeeded", "partial", "failed"]);
+const defaultEventSourceFactory = (url: string) => new EventSource(url);
+
+export function subscribeToTerminalSyncs(
+  refresh: () => void,
+  createEventSource: (url: string) => EventSource = defaultEventSourceFactory,
+): () => void {
+  if (typeof EventSource === "undefined" && createEventSource === defaultEventSourceFactory) return () => undefined;
+  const source = createEventSource("/api/events");
+  const onSync = (event: Event) => {
+    try {
+      const payload: unknown = JSON.parse((event as MessageEvent<string>).data);
+      if (
+        payload !== null
+        && typeof payload === "object"
+        && "status" in payload
+        && typeof payload.status === "string"
+        && TERMINAL_SYNC_STATUSES.has(payload.status)
+      ) refresh();
+    } catch {
+      // Ignore malformed stream messages; the next valid terminal event can still refresh.
+    }
+  };
+  source.addEventListener("github-sync", onSync);
+  source.addEventListener("codex-sync", onSync);
+  return () => source.close();
+}
+
+export function useSnapshot(
+  client: SnapshotClient,
+  fallback?: DashboardSnapshot,
+  subscribe: SnapshotRefreshSubscriber = subscribeToTerminalSyncs,
+  retryDelayMs = 1_000,
+): SnapshotState {
   const [state, setState] = useState<SnapshotState>({ status: "loading", snapshot: null, error: null, usingFallback: false });
 
   useEffect(() => {
-    const controller = new AbortController();
+    let controller: AbortController | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+
+    const load = () => {
+      controller?.abort();
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
+      controller = new AbortController();
+      const signal = controller.signal;
+
+      client(signal).then(
+        (snapshot) => {
+          if (disposed || signal.aborted) return;
+          setState({ status: "success", snapshot, error: null, usingFallback: false });
+        },
+        (reason: unknown) => {
+          if (disposed || signal.aborted) return;
+          const error = reason instanceof Error ? reason : new Error("The dashboard snapshot is unavailable");
+          setState({ status: "error", snapshot: fallback ?? null, error, usingFallback: Boolean(fallback) });
+          retryTimer = setTimeout(load, retryDelayMs);
+        },
+      );
+    };
+
     setState({ status: "loading", snapshot: null, error: null, usingFallback: false });
-    client(controller.signal).then(
-      (snapshot) => setState({ status: "success", snapshot, error: null, usingFallback: false }),
-      (reason: unknown) => {
-        if (controller.signal.aborted) return;
-        const error = reason instanceof Error ? reason : new Error("The dashboard snapshot is unavailable");
-        setState({ status: "error", snapshot: fallback ?? null, error, usingFallback: Boolean(fallback) });
-      },
-    );
-    return () => controller.abort();
-  }, [client, fallback]);
+    load();
+    const unsubscribe = subscribe(load);
+    return () => {
+      disposed = true;
+      controller?.abort();
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
+      unsubscribe();
+    };
+  }, [client, fallback, retryDelayMs, subscribe]);
 
   return state;
 }

@@ -62,6 +62,7 @@ export function createActivityDays(today = new Date("2026-08-30T12:00:00-06:00")
 export const dashboardFixture: DashboardSnapshot = {
   generatedAt: "2026-08-31T04:00:00.000Z",
   timezone: "America/Denver",
+  reportingRange: { start: "2025-09-01", end: "2026-08-30", formatted: "Sep 1, 2025 — Aug 30, 2026" },
   metrics,
   activityDays: createActivityDays(),
   projects,

@@ -40,6 +40,21 @@ export interface GitHubCommitRecord {
   parents?: Array<{ sha?: unknown }>;
 }
 
+export interface GitHubBranchRecord {
+  name?: unknown;
+}
+
+export interface GitHubRepositoryActivityRecord {
+  id?: unknown;
+  node_id?: unknown;
+  activity_type?: unknown;
+  actor?: unknown;
+  ref?: unknown;
+  before?: unknown;
+  after?: unknown;
+  timestamp?: unknown;
+}
+
 export interface GitHubPushEventRecord {
   id?: unknown;
   type?: unknown;
@@ -252,6 +267,79 @@ export function normalizePush(
       ...(afterSha === undefined ? {} : { afterSha }),
       commitShas,
       membershipComplete: false,
+      ...(deleted === undefined ? {} : { deleted }),
+    },
+  };
+}
+
+function activityActorMatches(actor: unknown, account: GitHubAccount): boolean {
+  if (typeof actor === "string") return actor.toLowerCase() === account.login.toLowerCase();
+  if (!actor || typeof actor !== "object") return false;
+  const candidate = actor as { id?: unknown; login?: unknown };
+  if ((typeof candidate.id === "number" || typeof candidate.id === "string") && String(candidate.id) === account.id) {
+    return true;
+  }
+  return typeof candidate.login === "string" && candidate.login.toLowerCase() === account.login.toLowerCase();
+}
+
+export function branchName(record: GitHubBranchRecord): string {
+  return requiredString(record.name, "branch.name");
+}
+
+export function normalizeRepositoryActivity(
+  record: GitHubRepositoryActivityRecord,
+  repository: GitHubRepository,
+  account: GitHubAccount,
+  observedAt: string,
+): NormalizedEvent<"github.push.observed"> | undefined {
+  if (
+    record.activity_type !== "push" &&
+    record.activity_type !== "force_push" &&
+    record.activity_type !== "branch_creation" &&
+    record.activity_type !== "branch_deletion"
+  ) {
+    return undefined;
+  }
+  if (!activityActorMatches(record.actor, account)) return undefined;
+
+  const activityId = requiredId(record.id, "activity.id");
+  const sourceRecordId = `activity:${activityId}`;
+  const beforeSha = normalizedSha(record.before);
+  const afterSha = normalizedSha(record.after);
+  const idempotencyKey = githubPushIdempotencyKey(account.id, sourceRecordId);
+  const deleted =
+    record.activity_type === "branch_deletion" ||
+    (typeof record.after === "string" && ZERO_SHA.test(record.after))
+      ? true
+      : undefined;
+
+  return {
+    eventId: idempotencyKey,
+    eventType: "github.push.observed",
+    schemaVersion: 1,
+    entityType: "push",
+    entityId: `${account.id}:github-activity:${activityId}`,
+    repositoryId: repository.repositoryId,
+    occurredAt: instant(record.timestamp, "activity.timestamp"),
+    occurredAtSource: "source",
+    observedAt,
+    sourceSystem: "github",
+    sourceAccountId: account.id,
+    sourceRecordId,
+    adapterName: ADAPTER_NAME,
+    adapterVersion: ADAPTER_VERSION,
+    sourceFormatVersion: SOURCE_FORMAT_VERSION,
+    idempotencyKey,
+    attribution: "unknown",
+    confidence: "unknown",
+    completeness: "partial",
+    payload: {
+      ref: requiredString(record.ref, "activity.ref"),
+      ...(beforeSha === undefined ? {} : { beforeSha }),
+      ...(afterSha === undefined ? {} : { afterSha }),
+      commitShas: [],
+      membershipComplete: false,
+      ...(record.activity_type === "force_push" ? { forced: true } : {}),
       ...(deleted === undefined ? {} : { deleted }),
     },
   };

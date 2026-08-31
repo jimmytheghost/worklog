@@ -3,11 +3,13 @@ import { deduplicateEvents, type AnyNormalizedEvent } from "@agent-dashboard/dom
 import { GhApiClient } from "./client.js";
 import { collectionFailure, GitHubCollectorError } from "./errors.js";
 import {
+  branchName,
   normalizeCommit,
-  normalizePush,
+  normalizeRepositoryActivity,
   normalizeRepository,
+  type GitHubBranchRecord,
   type GitHubCommitRecord,
-  type GitHubPushEventRecord,
+  type GitHubRepositoryActivityRecord,
   type GitHubRepositoryRecord,
 } from "./normalize.js";
 import { ExecFileCommandRunner } from "./runner.js";
@@ -83,7 +85,7 @@ export class GitHubCollector {
     };
   }
 
-  async importDefaultBranchCommits(
+  async importAllBranchCommits(
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
   ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
@@ -92,12 +94,24 @@ export class GitHubCollector {
     const failures: GitHubCollectionResult["failures"] = [];
 
     for (const repository of repositories) {
-      const endpoint = `repos/${encodePath(repository.owner)}/${encodePath(repository.name)}/commits?sha=${encodeURIComponent(repository.defaultBranch)}&author=${encodeURIComponent(account.login)}&per_page=100`;
+      const repositoryEndpoint = `repos/${encodePath(repository.owner)}/${encodePath(repository.name)}`;
+      let branches: GitHubBranchRecord[];
       try {
-        const records = await this.client.getPaginated<GitHubCommitRecord>(endpoint);
-        events.push(...records.map((record) => normalizeCommit(record, repository, account, observedAt)));
+        branches = await this.client.getPaginated<GitHubBranchRecord>(`${repositoryEndpoint}/branches?per_page=100`);
       } catch (error) {
         failures.push(collectionFailure(error, "commits", repository.repositoryId));
+        continue;
+      }
+
+      for (const branch of branches) {
+        try {
+          const name = branchName(branch);
+          const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&author=${encodeURIComponent(account.login)}&per_page=100`;
+          const records = await this.client.getPaginated<GitHubCommitRecord>(endpoint);
+          events.push(...records.map((record) => normalizeCommit(record, repository, account, observedAt)));
+        } catch (error) {
+          failures.push(collectionFailure(error, "commits", repository.repositoryId));
+        }
       }
     }
 
@@ -109,12 +123,63 @@ export class GitHubCollector {
           stream: "commits",
           completeness: "partial",
           source: "github_rest_v3",
-          endpoint: "GET /repos/{owner}/{repo}/commits",
+          endpoint: "GET /repos/{owner}/{repo}/branches + GET /repos/{owner}/{repo}/commits",
           observedAt,
           reason:
             failures.length === 0
-              ? "Author-filtered commits reachable from each repository default branch; other refs are excluded"
-              : `Default-branch import failed for ${failures.length} repository or repositories`,
+              ? "Author-filtered commits reachable from every live repository branch; duplicate SHAs across branches are counted once"
+              : `All-branch commit import completed with ${failures.length} failed branch or repository request(s)`,
+          ...dateRange(uniqueEvents),
+        },
+      },
+      failures,
+    };
+  }
+
+  /** @deprecated Use importAllBranchCommits. Retained for API compatibility. */
+  async importDefaultBranchCommits(
+    account: GitHubAccount,
+    repositories: readonly GitHubRepository[],
+  ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
+    return await this.importAllBranchCommits(account, repositories);
+  }
+
+  async importRepositoryPushActivity(
+    account: GitHubAccount,
+    repositories: readonly GitHubRepository[],
+  ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
+    const observedAt = this.now().toISOString();
+    const events: AnyNormalizedEvent[] = [];
+    const failures: GitHubCollectionResult["failures"] = [];
+
+    for (const repository of repositories) {
+      const endpoint = `repos/${encodePath(repository.owner)}/${encodePath(repository.name)}/activity?time_period=year&per_page=100`;
+      try {
+        const records = await this.client.getPaginated<GitHubRepositoryActivityRecord>(endpoint);
+        events.push(
+          ...records
+            .map((record) => normalizeRepositoryActivity(record, repository, account, observedAt))
+            .filter((event): event is NonNullable<typeof event> => event !== undefined),
+        );
+      } catch (error) {
+        failures.push(collectionFailure(error, "pushes", repository.repositoryId));
+      }
+    }
+
+    const uniqueEvents = deduplicateEvents(events);
+    return {
+      batch: {
+        events: uniqueEvents,
+        coverage: {
+          stream: "pushes",
+          completeness: "partial",
+          source: "github_rest_v3",
+          endpoint: "GET /repos/{owner}/{repo}/activity",
+          observedAt,
+          reason:
+            failures.length === 0
+              ? "One year of repository push, force-push, branch-creation, and branch-deletion activity by the authenticated account"
+              : `Repository push activity completed with ${failures.length} failed repository request(s)`,
           ...dateRange(uniqueEvents),
         },
       },
@@ -126,53 +191,31 @@ export class GitHubCollector {
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
   ): Promise<CollectionBatch> {
-    const observedAt = this.now().toISOString();
-    const records = await this.client.getPaginated<GitHubPushEventRecord>(
-      `users/${encodePath(account.login)}/events?per_page=100`,
-    );
-    const ownedRepositoryIds = new Set(repositories.map(({ repositoryId }) => repositoryId));
-    const events = deduplicateEvents(
-      records
-        .map((record) => normalizePush(record, account, observedAt))
-        .filter((event): event is NonNullable<typeof event> => event !== undefined)
-        .filter((event) => event.repositoryId !== undefined && ownedRepositoryIds.has(event.repositoryId)),
-    );
-
-    return {
-      events,
-      coverage: {
-        stream: "pushes",
-        completeness: "partial",
-        source: "github_rest_v3",
-        endpoint: "GET /users/{username}/events",
-        observedAt,
-        reason: "Recent observations only: GitHub Events is capped at 300 events and 30 days",
-        ...dateRange(events),
-      },
-    };
+    return (await this.importRepositoryPushActivity(account, repositories)).batch;
   }
 
   async collect(): Promise<GitHubCollectionResult> {
     const account = await this.getAuthenticatedAccount();
     const discovered = await this.discoverOwnedRepositories(account);
-    const commits = await this.importDefaultBranchCommits(account, discovered.repositories);
+    const commits = await this.importAllBranchCommits(account, discovered.repositories);
     const coverage = [discovered.batch.coverage, commits.batch.coverage];
     const failures = [...commits.failures];
     let pushEvents: AnyNormalizedEvent[] = [];
 
     try {
-      const pushes = await this.importRecentPushObservations(account, discovered.repositories);
-      pushEvents = pushes.events;
-      coverage.push(pushes.coverage);
+      const pushes = await this.importRepositoryPushActivity(account, discovered.repositories);
+      pushEvents = pushes.batch.events;
+      coverage.push(pushes.batch.coverage);
+      failures.push(...pushes.failures);
     } catch (error) {
       failures.push(collectionFailure(error, "pushes"));
       coverage.push({
         stream: "pushes",
         completeness: "unavailable",
         source: "github_rest_v3",
-        endpoint: "GET /users/{username}/events",
+        endpoint: "GET /repos/{owner}/{repo}/activity",
         observedAt: this.now().toISOString(),
-        reason: "Recent GitHub push observations could not be collected",
+        reason: "Repository push activity could not be collected",
       });
     }
 

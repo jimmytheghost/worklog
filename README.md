@@ -32,7 +32,9 @@ The first GitHub import uses the account already authenticated in `gh`:
 curl --request POST http://127.0.0.1:4317/api/sync/github
 ```
 
-Set `GITHUB_SYNC_ON_START=1` when launching the workspace to refresh GitHub automatically. The local ledger defaults to `~/.agent-dashboard/agent-dashboard.sqlite` and is excluded from the repository.
+GitHub collection walks every live branch in every owned repository, deduplicates commits by repository and SHA, and reads push, force-push, branch-creation, and branch-deletion activity from GitHub. Set `GITHUB_SYNC_ON_START=1` when launching the workspace to refresh GitHub automatically. The local ledger defaults to `~/.agent-dashboard/agent-dashboard.sqlite` and is excluded from the repository.
+
+On macOS, double-click `launch.command` to install missing dependencies, run both applications, refresh GitHub and Codex, wait for the live snapshot, and open the dashboard.
 
 Import privacy-safe metadata from the local Codex installation:
 

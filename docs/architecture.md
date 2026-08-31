@@ -67,6 +67,14 @@ The package does not know about HTTP, storage, React, authentication, or source 
 
 The Phase 3 service uses the durable SQLite ledger, authenticated GitHub collector, and experimental local Codex collector in normal operation. Codex collection is opt-in at startup or available through an explicit sync endpoint. Deterministic fixture mode remains available only for tests and deliberate development fallback.
 
+### `@agent-dashboard/collector-github`
+
+- Discovers every owned public and private repository visible to the authenticated `gh` account.
+- Enumerates every live branch and imports author-filtered commits, deduplicated by repository and SHA.
+- Imports push, force-push, branch-creation, and branch-deletion operations from each repository's Activity history across all refs.
+- Semantically deduplicates equivalent observations when old user Events and repository Activity overlap in the append-only ledger.
+- Retains partial coverage labels because deleted refs and activity outside GitHub's available history cannot be reconstructed exactly.
+
 ### `@agent-dashboard/collector-codex`
 
 - Opens known local SQLite sources read-only and parses rollout records through a strict metadata allowlist.
@@ -99,6 +107,7 @@ The Overview consumes the local service snapshot and retains an explicit develop
 - Service tests exercise configuration and routes through Fastify injection.
 - Interface tests cover primary Overview interactions.
 - Browser QA validates desktop and narrow layouts, keyboard semantics, and browser errors.
+- Dashboard clients retry transient startup failures and refresh snapshots after terminal collector events.
 - Sanitized, versioned collector fixtures detect required and additive upstream schema drift safely.
 - Database privacy checks reject prohibited payload keys after live reconciliation.
 

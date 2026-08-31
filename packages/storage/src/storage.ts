@@ -42,6 +42,109 @@ const MAX_CODEX_RECONSTRUCTION_EVENTS = 10_000;
 type CumulativeUsageEvent = NormalizedEvent<"codex.usage.recorded"> & {
   payload: CumulativeCodexUsagePayload | UnavailableCumulativeCodexUsagePayload;
 };
+type CommitEvent = NormalizedEvent<"git.commit.discovered">;
+type PushEvent = NormalizedEvent<"github.push.observed">;
+
+function deduplicateCommits(events: readonly AnyNormalizedEvent[]): CommitEvent[] {
+  const unique = new Map<string, CommitEvent>();
+  for (const event of events) {
+    if (event.eventType !== "git.commit.discovered") continue;
+    const semanticKey =
+      event.repositoryId === undefined
+        ? `idempotency:${event.idempotencyKey}`
+        : JSON.stringify([event.repositoryId, event.payload.sha]);
+    if (!unique.has(semanticKey)) unique.set(semanticKey, event);
+  }
+  return [...unique.values()];
+}
+
+function isRepositoryActivityPush(event: PushEvent): boolean {
+  return event.sourceRecordId.startsWith("activity:") || event.entityId.includes(":github-activity:");
+}
+
+function comparePushObservations(left: PushEvent, right: PushEvent): number {
+  return left.occurredAt.localeCompare(right.occurredAt) || left.eventId.localeCompare(right.eventId);
+}
+
+function shouldReplaceActivityAlias(current: PushEvent, candidate: PushEvent): boolean {
+  const currentNamespaced = current.sourceRecordId.startsWith("activity:");
+  const candidateNamespaced = candidate.sourceRecordId.startsWith("activity:");
+  if (currentNamespaced !== candidateNamespaced) return candidateNamespaced;
+  if (current.observedAt !== candidate.observedAt) return candidate.observedAt > current.observedAt;
+  return candidate.eventId > current.eventId;
+}
+
+function collapseRepositoryActivityAliases(events: readonly PushEvent[]): PushEvent[] {
+  const unique = new Map<string, PushEvent>();
+  for (const event of events) {
+    const current = unique.get(event.entityId);
+    if (current === undefined || shouldReplaceActivityAlias(current, event)) {
+      unique.set(event.entityId, event);
+    }
+  }
+  return [...unique.values()];
+}
+
+function unmatchedLegacyObservations(activity: readonly PushEvent[], legacy: readonly PushEvent[]): PushEvent[] {
+  const unmatched = [...legacy].sort(comparePushObservations);
+  for (const canonical of [...activity].sort(comparePushObservations)) {
+    if (unmatched.length === 0) break;
+    const canonicalTime = Date.parse(canonical.occurredAt);
+    let nearestIndex = 0;
+    let nearestDistance = Math.abs(Date.parse(unmatched[0]!.occurredAt) - canonicalTime);
+    for (let index = 1; index < unmatched.length; index += 1) {
+      const distance = Math.abs(Date.parse(unmatched[index]!.occurredAt) - canonicalTime);
+      if (distance < nearestDistance) {
+        nearestIndex = index;
+        nearestDistance = distance;
+      }
+    }
+    unmatched.splice(nearestIndex, 1);
+  }
+  return unmatched;
+}
+
+function deduplicatePushes(events: readonly AnyNormalizedEvent[]): PushEvent[] {
+  const transitions = new Map<string, { activity: PushEvent[]; legacy: PushEvent[] }>();
+  const fallback = new Map<string, PushEvent>();
+  const pushes = events.filter((event): event is PushEvent => event.eventType === "github.push.observed");
+  const activity = collapseRepositoryActivityAliases(pushes.filter(isRepositoryActivityPush));
+  const legacy = pushes.filter((event) => !isRepositoryActivityPush(event));
+  for (const event of [...activity, ...legacy]) {
+    // Endpoint-specific event IDs and entity prefixes are observations, not push identity.
+    // Endpoint timestamps can also differ, so a known ref transition is the stable identity.
+    // `forced` and `deleted` are deliberately excluded: one endpoint may omit those flags.
+    const beforeSha = event.payload.beforeSha?.toLowerCase() ?? null;
+    const afterSha = event.payload.afterSha?.toLowerCase() ?? null;
+    if (event.repositoryId === undefined || (beforeSha === null && afterSha === null)) {
+      const fallbackKey =
+        event.repositoryId === undefined
+          ? `idempotency:${event.idempotencyKey}`
+          : JSON.stringify([event.repositoryId, event.payload.ref, event.occurredAt]);
+      if (!fallback.has(fallbackKey)) fallback.set(fallbackKey, event);
+      continue;
+    }
+
+    const transitionKey = JSON.stringify([event.repositoryId, event.payload.ref, beforeSha, afterSha]);
+    const group = transitions.get(transitionKey) ?? { activity: [], legacy: [] };
+    group[isRepositoryActivityPush(event) ? "activity" : "legacy"].push(event);
+    transitions.set(transitionKey, group);
+  }
+
+  const reconciled = [...fallback.values()];
+  for (const { activity, legacy } of transitions.values()) {
+    if (activity.length === 0) {
+      reconciled.push(...legacy);
+      continue;
+    }
+    // Activity timestamps are canonical for the observations found by both endpoints.
+    reconciled.push(...activity);
+    if (legacy.length > activity.length) {
+      reconciled.push(...unmatchedLegacyObservations(activity, legacy));
+    }
+  }
+  return reconciled;
+}
 
 function isCumulativeUsageEvent(event: AnyNormalizedEvent): event is CumulativeUsageEvent {
   return event.eventType === "codex.usage.recorded" && "counterKind" in event.payload;
@@ -503,27 +606,42 @@ export class Storage {
       throw new RangeError("endLocalDateExclusive must be after startLocalDate");
     }
 
-    const predicates = [
-      inArray(normalizedEvents.eventType, ["git.commit.discovered", "github.push.observed"]),
+    const commitPredicates = [
+      eq(normalizedEvents.eventType, "git.commit.discovered"),
       gte(normalizedEvents.occurredAt, start),
       lt(normalizedEvents.occurredAt, end),
     ];
+    const pushPredicates = [eq(normalizedEvents.eventType, "github.push.observed")];
     if (query.repositoryIds !== undefined) {
       if (query.repositoryIds.length === 0) return [];
-      predicates.push(inArray(normalizedEvents.repositoryId, [...query.repositoryIds]));
+      const repositoryPredicate = inArray(normalizedEvents.repositoryId, [...query.repositoryIds]);
+      commitPredicates.push(repositoryPredicate);
+      pushPredicates.push(repositoryPredicate);
     }
 
-    const rows = this.db.select().from(normalizedEvents).where(and(...predicates)).all();
-    const events = rows.map(storedEventToNormalizedEvent);
+    const commitEvents = this.db
+      .select()
+      .from(normalizedEvents)
+      .where(and(...commitPredicates))
+      .all()
+      .map(storedEventToNormalizedEvent);
+    // Reconcile all stored push observations before the requested interval is applied. Endpoint
+    // timestamps can straddle a local-day boundary, and Repository Activity is canonical.
+    const pushEvents = this.db
+      .select()
+      .from(normalizedEvents)
+      .where(and(...pushPredicates))
+      .all()
+      .map(storedEventToNormalizedEvent);
 
     const commits = new Map(
-      aggregateEventsByLocalDay(events, {
+      aggregateEventsByLocalDay(deduplicateCommits(commitEvents), {
         timeZone,
         eventTypes: ["git.commit.discovered"],
       }).map(({ localDate, count }) => [localDate, count]),
     );
     const pushes = new Map(
-      aggregateEventsByLocalDay(events, {
+      aggregateEventsByLocalDay(deduplicatePushes(pushEvents), {
         timeZone,
         eventTypes: ["github.push.observed"],
       }).map(({ localDate, count }) => [localDate, count]),

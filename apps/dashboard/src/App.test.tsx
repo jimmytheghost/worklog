@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { normalizeSnapshot } from "./data/snapshot";
+import { normalizeSnapshot, subscribeToTerminalSyncs } from "./data/snapshot";
 import { dashboardFixture } from "./fixtures";
 
 const successfulClient = async () => dashboardFixture;
@@ -41,6 +41,47 @@ describe("overview", () => {
     expect(screen.getByRole("heading", { name: "Work, shipped." })).toBeInTheDocument();
   });
 
+  it("recovers automatically after a transient initial snapshot failure", async () => {
+    const client = vi.fn()
+      .mockRejectedValueOnce(new Error("Service starting"))
+      .mockResolvedValue(dashboardFixture);
+
+    render(<App snapshotClient={client} refreshSubscriber={() => () => undefined} retryDelayMs={20} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Service starting");
+    expect(await screen.findByRole("heading", { name: "Work, shipped." })).toBeInTheDocument();
+    expect(client).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes after terminal sync events but not while a sync is running", async () => {
+    const refreshedSnapshot = {
+      ...dashboardFixture,
+      metrics: dashboardFixture.metrics.map((metric) => metric.label === "Commits"
+        ? { ...metric, value: "9,999" }
+        : metric),
+    };
+    const client = vi.fn()
+      .mockResolvedValueOnce(dashboardFixture)
+      .mockResolvedValue(refreshedSnapshot);
+    const listeners = new Map<string, EventListener>();
+    const refreshSubscriber = (refresh: () => void) => subscribeToTerminalSyncs(refresh, () => ({
+      addEventListener: (name: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === "function") listeners.set(name, listener);
+      },
+      close: vi.fn(),
+    } as unknown as EventSource));
+
+    render(<App snapshotClient={client} refreshSubscriber={refreshSubscriber} />);
+    expect(await screen.findByText("1,284")).toBeInTheDocument();
+
+    act(() => listeners.get("github-sync")?.(new MessageEvent("github-sync", { data: JSON.stringify({ status: "running" }) })));
+    expect(client).toHaveBeenCalledTimes(1);
+
+    act(() => listeners.get("github-sync")?.(new MessageEvent("github-sync", { data: JSON.stringify({ status: "succeeded" }) })));
+    expect(await screen.findByText("9,999")).toBeInTheDocument();
+    expect(client).toHaveBeenCalledTimes(2);
+  });
+
   it("explains empty local Codex agent and token states", async () => {
     const emptyCodex = {
       ...dashboardFixture,
@@ -68,6 +109,7 @@ describe("overview", () => {
       schemaVersion: 1,
       generatedAt: "2026-08-31T04:00:00.000Z",
       timezone: "America/Denver",
+      range: { start: "2025-09-01T06:00:00.000Z", end: "2026-09-01T06:00:00.000Z", timezone: "America/Denver" },
       summary: [{ metric: "codex_observed_tokens", value: 12400, completeness: "partial" }],
       activityDays: [],
       projects: [],
@@ -87,5 +129,41 @@ describe("overview", () => {
       { id: "root", depth: 0 },
     ]);
     expect(snapshot.metrics.at(-1)?.context).toBe("Observed locally — not billing usage");
+  });
+
+  it("ends the calendar on the final covered local day and fills missing activity with observed zeroes", () => {
+    const api: Parameters<typeof normalizeSnapshot>[0] = {
+      schemaVersion: 1,
+      generatedAt: "2026-09-01T04:00:00.000Z",
+      timezone: "America/Denver",
+      range: { start: "2025-09-01T06:00:00.000Z", end: "2026-09-01T06:00:00.000Z", timezone: "America/Denver" },
+      summary: [],
+      activityDays: [{ date: "2026-08-30", commits: 7, pushes: 3, codexAttributedCommits: 0 }],
+      projects: [],
+      agents: [],
+      recentActivity: [],
+      sources: [],
+    };
+
+    const snapshot = normalizeSnapshot(api);
+    expect(snapshot.activityDays.at(-1)).toEqual({ date: "2026-08-31", commits: 0, pushes: 0, aiAttributed: false });
+    expect(snapshot.reportingRange).toEqual({ start: "2025-09-01", end: "2026-08-31", formatted: "Sep 1, 2025 — Aug 31, 2026" });
+  });
+
+  it("renders the API reporting range and initially selects its final day", async () => {
+    const snapshot = {
+      ...dashboardFixture,
+      reportingRange: { start: "2025-09-01", end: "2026-08-31", formatted: "Sep 1, 2025 — Aug 31, 2026" },
+      activityDays: [
+        { date: "2026-08-30", commits: 7, pushes: 3, aiAttributed: false },
+        { date: "2026-08-31", commits: 0, pushes: 0, aiAttributed: false },
+      ],
+    };
+
+    render(<App snapshotClient={async () => snapshot} />);
+
+    expect(await screen.findByText("Sep 1, 2025 — Aug 31, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Aug 31, 2026")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aug 31, 2026: 0 commits" })).toHaveAttribute("aria-pressed", "true");
   });
 });

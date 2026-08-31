@@ -43,7 +43,7 @@ All counts use raw event or entity counts unless the metric explicitly says othe
 
 - **Commits:** count of distinct Git commit SHAs attributed to an included repository and whose selected occurrence time falls in the interval. The default occurrence time is committer time; author time remains available for inspection. A merge commit counts as one commit. A commit visible on multiple branches or received in multiple pushes counts once.
 - **Authored commits:** distinct commits whose normalized author identity matches a configured user identity. This is separate from commits merely present in an owned repository.
-- **Pushes:** count of distinct observed push operations. A push containing multiple commits counts as one push. A force push and a branch/tag deletion each count as a push when the source records them as such.
+- **Pushes:** count of distinct observed push or ref-changing operations. A push containing multiple commits counts as one push. A force push and a branch/tag creation or deletion each count as a push when the source records them as such.
 - **Pushed commits:** sum of distinct commit SHAs introduced by each observed push. This metric can exceed unique commits because the same commit may be pushed to multiple repositories or refs; the UI must label it explicitly.
 - **Active repositories:** distinct repositories with at least one qualifying commit, push, or associated Codex task during the interval.
 - **Activity heatmap value:** selected metric aggregated into calendar days in the configured timezone. The initial selector supports `commits` and `pushes`; their scales and legends are independent.
@@ -211,7 +211,7 @@ Every adapter computes a stable `idempotencyKey` before insertion. Reprocessing 
 Preferred keys:
 
 - Commit: `git.commit:{repository_id}:{sha}`.
-- GitHub push: `github.push:{source_account_id}:{github_event_id}`. If no native event ID exists, use a documented hash of repository ID, actor ID, ref, before SHA, after SHA, and source occurrence time; mark collision risk in the adapter.
+- GitHub push: `github.push:{source_account_id}:{source_namespace}:{native_activity_id}`. Equivalent observations from different GitHub endpoints are semantically deduplicated by repository, ref, and available before/after SHAs. If no native ID exists, use a documented hash of repository ID, actor ID, ref, before SHA, after SHA, and source occurrence time; mark collision risk in the adapter.
 - Codex task/session lifecycle: `codex.{event_kind}:{source_instance_id}:{task_or_session_id}:{source_sequence_or_state}`.
 - Codex usage: `codex.usage:{source_instance_id}:{session_id}:{bucket_or_counter_revision}`.
 - OpenAI usage/cost: source account plus endpoint, bucket start/end, grouping dimensions, and source result identifier or deterministic result hash.
@@ -318,7 +318,7 @@ type MetricResult = {
 
 - Included scope defaults to repositories owned by the configured GitHub account; forks, organization repositories, and collaborator repositories require explicit inclusion rules later.
 - The configured personal identity may include multiple verified Git names/emails and GitHub identities.
-- Polling is the initial collection mechanism. Webhooks may improve prospective push completeness later without changing the normalized event semantics.
+- Polling repository Activity is the initial collection mechanism. Webhooks may improve prospective push completeness beyond the available Activity history without changing the normalized event semantics.
 - One local user/profile is supported initially, while source and entity IDs remain namespaced for future multi-profile support.
 - Heatmap intensity thresholds are presentation logic and not part of metric semantics.
 - Cost estimation for non-API Codex usage, agent launching/control, source-code analysis, and reconstructed historical pushes are outside the MVP contract.

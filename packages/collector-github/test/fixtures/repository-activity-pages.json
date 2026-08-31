@@ -1,0 +1,54 @@
+[
+  [
+    {
+      "id": 9001,
+      "node_id": "RA_kwDOActivity1",
+      "activity_type": "push",
+      "actor": "JimmyTheGhost",
+      "ref": "refs/heads/codex/system-reset",
+      "before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "timestamp": "2026-08-31T08:01:00Z"
+    },
+    {
+      "id": 9002,
+      "node_id": "RA_kwDOActivity2",
+      "activity_type": "force_push",
+      "actor": "JimmyTheGhost",
+      "ref": "refs/heads/codex/system-reset",
+      "before": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "after": "cccccccccccccccccccccccccccccccccccccccc",
+      "timestamp": "2026-08-31T08:02:00Z"
+    },
+    {
+      "id": 9003,
+      "node_id": "RA_kwDOActivity3",
+      "activity_type": "branch_creation",
+      "actor": "JimmyTheGhost",
+      "ref": "refs/heads/codex/system-reset",
+      "before": "0000000000000000000000000000000000000000",
+      "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "timestamp": "2026-08-31T08:00:00Z"
+    },
+    {
+      "id": 9004,
+      "node_id": "RA_kwDOActivity4",
+      "activity_type": "push",
+      "actor": "somebody-else",
+      "ref": "refs/heads/main",
+      "before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "timestamp": "2026-08-31T08:03:00Z"
+    },
+    {
+      "id": 9005,
+      "node_id": "RA_kwDOActivity5",
+      "activity_type": "branch_deletion",
+      "actor": "JimmyTheGhost",
+      "ref": "refs/heads/codex/system-reset",
+      "before": "cccccccccccccccccccccccccccccccccccccccc",
+      "after": "0000000000000000000000000000000000000000",
+      "timestamp": "2026-08-31T08:04:00Z"
+    }
+  ]
+]

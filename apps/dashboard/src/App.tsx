@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { defaultSnapshotClient, useSnapshot, type DashboardSnapshot, type DayActivity, type Metric, type SnapshotClient } from "./data/snapshot";
+import { defaultSnapshotClient, subscribeToTerminalSyncs, useSnapshot, type DashboardSnapshot, type DayActivity, type Metric, type SnapshotClient, type SnapshotRefreshSubscriber } from "./data/snapshot";
 
 const Icon = ({ name, size = 18 }: { name: "grid" | "folder" | "agent" | "usage" | "settings" | "arrow" | "branch" | "clock"; size?: number }) => {
   const paths = {
@@ -216,10 +216,10 @@ function CollectorHealthNotice({ snapshot }: { snapshot: DashboardSnapshot }) {
   return <aside className="collector-notice" role="status"><span className="error-glyph">!</span><div><strong>{failed.length === 1 ? `${failed[0]!.name} collector needs attention` : `${failed.length} collectors need attention`}</strong><p>{failed.map((collector) => `${collector.name}: ${collector.detail}`).join(" · ")}. Other snapshot data remains available.</p></div></aside>;
 }
 
-export type AppProps = { snapshotClient?: SnapshotClient; fallbackSnapshot?: DashboardSnapshot };
+export type AppProps = { snapshotClient?: SnapshotClient; fallbackSnapshot?: DashboardSnapshot; refreshSubscriber?: SnapshotRefreshSubscriber; retryDelayMs?: number };
 
-export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot }: AppProps) {
-  const snapshotState = useSnapshot(snapshotClient, fallbackSnapshot);
+export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot, refreshSubscriber = subscribeToTerminalSyncs, retryDelayMs }: AppProps) {
+  const snapshotState = useSnapshot(snapshotClient, fallbackSnapshot, refreshSubscriber, retryDelayMs);
 
   if (snapshotState.status === "loading") return <><a className="skip-link" href="#main">Skip to dashboard</a><Header /><LoadingOverview /></>;
   if (!snapshotState.snapshot) return <><a className="skip-link" href="#main">Skip to dashboard</a><Header degraded /><SnapshotError error={snapshotState.error} /></>;
@@ -234,7 +234,7 @@ export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot }
       <CodexSourceNotice snapshot={snapshot} />
       <section className="page-intro">
         <div><p className="eyebrow"><span /> Activity · America / Denver</p><h1>Work, shipped.</h1><p>A daily record of commits, pushes, and the agents behind them.</p></div>
-        <div className="range-summary"><span className="eyebrow">Reporting range</span><button type="button">Last 12 months <span>⌄</span></button><small><Icon name="clock" size={13} /> Sep 01, 2025 — Aug 30, 2026</small></div>
+        <div className="range-summary"><span className="eyebrow">Reporting range</span><button type="button">Last 12 months <span>⌄</span></button><small><Icon name="clock" size={13} /> {snapshot.reportingRange.formatted}</small></div>
       </section>
       <MetricStrip metrics={snapshot.metrics} />
       <Heatmap days={snapshot.activityDays} coverage={snapshot.coverage} />
