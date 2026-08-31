@@ -180,6 +180,43 @@ function integratedApp(store: Storage, collector: FixtureCollector, eventHub?: S
 }
 
 describe("GitHub service integration", () => {
+  it("starts listening while startup synchronization is still pending and publishes its terminal state", async () => {
+    const store = storage();
+    const eventHub = new ServiceEventHub();
+    const states: Array<Record<string, unknown>> = [];
+    eventHub.subscribe(({ event, data }) => {
+      if (event === "github-sync") states.push(data);
+    });
+    let resolveCollection: ((value: GitHubCollectionResult) => void) | undefined;
+    const pendingCollection = new Promise<GitHubCollectionResult>((resolve) => {
+      resolveCollection = resolve;
+    });
+    const app = buildApp({
+      storage: store,
+      githubCollector: { collect: () => pendingCollection },
+      githubSyncOnStart: true,
+      fixtureMode: false,
+      eventHub,
+      now,
+    });
+    apps.push(app);
+
+    await app.listen({ host: "127.0.0.1", port: 0 });
+
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toMatchObject({
+      githubSync: "running",
+    });
+    expect(states.map(({ status }) => status)).toEqual(["running"]);
+
+    resolveCollection?.(result());
+    await expect.poll(() => states.at(-1)?.status).toBe("succeeded");
+
+    expect(states.map(({ status }) => status)).toEqual(["running", "succeeded"]);
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toMatchObject({
+      githubSync: "succeeded",
+    });
+  });
+
   it("persists a first sync and emits sanitized sync state", async () => {
     const store = storage();
     const collector = new FixtureCollector(result());

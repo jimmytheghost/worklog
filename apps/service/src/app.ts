@@ -141,20 +141,32 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   if (options.githubSyncOnStart === true && githubCoordinator !== undefined) {
-    app.addHook("onReady", async () => {
-      const state = await githubCoordinator.sync();
-      if (state.status === "failed") {
-        app.log.warn({ code: state.error?.code }, "GitHub synchronization on start failed");
-      }
+    app.addHook("onReady", () => {
+      void githubCoordinator
+        .sync()
+        .then((state) => {
+          if (state.status === "failed") {
+            app.log.warn({ code: state.error?.code }, "GitHub synchronization on start failed");
+          }
+        })
+        .catch(() => {
+          app.log.warn("GitHub synchronization on start failed unexpectedly");
+        });
     });
   }
 
   if (options.codexSyncOnStart === true && codexCoordinator !== undefined) {
-    app.addHook("onReady", async () => {
-      const state = await codexCoordinator.sync();
-      if (state.status === "failed") {
-        app.log.warn({ code: state.error?.code }, "Codex synchronization on start failed");
-      }
+    app.addHook("onReady", () => {
+      void codexCoordinator
+        .sync()
+        .then((state) => {
+          if (state.status === "failed") {
+            app.log.warn({ code: state.error?.code }, "Codex synchronization on start failed");
+          }
+        })
+        .catch(() => {
+          app.log.warn("Codex synchronization on start failed unexpectedly");
+        });
     });
   }
 

@@ -7,6 +7,7 @@ import { openStorage, type Storage } from "@agent-dashboard/storage";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app.js";
+import { ServiceEventHub } from "../src/events.js";
 import { CODEX_COVERAGE_KEY } from "../src/codex-sync.js";
 
 const observedAt = "2026-08-31T12:00:00.000Z";
@@ -211,6 +212,43 @@ function integratedApp(store: Storage, collector: Pick<FixtureCollector, "collec
 }
 
 describe("Codex service integration", () => {
+  it("does not block readiness while startup synchronization is pending and publishes its terminal state", async () => {
+    const store = storage();
+    const eventHub = new ServiceEventHub();
+    const states: Array<Record<string, unknown>> = [];
+    eventHub.subscribe(({ event, data }) => {
+      if (event === "codex-sync") states.push(data);
+    });
+    let resolveCollection: ((value: CodexCollectionResult) => void) | undefined;
+    const pendingCollection = new Promise<CodexCollectionResult>((resolve) => {
+      resolveCollection = resolve;
+    });
+    const app = buildApp({
+      storage: store,
+      codexCollector: { collect: () => pendingCollection },
+      codexSyncOnStart: true,
+      fixtureMode: false,
+      eventHub,
+      now,
+    });
+    apps.push(app);
+
+    await app.ready();
+
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toMatchObject({
+      codexSync: "running",
+    });
+    expect(states.map(({ status }) => status)).toEqual(["running"]);
+
+    resolveCollection?.(collection());
+    await expect.poll(() => states.at(-1)?.status).toBe("succeeded");
+
+    expect(states.map(({ status }) => status)).toEqual(["running", "succeeded"]);
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toMatchObject({
+      codexSync: "succeeded",
+    });
+  });
+
   it("persists a first sync and remains idempotent", async () => {
     const store = storage();
     const collector = new FixtureCollector(collection());
