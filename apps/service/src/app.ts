@@ -1,4 +1,4 @@
-import type { CodexCollector } from "@agent-dashboard/collector-codex";
+import type { CodexAccountCollector, CodexCollector } from "@agent-dashboard/collector-codex";
 import type { GitHubCollector } from "@agent-dashboard/collector-github";
 import type { Storage } from "@agent-dashboard/storage";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -7,6 +7,7 @@ import type { ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
 import { ServiceEventHub } from "./events.js";
+import { CodexAccountSyncCoordinator } from "./codex-account-sync.js";
 import { CodexSyncCoordinator } from "./codex-sync.js";
 import { snapshotFixture } from "./fixtures/snapshot.js";
 import { GitHubSyncCoordinator } from "./github-sync.js";
@@ -25,6 +26,7 @@ type BuildAppOptions = {
   storage?: Storage;
   githubCollector?: Pick<GitHubCollector, "collect">;
   codexCollector?: Pick<CodexCollector, "collect">;
+  codexAccountCollector?: Pick<CodexAccountCollector, "collect">;
   eventHub?: ServiceEventHub;
   fixtureMode?: boolean;
   githubSyncOnStart?: boolean;
@@ -48,6 +50,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     options.storage !== undefined && options.codexCollector !== undefined
       ? new CodexSyncCoordinator(options.storage, options.codexCollector, eventHub, now)
       : undefined;
+  const codexAccountCoordinator =
+    options.storage !== undefined && options.codexAccountCollector !== undefined
+      ? new CodexAccountSyncCoordinator(options.storage, options.codexAccountCollector, eventHub, now)
+      : undefined;
 
   const scheduledRefreshes: NodeJS.Timeout[] = [];
   const activeEventStreams = new Set<ServerResponse>();
@@ -59,6 +65,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     now: now().toISOString(),
     githubSync: githubCoordinator?.state.status ?? "disabled",
     codexSync: codexCoordinator?.state.status ?? "disabled",
+    codexAccountSync: codexAccountCoordinator?.state.status ?? "disabled",
   }));
 
   app.get("/api/snapshot", async (_request, reply) => {
@@ -124,37 +131,56 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   app.post("/api/sync/codex", async (_request, reply) => {
-    if (codexCoordinator === undefined) {
+    if (codexCoordinator === undefined && codexAccountCoordinator === undefined) {
       return reply.code(503).send({
         status: "unavailable",
         error: "Codex synchronization is not configured",
       });
     }
 
-    const state = await codexCoordinator.sync();
-    return reply.code(state.status === "failed" ? 503 : 200).send(state);
+    if (codexAccountCoordinator === undefined && codexCoordinator !== undefined) {
+      const state = await codexCoordinator.sync();
+      return reply.code(state.status === "failed" ? 503 : 200).send(state);
+    }
+    if (codexCoordinator === undefined && codexAccountCoordinator !== undefined) {
+      const state = await codexAccountCoordinator.sync();
+      return reply.code(state.status === "failed" ? 503 : 200).send(state);
+    }
+
+    const [local, account] = await Promise.all([
+      codexCoordinator?.sync(),
+      codexAccountCoordinator?.sync(),
+    ]);
+    const states = [local?.status, account?.status].filter((status) => status !== undefined);
+    const status = states.every((state) => state === "failed")
+      ? "failed"
+      : states.some((state) => state === "failed" || state === "partial")
+        ? "partial"
+        : "succeeded";
+    return reply.code(status === "failed" ? 503 : 200).send({ status, local, account });
   });
 
   app.post("/api/sync", async (_request, reply) => {
-    if (githubCoordinator === undefined && codexCoordinator === undefined) {
+    if (githubCoordinator === undefined && codexCoordinator === undefined && codexAccountCoordinator === undefined) {
       return reply.code(503).send({
         status: "unavailable",
         error: "Synchronization is not configured",
       });
     }
 
-    const [github, codex] = await Promise.all([
+    const [github, codex, codexAccount] = await Promise.all([
       githubCoordinator?.sync(),
       codexCoordinator?.sync(),
+      codexAccountCoordinator?.sync(),
     ]);
-    const states = [github?.status, codex?.status].filter((status) => status !== undefined);
+    const states = [github?.status, codex?.status, codexAccount?.status].filter((status) => status !== undefined);
     const status = states.every((state) => state === "failed")
       ? "failed"
       : states.some((state) => state === "failed" || state === "partial")
         ? "partial"
         : "succeeded";
 
-    return reply.code(status === "failed" ? 503 : 200).send({ status, github, codex });
+    return reply.code(status === "failed" ? 503 : 200).send({ status, github, codex, codexAccount });
   });
 
   app.get("/api/events", async (_request, reply) => {
@@ -178,6 +204,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       connectedAt: now().toISOString(),
       githubSync: githubCoordinator?.state ?? { status: "disabled" },
       codexSync: codexCoordinator?.state ?? { status: "disabled" },
+      codexAccountSync: codexAccountCoordinator?.state ?? { status: "disabled" },
     });
 
     const unsubscribe = eventHub.subscribe(({ event, data }) => writeEvent(event, data));
@@ -256,6 +283,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       scheduleRefresh(
         "Codex",
         () => codexCoordinator.sync(),
+        options.codexSyncOnStart === true,
+        options.codexSyncIntervalMs,
+      );
+    }
+    if (codexAccountCoordinator !== undefined) {
+      scheduleRefresh(
+        "Codex",
+        () => codexAccountCoordinator.sync(),
         options.codexSyncOnStart === true,
         options.codexSyncIntervalMs,
       );

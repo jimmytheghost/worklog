@@ -24,6 +24,70 @@ struct PeriodSummary: Codable, Equatable {
 }
 
 struct DashboardSnapshot: Codable, Equatable {
+    struct CodexAccount: Codable, Equatable {
+        struct Window: Codable, Equatable {
+            let usedPercent: Double
+            let windowDurationMinutes: Double?
+            let resetsAt: String?
+
+            var remainingPercent: Double { max(0, min(100, 100 - usedPercent)) }
+            var title: String {
+                switch windowDurationMinutes {
+                case 300: "5-hour"
+                case 10_080: "Weekly"
+                case 43_200, 43_800, 44_640: "Monthly"
+                case let minutes?: minutes < 60 ? "\(Int(minutes))-minute" : "\(Int(minutes / 60))-hour"
+                case nil: "Usage"
+                }
+            }
+        }
+
+        struct RateLimit: Codable, Equatable {
+            let limitId: String
+            let limitName: String?
+            let primary: Window?
+            let secondary: Window?
+        }
+
+        struct Credits: Codable, Equatable {
+            let hasCredits: Bool
+            let unlimited: Bool
+            let balance: String?
+        }
+
+        struct TokenUsage: Codable, Equatable {
+            let lifetimeTokens: Double?
+            let peakDailyTokens: Double?
+            let longestRunningTurnSeconds: Double?
+            let currentStreakDays: Double?
+            let longestStreakDays: Double?
+        }
+
+        let observedAt: String
+        let planType: String?
+        let rateLimits: [RateLimit]
+        let bankedResetCount: Double?
+        let credits: Credits?
+        let tokenUsage: TokenUsage
+
+        struct LabeledWindow: Equatable {
+            let name: String?
+            let window: Window
+        }
+
+        var windows: [LabeledWindow] {
+            rateLimits.flatMap { limit in
+                [limit.primary, limit.secondary]
+                    .compactMap { $0 }
+                    .map { LabeledWindow(name: limit.limitName, window: $0) }
+            }
+        }
+        var creditLabel: String {
+            if credits?.unlimited == true { return "Unlimited" }
+            return credits?.balance ?? "—"
+        }
+    }
+
     struct Metric: Codable, Equatable {
         let metric: String
         let value: Double?
@@ -67,6 +131,7 @@ struct DashboardSnapshot: Codable, Equatable {
     let schemaVersion: Int
     let generatedAt: String
     let timezone: String
+    let codexAccount: CodexAccount?
     let summary: [Metric]
     let projects: [Project]
     let recentActivity: [Activity]

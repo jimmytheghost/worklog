@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { commitIdempotencyKey, githubPushIdempotencyKey, type AnyNormalizedEvent } from "@agent-dashboard/domain";
+import { commitIdempotencyKey, githubPushIdempotencyKey, type AnyNormalizedEvent, type CodexAccountUsageSnapshot } from "@agent-dashboard/domain";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openStorage, type Storage } from "../src/index.js";
@@ -151,6 +151,43 @@ describe("Storage", () => {
     expect(storage.getSyncCursor("source-1", "github")).toEqual({ page: 3 });
     storage.setSyncCursor({ sourceId: "source-1", adapterName: "github", cursor: { page: 4 } });
     expect(storage.getSyncCursor("source-1", "github")).toEqual({ page: 4 });
+  });
+
+  it("stores only the latest privacy-safe Codex account usage snapshot", () => {
+    storage.upsertSource({
+      id: "codex-account:test",
+      system: "codex_account",
+      immutableSourceId: "hashed-account",
+    });
+    const snapshot = {
+      sourceInstanceId: "a".repeat(64),
+      observedAt: "2026-09-01T12:00:00.000Z",
+      planType: "pro",
+      rateLimits: [{
+        limitId: "codex",
+        limitName: null,
+        planType: "pro",
+        primary: { usedPercent: 44, windowDurationMinutes: 10080, resetsAt: "2026-09-07T02:28:17.000Z" },
+        secondary: null,
+        credits: null,
+        individualLimit: null,
+        spendControlReached: false,
+        rateLimitReachedType: null,
+      }],
+      bankedResetCount: 1,
+      credits: null,
+      tokenUsage: {
+        lifetimeTokens: 123,
+        peakDailyTokens: 50,
+        longestRunningTurnSeconds: null,
+        currentStreakDays: 2,
+        longestStreakDays: 4,
+        daily: [{ date: "2026-09-01", tokens: 50 }],
+      },
+    } satisfies CodexAccountUsageSnapshot;
+
+    storage.upsertCodexAccountUsage("codex-account:test", snapshot);
+    expect(storage.getCodexAccountUsage()).toEqual(snapshot);
   });
 
   it("lists recent events newest-first with a deterministic bounded limit", () => {

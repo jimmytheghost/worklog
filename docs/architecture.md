@@ -12,7 +12,7 @@ Worklog is deliberately one small system with two views:
 - `packages/domain`: source-neutral event contracts and aggregation rules.
 - `packages/storage`: the SQLite event ledger and read models.
 - `packages/collector-github`: read-only GitHub normalization.
-- `packages/collector-codex`: experimental, metadata-only local Codex normalization.
+- `packages/collector-codex`: official Codex app-server account usage plus experimental, metadata-only local session normalization.
 
 There is no fleet of background agents. The packaged app starts one production service when needed and reuses it. The browser and native clients never read credentials, repositories, or Codex state directly.
 
@@ -28,7 +28,7 @@ There is no fleet of background agents. The packaged app starts one production s
 ## Data flow
 
 ```text
-GitHub + local Codex metadata
+GitHub + Codex app-server + local Codex metadata
               |
       read-only collectors
               |
@@ -56,7 +56,7 @@ The service owns configuration, migrations, collectors, scheduling, aggregation,
 | `GET /api/events` | Live server-sent update stream |
 | `POST /api/sync` | Refresh all enabled collectors |
 | `POST /api/sync/github` | Refresh GitHub only |
-| `POST /api/sync/codex` | Refresh local Codex metadata only |
+| `POST /api/sync/codex` | Refresh Codex account usage and local metadata |
 
 Closing the service explicitly closes active event streams, so relaunches do not hang behind stale connections.
 
@@ -72,6 +72,9 @@ Closing the service explicitly closes active event streams, so relaunches do not
 
 ### Codex
 
+- Starts `codex app-server --stdio` on demand and reads account, rate-limit, banked-reset, and usage facts through its supported JSON-RPC surface.
+- Reuses the Codex CLI's sign-in state; Worklog neither requests nor stores account credentials or email addresses.
+- Persists only the latest privacy-safe account snapshot and keeps the last successful result if a later refresh fails.
 - Reads known local sources in place and stores only an explicit metadata allowlist.
 - Hashes workspace identities and resolves them to repositories when possible.
 - Stores lifecycle/model metadata and the latest cumulative observed token counters.
@@ -80,7 +83,7 @@ Closing the service explicitly closes active event streams, so relaunches do not
 
 ## Client responsibilities
 
-The native popover is intentionally compact: range selection, a grayscale 90-day commit/push heatmap, five summary metrics, recent work, refresh, and a link to Work History. The range picker changes totals and recent work; it does not change the fixed 90-day heatmap.
+The native popover is intentionally compact: Codex usage remaining, reset timing and banked resets, range selection, a grayscale 90-day commit/push heatmap, five summary metrics, recent work, refresh, and a link to Work History. The range picker changes totals and recent work; it does not change the fixed 90-day heatmap.
 
 The browser dashboard provides the complete monthly archive so projects are never hidden merely because they are not among the most active. Neither client launches or controls agents.
 

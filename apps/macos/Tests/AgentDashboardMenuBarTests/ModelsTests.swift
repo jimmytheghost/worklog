@@ -60,4 +60,16 @@ struct ModelsTests {
         let snapshot = try JSONDecoder().decode(DashboardSnapshot.self, from: Data(json.utf8))
         #expect(snapshot.syncSummary == "Cached data · refresh recommended")
     }
+
+    @Test func decodesCodexAccountUsageAndBankedResets() throws {
+        let json = """
+        {"schemaVersion":1,"generatedAt":"2026-09-01T12:00:00Z","timezone":"America/Denver","codexAccount":{"observedAt":"2026-09-01T12:00:00Z","planType":"pro","rateLimits":[{"limitId":"codex","limitName":null,"primary":{"usedPercent":44,"windowDurationMinutes":10080,"resetsAt":"2026-09-07T02:28:17Z"},"secondary":null}],"bankedResetCount":1,"credits":{"hasCredits":false,"unlimited":false,"balance":"0"},"tokenUsage":{"lifetimeTokens":1234567,"peakDailyTokens":45678,"longestRunningTurnSeconds":540,"currentStreakDays":8,"longestStreakDays":14}},"summary":[],"projects":[],"recentActivity":[],"sources":[]}
+        """
+
+        let snapshot = try JSONDecoder().decode(DashboardSnapshot.self, from: Data(json.utf8))
+        #expect(snapshot.codexAccount?.bankedResetCount == 1)
+        #expect(snapshot.codexAccount?.windows.first?.window.remainingPercent == 56)
+        #expect(snapshot.codexAccount?.windows.first?.window.title == "Weekly")
+        #expect(snapshot.codexAccount?.tokenUsage.lifetimeTokens == 1_234_567)
+    }
 }

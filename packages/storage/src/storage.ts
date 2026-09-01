@@ -7,6 +7,7 @@ import {
   parseNormalizedEvent,
   utcRangeForLocalDate,
   type AnyNormalizedEvent,
+  type CodexAccountUsageSnapshot,
   type CumulativeCodexUsagePayload,
   type Freshness,
   type NormalizedEvent,
@@ -17,7 +18,14 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
-import { normalizedEvents, projects, sourceCoverage, sources, syncCursors } from "./schema.js";
+import {
+  codexAccountState,
+  normalizedEvents,
+  projects,
+  sourceCoverage,
+  sources,
+  syncCursors,
+} from "./schema.js";
 import { buildCodexReadModels } from "./codex-read-models.js";
 import type {
   CodexSessionReadModel,
@@ -608,6 +616,35 @@ export class Storage {
       .where(and(eq(syncCursors.sourceId, sourceId), eq(syncCursors.adapterName, adapterName)))
       .get();
     return row === undefined ? undefined : JSON.parse(row.cursorJson);
+  }
+
+  upsertCodexAccountUsage(
+    sourceId: string,
+    snapshot: CodexAccountUsageSnapshot,
+    at = nowUtc(),
+  ): void {
+    assertUtcInstant(snapshot.observedAt, "snapshot.observedAt");
+    const row = {
+      sourceId,
+      observedAt: snapshot.observedAt,
+      payloadJson: JSON.stringify(snapshot),
+      updatedAt: at,
+    };
+    this.db
+      .insert(codexAccountState)
+      .values(row)
+      .onConflictDoUpdate({ target: codexAccountState.sourceId, set: row })
+      .run();
+  }
+
+  getCodexAccountUsage(): CodexAccountUsageSnapshot | undefined {
+    const row = this.db
+      .select({ payloadJson: codexAccountState.payloadJson })
+      .from(codexAccountState)
+      .orderBy(desc(codexAccountState.observedAt))
+      .limit(1)
+      .get();
+    return row === undefined ? undefined : JSON.parse(row.payloadJson) as CodexAccountUsageSnapshot;
   }
 
   upsertCoverage(input: SourceCoverageInput, at = nowUtc()): void {

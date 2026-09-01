@@ -1,5 +1,5 @@
 export type ServiceEvent = {
-  event: "github-sync" | "codex-sync";
+  event: "github-sync" | "codex-sync" | "codex-account-sync";
   data: Record<string, unknown>;
 };
 

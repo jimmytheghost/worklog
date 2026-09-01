@@ -62,6 +62,25 @@ export function createActivityDays(today = new Date("2026-08-30T12:00:00-06:00")
 export const dashboardFixture: DashboardSnapshot = {
   generatedAt: "2026-08-31T04:00:00.000Z",
   timezone: "America/Denver",
+  codexAccount: {
+    observedAt: "2026-08-31T04:00:00.000Z",
+    planType: "pro",
+    rateLimits: [{
+      limitId: "codex",
+      limitName: null,
+      primary: { usedPercent: 44, windowDurationMinutes: 10080, resetsAt: "2026-09-07T02:28:17.000Z" },
+      secondary: null,
+    }],
+    bankedResetCount: 1,
+    credits: { hasCredits: false, unlimited: false, balance: "0" },
+    tokenUsage: {
+      lifetimeTokens: 4280300000,
+      peakDailyTokens: 18400000,
+      longestRunningTurnSeconds: 540,
+      currentStreakDays: 8,
+      longestStreakDays: 21,
+    },
+  },
   reportingRange: { start: "2025-09-01", end: "2026-08-30", formatted: "Sep 1, 2025 — Aug 30, 2026" },
   metrics,
   activityDays: createActivityDays(),

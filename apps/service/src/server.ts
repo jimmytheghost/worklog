@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { CodexCollector } from "@agent-dashboard/collector-codex";
+import { CodexAccountCollector, CodexCollector } from "@agent-dashboard/collector-codex";
 import { GitHubCollector } from "@agent-dashboard/collector-github";
 import { openStorage } from "@agent-dashboard/storage";
 
@@ -26,6 +26,7 @@ async function start(): Promise<void> {
     githubSyncOnStart: config.githubSyncOnStart,
     githubSyncIntervalMs: config.githubSyncIntervalMs,
     codexCollector: new CodexCollector(),
+    codexAccountCollector: new CodexAccountCollector(),
     codexSyncOnStart: config.codexSyncOnStart,
     codexSyncIntervalMs: config.codexSyncIntervalMs,
     fixtureMode: false,

@@ -104,3 +104,12 @@ export const sourceCoverage = sqliteTable(
   },
   (table) => [index("source_coverage_source_metric_idx").on(table.sourceId, table.metric)],
 );
+
+export const codexAccountState = sqliteTable("codex_account_state", {
+  sourceId: text("source_id")
+    .primaryKey()
+    .references(() => sources.id, { onDelete: "cascade" }),
+  observedAt: text("observed_at").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

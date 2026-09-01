@@ -20,6 +20,7 @@ export const SOURCE_SYSTEMS = [
   "github",
   "git_local",
   "codex_local",
+  "codex_account",
   "openai_usage",
 ] as const;
 export type SourceSystem = (typeof SOURCE_SYSTEMS)[number];
@@ -265,4 +266,52 @@ export interface MetricResult {
 export interface DailyCount {
   localDate: string;
   count: number;
+}
+
+export interface CodexRateLimitWindow {
+  usedPercent: number;
+  windowDurationMinutes: number | null;
+  resetsAt: string | null;
+}
+
+export interface CodexRateLimitBucket {
+  limitId: string;
+  limitName: string | null;
+  planType: string | null;
+  primary: CodexRateLimitWindow | null;
+  secondary: CodexRateLimitWindow | null;
+  credits: {
+    hasCredits: boolean;
+    unlimited: boolean;
+    balance: string | null;
+  } | null;
+  individualLimit: {
+    limit: string;
+    used: string;
+    remainingPercent: number;
+    resetsAt: string;
+  } | null;
+  spendControlReached: boolean | null;
+  rateLimitReachedType: string | null;
+}
+
+export interface CodexAccountUsageSnapshot {
+  sourceInstanceId: string;
+  observedAt: string;
+  planType: string | null;
+  rateLimits: CodexRateLimitBucket[];
+  bankedResetCount: number | null;
+  credits: {
+    hasCredits: boolean;
+    unlimited: boolean;
+    balance: string | null;
+  } | null;
+  tokenUsage: {
+    lifetimeTokens: number | null;
+    peakDailyTokens: number | null;
+    longestRunningTurnSeconds: number | null;
+    currentStreakDays: number | null;
+    longestStreakDays: number | null;
+    daily: Array<{ date: string; tokens: number }> | null;
+  };
 }

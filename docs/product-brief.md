@@ -8,7 +8,7 @@ Worklog is a private, local-first record of the software work one person actuall
 
 1. What did I commit and push today, this week, this month, or this year?
 2. Which projects did I touch, including the ones I would otherwise forget?
-3. How many Codex tokens were locally observed while I worked?
+3. How much Codex usage remains, when does it reset, and how many tokens have been observed?
 
 The primary experience should feel like a task-bar utility: click the menu-bar icon, read the answer, and move on. The complete monthly archive is available one click away. The app must stay small enough for one person to run without babysitting it.
 
@@ -20,6 +20,7 @@ The primary experience should feel like a task-bar utility: click the menu-bar i
 - Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
 - Clickable days with exact commit and push totals in a compact detail strip.
 - Observed tokens, commits, pushes, active days, and project totals.
+- Signed-in Codex rate-limit windows, reset times, token facts, credits, and available banked resets.
 - Recent work with commit subjects and repository/ref push descriptions.
 - Quiet refresh, cached-data, source-health, and shutdown behavior.
 
@@ -49,9 +50,9 @@ A commit records repository history. A push changes one or more remote refs and 
 
 Reachable commit history can be reconstructed more completely than push history. GitHub only exposes recent push activity, so push totals are observed and partial, never presented as lifetime-complete.
 
-### Token usage is observed, not billed
+### Codex account limits and local counters stay distinct
 
-The current total comes from local Codex counters. It is not an OpenAI credit balance, subscription limit, invoice, or billing-grade total. Official usage may be added later only as a separately labeled source.
+Usage remaining, reset timing, banked resets, credits, and lifetime facts come from the signed-in Codex account through Codex's official local app-server. Per-session observed token totals still come from local counters. Neither is presented as an invoice or an invented monetary estimate, and the two sources are never silently combined.
 
 ### The archive must not forget projects
 

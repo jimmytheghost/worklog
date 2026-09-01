@@ -99,6 +99,8 @@ struct DashboardMenuView: View {
             VStack(alignment: .leading, spacing: 14) {
                 ActivityHeatmapView(days: snapshot.heatmapDays)
 
+                codexAccountUsage(snapshot.codexAccount)
+
                 LazyVGrid(columns: columns, spacing: 8) {
                     metric("Observed tokens", store.metric("codex_observed_tokens"), "sparkles")
                     metric("Commits", store.metric("commits"), "point.topleft.down.to.point.bottomright.curvepath")
@@ -127,6 +129,83 @@ struct DashboardMenuView: View {
         // window is destroyed and recreated. Keep a compact, stable viewport
         // so reopening the popover cannot collapse the dashboard to zero.
         .frame(minHeight: 320, maxHeight: 500, alignment: .top)
+    }
+
+    @ViewBuilder
+    private func codexAccountUsage(_ account: DashboardSnapshot.CodexAccount?) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("CODEX ACCOUNT")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(account?.planType?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Usage unavailable")
+                        .font(.callout.weight(.semibold))
+                }
+                Spacer()
+                if let resetCount = account?.bankedResetCount {
+                    Label("\(Int(resetCount)) banked", systemImage: "arrow.counterclockwise.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let account, !account.windows.isEmpty {
+                ForEach(Array(account.windows.enumerated()), id: \.offset) { _, item in
+                    VStack(spacing: 5) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(Int(item.window.remainingPercent.rounded()))%")
+                                .font(.title3.monospacedDigit().weight(.semibold))
+                            Text("\(item.name.map { "\($0) · " } ?? "")\(item.window.title) remaining")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if let reset = resetDescription(item.window.resetsAt) {
+                                Text(reset).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        ProgressView(value: item.window.remainingPercent, total: 100)
+                            .tint(.mint)
+                    }
+                }
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 7) {
+                    accountFact("Lifetime tokens", CompactNumber.format(account.tokenUsage.lifetimeTokens))
+                    accountFact("Peak day", CompactNumber.format(account.tokenUsage.peakDailyTokens))
+                    accountFact("Current streak", dayCount(account.tokenUsage.currentStreakDays))
+                    accountFact("Best streak", dayCount(account.tokenUsage.longestStreakDays))
+                    accountFact("Longest turn", minuteCount(account.tokenUsage.longestRunningTurnSeconds))
+                    accountFact("Banked resets", CompactNumber.format(account.bankedResetCount))
+                    accountFact("Credits", account.creditLabel)
+                }
+            } else {
+                Text("Sign in with Codex, then refresh Worklog.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(11)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func accountFact(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.caption.monospacedDigit().weight(.semibold))
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func dayCount(_ value: Double?) -> String {
+        value.map { "\(Int($0))d" } ?? "—"
+    }
+
+    private func minuteCount(_ seconds: Double?) -> String {
+        seconds.map { "\(Int(($0 / 60).rounded()))m" } ?? "—"
+    }
+
+    private func resetDescription(_ value: String?) -> String? {
+        guard let value, let date = ISO8601DateFormatter().date(from: value) else { return nil }
+        return "Resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
     }
 
     private func metric(_ label: String, _ value: Double?, _ icon: String) -> some View {

@@ -13,6 +13,7 @@ export type DashboardSnapshot = {
   generatedAt: string;
   timezone: string;
   reportingRange: { start: string; end: string; formatted: string };
+  codexAccount: CodexAccountUsage | null;
   metrics: readonly { label: string; value: string; delta: string; context: string }[];
   activityDays: DayActivity[];
   projects: readonly { name: string; branch: string; commits: number; status: string; agents: number; updated: string }[];
@@ -20,6 +21,26 @@ export type DashboardSnapshot = {
   recentActivity: readonly { id: string; time: string; title: string; subject: string; detail: string; source: string; tone: "lime" | "orange" }[];
   coverage: { commits: string; pushes: string };
   collectors: readonly { name: string; status: "healthy" | "partial" | "error" | "not_configured"; detail: string }[];
+};
+
+export type CodexAccountUsage = {
+  observedAt: string;
+  planType: string | null;
+  rateLimits: Array<{
+    limitId: string;
+    limitName: string | null;
+    primary: { usedPercent: number; windowDurationMinutes: number | null; resetsAt: string | null } | null;
+    secondary: { usedPercent: number; windowDurationMinutes: number | null; resetsAt: string | null } | null;
+  }>;
+  bankedResetCount: number | null;
+  credits: { hasCredits: boolean; unlimited: boolean; balance: string | null } | null;
+  tokenUsage: {
+    lifetimeTokens: number | null;
+    peakDailyTokens: number | null;
+    longestRunningTurnSeconds: number | null;
+    currentStreakDays: number | null;
+    longestStreakDays: number | null;
+  };
 };
 
 type ApiMetric = {
@@ -33,6 +54,7 @@ type ApiSnapshot = {
   schemaVersion: number;
   generatedAt: string;
   timezone: string;
+  codexAccount?: CodexAccountUsage | null;
   range: { start: string; end: string; timezone: string };
   summary: ApiMetric[];
   activityDays: Array<{ date: string; commits: number; pushes: number; codexAttributedCommits: number }>;
@@ -54,6 +76,7 @@ const SOURCE_LABELS: Record<string, string> = {
   github: "GitHub",
   git_local: "Local Git",
   codex_local: "Codex",
+  codex_account: "Codex account",
   openai_usage: "OpenAI usage",
 };
 
@@ -172,6 +195,7 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
   return {
     generatedAt: api.generatedAt,
     timezone: api.timezone,
+    codexAccount: api.codexAccount ?? null,
     reportingRange: range,
     metrics: [
       { label: "Commits", value: formatMetric(commitMetric?.value ?? null, "commits"), delta: "Current", context: "selected range" },
@@ -254,6 +278,7 @@ export function subscribeToTerminalSyncs(
   };
   source.addEventListener("github-sync", onSync);
   source.addEventListener("codex-sync", onSync);
+  source.addEventListener("codex-account-sync", onSync);
   return () => source.close();
 }
 

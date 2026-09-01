@@ -1,6 +1,6 @@
 # Worklog
 
-A private, local-first menu-bar record of GitHub activity, projects, and locally observed Codex usage.
+A private, local-first menu-bar record of GitHub activity, projects, and Codex usage.
 
 The durable product decisions live in:
 
@@ -17,13 +17,14 @@ The durable product decisions live in:
 - Includes a clickable grayscale heatmap for the trailing 90 days with Commit, Push, and Both modes.
 - Keeps an exhaustive, searchable monthly Work History. The overview is intentionally short; the archive does not rank projects out of view.
 - Records privacy-safe local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
+- Shows the signed-in Codex account's current rate-limit windows, reset times, lifetime token facts, credits, and available banked resets.
 - Runs as one bundled local service behind a native macOS menu-bar app; the browser dashboard remains available for full history.
 
-The app is read-only and sends no telemetry. It does not ingest source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists. Commit subjects and canonical GitHub links are retained so the ledger remains useful. Codex token totals are locally observed counters—not OpenAI billing or credit balances—and unavailable data stays visibly unavailable.
+The app is read-only and sends no telemetry. It does not ingest source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists. Commit subjects and canonical GitHub links are retained so the ledger remains useful. Local session counters remain separate from the Codex account limits reported by the official local app-server interface, and unavailable data stays visibly unavailable.
 
 ## Use it
 
-Requirements: macOS, Node.js 24 or newer, pnpm 11, and an authenticated GitHub CLI (`gh auth login`).
+Requirements: macOS, Node.js 24 or newer, pnpm 11, an authenticated GitHub CLI (`gh auth login`), and a signed-in Codex CLI (`codex login`).
 
 For the intended daily experience, package and open the native app:
 
@@ -63,7 +64,7 @@ Import privacy-safe metadata from the local Codex installation:
 curl --request POST http://127.0.0.1:4317/api/sync/codex
 ```
 
-Set `CODEX_SYNC_ON_START=1` to run that import when the service starts. This adapter reads local Codex formats in place, marks its coverage experimental and partial, hashes workspace identities, and stores only an explicit metadata allowlist. It is intentionally isolated because those local formats are not a supported public API.
+Set `CODEX_SYNC_ON_START=1` to run that import when the service starts. The same refresh also asks Codex's official local app-server for account rate limits and usage facts using the existing Codex login. Worklog never receives or stores the credential or account email; it stores only an account hash and the displayed usage snapshot. The separate local-session adapter reads local Codex formats in place, marks its coverage experimental and partial, hashes workspace identities, and stores only an explicit metadata allowlist.
 
 ```sh
 pnpm test

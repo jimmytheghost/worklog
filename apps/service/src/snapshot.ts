@@ -10,6 +10,7 @@ import type { Storage } from "@agent-dashboard/storage";
 
 import { GITHUB_SOURCE_ID } from "./github-sync.js";
 import { CODEX_COVERAGE_KEY } from "./codex-sync.js";
+import { CODEX_ACCOUNT_COVERAGE_KEY } from "./codex-account-sync.js";
 
 type SnapshotStorage = Pick<
   Storage,
@@ -19,6 +20,7 @@ type SnapshotStorage = Pick<
   | "queryDailyGitActivity"
   | "queryCodexObservedTokens"
   | "listRecentCodexSessions"
+  | "getCodexAccountUsage"
 >;
 
 const DAYS_IN_SNAPSHOT = 365;
@@ -78,6 +80,8 @@ export function buildStorageSnapshot(
   const commitCoverage = storage.getCoverage(`${GITHUB_SOURCE_ID}:commits`, now);
   const pushCoverage = storage.getCoverage(`${GITHUB_SOURCE_ID}:pushes`, now);
   const codexCoverage = storage.getCoverage(CODEX_COVERAGE_KEY, now);
+  const codexAccountCoverage = storage.getCoverage(CODEX_ACCOUNT_COVERAGE_KEY, now);
+  const codexAccount = storage.getCodexAccountUsage();
   const hasGitHubData = commitCoverage !== undefined || pushCoverage !== undefined;
   const activity = hasGitHubData
     ? storage.queryDailyGitActivity({
@@ -193,6 +197,14 @@ export function buildStorageSnapshot(
     generatedAt,
     timezone: options.timeZone,
     range,
+    codexAccount: codexAccount === undefined ? null : {
+      observedAt: codexAccount.observedAt,
+      planType: codexAccount.planType,
+      rateLimits: codexAccount.rateLimits,
+      bankedResetCount: codexAccount.bankedResetCount,
+      credits: codexAccount.credits,
+      tokenUsage: codexAccount.tokenUsage,
+    },
     summary: [
       metric("commits", commitCount, ["github"], commitCoverage),
       metric("pushes", pushCount, ["github"], pushCoverage),
@@ -258,6 +270,13 @@ export function buildStorageSnapshot(
         freshness: codexCoverage?.freshness ?? "never",
         completeness: codexCoverage?.completeness ?? "unavailable",
         lastSucceededAt: codexCoverage?.lastSucceededAt ?? null,
+      },
+      {
+        sourceSystem: "codex_account",
+        status: codexAccountCoverage === undefined ? "not_configured" : "connected",
+        freshness: codexAccountCoverage?.freshness ?? "never",
+        completeness: codexAccountCoverage?.completeness ?? "unavailable",
+        lastSucceededAt: codexAccountCoverage?.lastSucceededAt ?? null,
       },
       {
         sourceSystem: "openai_usage",

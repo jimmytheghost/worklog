@@ -1,6 +1,6 @@
 # Worklog Handoff
 
-Checkpoint: 2026-08-31
+Checkpoint: 2026-09-01
 
 ## Start here
 
@@ -19,6 +19,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Complete searchable monthly Work History in the browser.
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
+- Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
 - Durable idempotent SQLite ledger, source health, automatic refresh, and graceful SSE/service shutdown.
 
 ## Code map
@@ -33,7 +34,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 | Range aggregation | `apps/service/src/period-summary.ts` |
 | Snapshot/history aggregation | `apps/service/src/snapshot.ts`, `apps/service/src/history.ts` |
 | GitHub synchronization | `apps/service/src/github-sync.ts` |
-| Codex synchronization | `apps/service/src/codex-sync.ts` |
+| Codex synchronization | `apps/service/src/codex-sync.ts`, `apps/service/src/codex-account-sync.ts` |
 | Browser UI | `apps/dashboard/src` |
 | Durable storage | `packages/storage` |
 | Event contracts | `packages/domain` |
@@ -87,7 +88,8 @@ SwiftPM under Command Line Tools may report a successful test build without prin
 ## Data limits that must remain visible
 
 - GitHub push coverage is partial because GitHub does not expose unlimited historical push activity.
-- Codex tokens are locally observed cumulative counters, not an OpenAI credit balance, subscription limit, invoice, or official usage total.
+- Codex account limits and lifetime facts come from the official local app-server; local per-session token counters are displayed separately and are not billing-grade totals.
+- Codex authentication remains owned by the Codex CLI. Worklog stores no credential or account email.
 - The local Codex source format is unsupported and may change; its adapter is intentionally isolated and fail-closed around private content.
 - Missing, zero, partial, stale, and unavailable are different states.
 - Commits and pushes stay separate even when the heatmap uses Both mode.
@@ -99,7 +101,7 @@ SwiftPM under Command Line Tools may report a successful test build without prin
 3. Add a focused regression test whenever a tweak changes range boundaries, snapshot decoding, service lifecycle, or collector counts.
 4. Re-run the full verification and repackage before the next checkpoint.
 
-Likely future exploration includes better official OpenAI credit/usage visibility if a trustworthy source becomes available, clearer source-coverage detail, and continued visual polish. Do not invent billing totals or add always-running agents to simulate unavailable data.
+Likely future exploration includes clearer source-coverage detail and continued visual polish. Do not invent billing totals or add always-running agents to simulate unavailable data.
 
 ## Product guardrail
 

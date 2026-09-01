@@ -29,6 +29,7 @@ Authority is assigned per fact, not per screen.
 | Branch/ref state | Latest successful source observation | None | Ref state is mutable and should be represented as a snapshot, not permanent history. |
 | Codex task/session identity and hierarchy | Local Codex metadata | Temporal correlation | Prompt or response content is not required or ingested. |
 | Codex locally observed tokens | Local Codex metadata | None | This is not interchangeable with organization API usage. |
+| Codex account limits, reset times, credits, and lifetime facts | Official local Codex app-server for the signed-in account | None | Latest snapshot only; account identity is hashed and credentials/email are not stored. |
 | OpenAI API usage and cost | Official OpenAI organization Usage/Costs APIs | None | Reported separately from local Codex observations. |
 | Project-to-Codex association | Explicit workspace/repository identifier | Path match, then time-based correlation | Inferred associations carry a confidence classification. |
 | Calendar day | Event occurrence instant converted to configured timezone | None | The original UTC instant is always preserved. |
@@ -58,6 +59,9 @@ Do not infer historical push counts from commit timestamps, reflogs, or current 
 - **Active duration:** elapsed wall-clock time between recorded start and terminal instants. Open sessions use the reporting instant and are labeled active. Missing terminal records produce an unknown duration rather than an assumed value.
 - **Codex observed input/output/cached/reasoning tokens:** sums of the corresponding counters available in local Codex metadata. Missing counter classes are `unknown`, not zero.
 - **Task outcome:** normalized terminal state such as `completed`, `failed`, `cancelled`, `interrupted`, or `unknown`; it is not inferred from Git activity.
+- **Codex usage remaining:** `100 - usedPercent` for each rate-limit window returned by the signed-in account, clamped to 0–100 and paired with its source reset time.
+- **Banked resets and credits:** values returned by the Codex account source. Missing is unknown, never zero.
+- **Lifetime usage facts:** lifetime and peak daily tokens, streaks, and longest-running turn as returned by the Codex account source. These facts are not summed with local session counters.
 
 ### OpenAI API usage
 
@@ -157,7 +161,7 @@ type NormalizedEvent = {
   occurredAt: string;              // UTC ISO-8601 instant selected for chronology
   occurredAtSource: "source" | "derived" | "observed";
   observedAt: string;              // UTC ISO-8601 collection instant
-  sourceSystem: "github" | "git_local" | "codex_local" | "openai_usage";
+  sourceSystem: "github" | "git_local" | "codex_local" | "codex_account" | "openai_usage";
   sourceAccountId: string;
   sourceRecordId: string;
   adapterName: string;
@@ -280,6 +284,7 @@ The UI and query layer preserve explicit source namespaces:
 
 - GitHub/local Git describe software activity.
 - Codex local metadata describes observed agent activity and counters on this machine/profile.
+- Codex account state describes current limits and account-level usage facts for the Codex CLI's signed-in profile.
 - OpenAI organization APIs describe billable/administrative API usage available to the connected organization.
 
 Shared timestamps and repository associations enable correlation, not equivalence. A push temporally near a Codex session is not automatically an AI push. An API token bucket is not automatically a Codex token bucket. Cross-source charts must identify each series and its coverage independently.
