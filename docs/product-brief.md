@@ -100,6 +100,8 @@ Every aggregate must be traceable to a source adapter and collection time. Stale
 
 The MVP stores metadata needed for activity and usage analysis. It does not ingest prompt text, response text, terminal command contents, private source code, or repository file contents. Credentials remain local and are never written to application logs.
 
+Git commit metadata may include the privacy-safe first-line subject and canonical GitHub URL so the monthly work history can explain what changed. Commit bodies, diffs, patches, and repository file contents remain prohibited.
+
 ### Synchronization is idempotent
 
 Re-running a collector over the same source records must not create duplicate events or inflate aggregates. Source identifiers and normalization versions must be retained for reconciliation.
@@ -116,6 +118,7 @@ Re-running a collector over the same source records must not create duplicate ev
 - Supporting multiple GitHub or OpenAI identities
 - Mobile applications, cloud synchronization, or multi-device hosting
 - Desktop packaging before the local web experience is proven
+- Hiding historical projects because they fall outside a compact overview ranking
 
 ## MVP acceptance criteria
 

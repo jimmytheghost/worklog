@@ -13,15 +13,21 @@ async function start(): Promise<void> {
   if (config.databasePath !== ":memory:") {
     mkdirSync(dirname(config.databasePath), { recursive: true, mode: 0o700 });
   }
-  const storage = openStorage({ filename: config.databasePath });
+  const storage = openStorage({
+    filename: config.databasePath,
+    migrationsFolder: config.migrationsPath,
+  });
   const app = buildApp({
     logger: { level: config.logLevel },
+    dashboardPath: config.dashboardPath,
     sseHeartbeatMs: config.sseHeartbeatMs,
     storage,
     githubCollector: new GitHubCollector(),
     githubSyncOnStart: config.githubSyncOnStart,
+    githubSyncIntervalMs: config.githubSyncIntervalMs,
     codexCollector: new CodexCollector(),
     codexSyncOnStart: config.codexSyncOnStart,
+    codexSyncIntervalMs: config.codexSyncIntervalMs,
     fixtureMode: false,
     timeZone: config.timeZone,
   });

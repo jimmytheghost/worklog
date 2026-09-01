@@ -71,7 +71,11 @@ function isApiSnapshot(value: unknown): value is ApiSnapshot {
 
 function formatMetric(value: number | null, metric: string) {
   if (value === null) return "—";
-  if (metric.includes("tokens")) return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : `${Math.round(value / 1000)}K`;
+  if (metric.includes("tokens")) {
+    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  }
   return new Intl.NumberFormat("en-US").format(value);
 }
 

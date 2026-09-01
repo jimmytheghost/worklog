@@ -18,6 +18,7 @@ import type {
   CollectionCoverage,
   GitHubAccount,
   GitHubCollectionResult,
+  GitHubCollectionInput,
   GitHubCollectorOptions,
   GitHubRepository,
 } from "./types.js";
@@ -29,6 +30,18 @@ interface GitHubAccountRecord {
 
 function encodePath(value: string): string {
   return encodeURIComponent(value);
+}
+
+function normalizeSince(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== "string" ||
+    !/(?:Z|\+00:00)$/i.test(value) ||
+    Number.isNaN(Date.parse(value))
+  ) {
+    throw new GitHubCollectorError("invalid_input", "GitHub collection since must be a valid UTC instant");
+  }
+  return new Date(value).toISOString();
 }
 
 function dateRange(events: readonly AnyNormalizedEvent[]): Pick<CollectionCoverage, "coverageStart" | "coverageEnd"> {
@@ -58,13 +71,13 @@ export class GitHubCollector {
     return { id: String(record.id), login: record.login };
   }
 
-  async discoverOwnedRepositories(account: GitHubAccount): Promise<{
+  async discoverRepositories(account: GitHubAccount): Promise<{
     repositories: GitHubRepository[];
     batch: CollectionBatch;
   }> {
     const observedAt = this.now().toISOString();
     const records = await this.client.getPaginated<GitHubRepositoryRecord>(
-      "user/repos?affiliation=owner&visibility=all&sort=full_name&direction=asc&per_page=100",
+      "user/repos?affiliation=owner,collaborator,organization_member&visibility=all&sort=full_name&direction=asc&per_page=100",
     );
     const normalized = records.map((record) => normalizeRepository(record, account, observedAt));
     const events = deduplicateEvents(normalized.map(({ event }) => event));
@@ -78,17 +91,27 @@ export class GitHubCollector {
           source: "github_rest_v3",
           endpoint: "GET /user/repos",
           observedAt,
-          reason: "Complete for owned repositories visible to the current gh authentication",
+          reason: "Complete for owned, collaborator, and organization-member repositories visible to the current gh authentication",
           ...dateRange(events),
         },
       },
     };
   }
 
+  /** @deprecated Use discoverRepositories. Retained for API compatibility. */
+  async discoverOwnedRepositories(account: GitHubAccount): Promise<{
+    repositories: GitHubRepository[];
+    batch: CollectionBatch;
+  }> {
+    return await this.discoverRepositories(account);
+  }
+
   async importAllBranchCommits(
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
+    input: GitHubCollectionInput = {},
   ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
+    const since = normalizeSince(input.since);
     const observedAt = this.now().toISOString();
     const events: AnyNormalizedEvent[] = [];
     const failures: GitHubCollectionResult["failures"] = [];
@@ -106,7 +129,7 @@ export class GitHubCollector {
       for (const branch of branches) {
         try {
           const name = branchName(branch);
-          const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&author=${encodeURIComponent(account.login)}&per_page=100`;
+          const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&author=${encodeURIComponent(account.login)}&per_page=100${since === undefined ? "" : `&since=${encodeURIComponent(since)}`}`;
           const records = await this.client.getPaginated<GitHubCommitRecord>(endpoint);
           events.push(...records.map((record) => normalizeCommit(record, repository, account, observedAt)));
         } catch (error) {
@@ -127,7 +150,9 @@ export class GitHubCollector {
           observedAt,
           reason:
             failures.length === 0
-              ? "Author-filtered commits reachable from every live repository branch; duplicate SHAs across branches are counted once"
+              ? since === undefined
+                ? "Author-filtered commits reachable from every live repository branch; duplicate SHAs across branches are counted once"
+                : `Author-filtered commits since ${since} reachable from every live repository branch; duplicate SHAs across branches are counted once`
               : `All-branch commit import completed with ${failures.length} failed branch or repository request(s)`,
           ...dateRange(uniqueEvents),
         },
@@ -140,14 +165,18 @@ export class GitHubCollector {
   async importDefaultBranchCommits(
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
+    input: GitHubCollectionInput = {},
   ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
-    return await this.importAllBranchCommits(account, repositories);
+    return await this.importAllBranchCommits(account, repositories, input);
   }
 
   async importRepositoryPushActivity(
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
+    input: GitHubCollectionInput = {},
   ): Promise<{ batch: CollectionBatch; failures: GitHubCollectionResult["failures"] }> {
+    const since = normalizeSince(input.since);
+    const sinceMilliseconds = since === undefined ? undefined : Date.parse(since);
     const observedAt = this.now().toISOString();
     const events: AnyNormalizedEvent[] = [];
     const failures: GitHubCollectionResult["failures"] = [];
@@ -159,7 +188,11 @@ export class GitHubCollector {
         events.push(
           ...records
             .map((record) => normalizeRepositoryActivity(record, repository, account, observedAt))
-            .filter((event): event is NonNullable<typeof event> => event !== undefined),
+            .filter((event): event is NonNullable<typeof event> => event !== undefined)
+            .filter(
+              (event) =>
+                sinceMilliseconds === undefined || Date.parse(event.occurredAt) >= sinceMilliseconds,
+            ),
         );
       } catch (error) {
         failures.push(collectionFailure(error, "pushes", repository.repositoryId));
@@ -178,7 +211,9 @@ export class GitHubCollector {
           observedAt,
           reason:
             failures.length === 0
-              ? "One year of repository push, force-push, branch-creation, and branch-deletion activity by the authenticated account"
+              ? since === undefined
+                ? "One year of repository push, force-push, branch-creation, and branch-deletion activity by the authenticated account"
+                : `Repository push, force-push, branch-creation, and branch-deletion activity by the authenticated account since ${since}`
               : `Repository push activity completed with ${failures.length} failed repository request(s)`,
           ...dateRange(uniqueEvents),
         },
@@ -190,20 +225,23 @@ export class GitHubCollector {
   async importRecentPushObservations(
     account: GitHubAccount,
     repositories: readonly GitHubRepository[],
+    input: GitHubCollectionInput = {},
   ): Promise<CollectionBatch> {
-    return (await this.importRepositoryPushActivity(account, repositories)).batch;
+    return (await this.importRepositoryPushActivity(account, repositories, input)).batch;
   }
 
-  async collect(): Promise<GitHubCollectionResult> {
+  async collect(input: GitHubCollectionInput = {}): Promise<GitHubCollectionResult> {
+    const since = normalizeSince(input.since);
+    const incrementalInput: GitHubCollectionInput = since === undefined ? {} : { since };
     const account = await this.getAuthenticatedAccount();
-    const discovered = await this.discoverOwnedRepositories(account);
-    const commits = await this.importAllBranchCommits(account, discovered.repositories);
+    const discovered = await this.discoverRepositories(account);
+    const commits = await this.importAllBranchCommits(account, discovered.repositories, incrementalInput);
     const coverage = [discovered.batch.coverage, commits.batch.coverage];
     const failures = [...commits.failures];
     let pushEvents: AnyNormalizedEvent[] = [];
 
     try {
-      const pushes = await this.importRepositoryPushActivity(account, discovered.repositories);
+      const pushes = await this.importRepositoryPushActivity(account, discovered.repositories, incrementalInput);
       pushEvents = pushes.batch.events;
       coverage.push(pushes.batch.coverage);
       failures.push(...pushes.failures);

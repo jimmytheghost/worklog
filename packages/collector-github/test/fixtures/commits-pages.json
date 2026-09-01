@@ -2,10 +2,11 @@
   [
     {
       "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "html_url": "https://github.com/JimmyTheGhost/agent-dashboard/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?diff=split#files_bucket",
       "commit": {
         "author": { "date": "2026-08-30T02:00:00Z", "name": "ignored", "email": "ignored@example.test" },
         "committer": { "date": "2026-08-30T02:01:00Z" },
-        "message": "must never enter normalized output"
+        "message": "Add incremental GitHub sync\n\nBody must never enter normalized output"
       },
       "parents": [{ "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
       "files": [{ "filename": "secret.txt", "patch": "ignored" }]
@@ -14,19 +15,21 @@
   [
     {
       "sha": "cccccccccccccccccccccccccccccccccccccccc",
+      "html_url": "https://github.com/JimmyTheGhost/agent-dashboard/commit/cccccccccccccccccccccccccccccccccccccccc",
       "commit": {
         "author": { "date": "2026-08-30T03:00:00Z" },
         "committer": { "date": "2026-08-30T03:01:00Z" },
-        "message": "also ignored"
+        "message": "Document monthly history\r\nDetails remain private"
       },
       "parents": [{ "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]
     },
     {
       "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "html_url": "https://github.com/JimmyTheGhost/agent-dashboard/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "commit": {
         "author": { "date": "2026-08-30T02:00:00Z" },
         "committer": { "date": "2026-08-30T02:01:00Z" },
-        "message": "duplicate page boundary"
+        "message": "Duplicate page boundary"
       },
       "parents": [{ "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }]
     }

@@ -13,7 +13,7 @@ import {
   type UnavailableCumulativeCodexUsagePayload,
 } from "@agent-dashboard/domain";
 import BetterSqlite3 from "better-sqlite3";
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
@@ -26,6 +26,7 @@ import type {
   CodexObservedTokenResult,
   DailyGitActivity,
   DailyGitActivityQuery,
+  GitActivityEventQuery,
   ProjectInput,
   ProjectSummary,
   SourceCoverageInput,
@@ -391,6 +392,31 @@ export class Storage {
           })
           .onConflictDoNothing({ target: normalizedEvents.idempotencyKey })
           .run();
+        // Replayed local Codex records may gain a trustworthy project association after
+        // GitHub/local-Git reconciliation. Enrich that nullable link without counting the
+        // replay as a newly inserted event or mutating historical event identity.
+        if (result.changes === 0 && event.repositoryId !== undefined) {
+          transaction
+            .update(normalizedEvents)
+            .set({ repositoryId: event.repositoryId })
+            .where(and(
+              eq(normalizedEvents.idempotencyKey, event.idempotencyKey),
+              isNull(normalizedEvents.repositoryId),
+            ))
+            .run();
+        }
+        if (
+          result.changes === 0 &&
+          (event.eventType === "git.commit.discovered" || event.eventType === "github.push.observed")
+        ) {
+          // Adapter upgrades may add privacy-safe descriptive metadata (commit subject/URL
+          // or push kind) to an event whose identity is already in the ledger.
+          transaction
+            .update(normalizedEvents)
+            .set({ payloadJson: JSON.stringify(event.payload) })
+            .where(eq(normalizedEvents.idempotencyKey, event.idempotencyKey))
+            .run();
+        }
         inserted += result.changes;
       }
     });
@@ -412,6 +438,38 @@ export class Storage {
       .map(storedEventToNormalizedEvent);
   }
 
+  /** Returns semantically deduplicated commit and push activity for a bounded period. */
+  listGitActivityEvents(query: GitActivityEventQuery): AnyNormalizedEvent[] {
+    assertUtcInstant(query.start, "start");
+    assertUtcInstant(query.end, "end");
+    if (Date.parse(query.end) <= Date.parse(query.start)) {
+      throw new RangeError("end must be after start for a half-open UTC interval");
+    }
+    if (query.repositoryIds !== undefined && query.repositoryIds.length === 0) return [];
+
+    const predicates = [
+      inArray(normalizedEvents.eventType, ["git.commit.discovered", "github.push.observed"]),
+      gte(normalizedEvents.occurredAt, query.start),
+      lt(normalizedEvents.occurredAt, query.end),
+    ];
+    if (query.repositoryIds !== undefined) {
+      predicates.push(inArray(normalizedEvents.repositoryId, [...query.repositoryIds]));
+    }
+
+    const events = this.db
+      .select()
+      .from(normalizedEvents)
+      .where(and(...predicates))
+      .all()
+      .map(storedEventToNormalizedEvent);
+    return [
+      ...deduplicateCommits(events),
+      ...deduplicatePushes(events),
+    ].sort((left, right) =>
+      right.occurredAt.localeCompare(left.occurredAt) || right.eventId.localeCompare(left.eventId),
+    );
+  }
+
   listRecentCodexSessions(limit: number): CodexSessionReadModel[] {
     assertCodexReadLimit(limit);
     return buildCodexReadModels(this.loadCodexEvents()).sessions.slice(0, limit);
@@ -429,16 +487,21 @@ export class Storage {
       throw new RangeError("end must be after start for a half-open UTC interval");
     }
 
+    if (query.repositoryIds !== undefined && query.repositoryIds.length === 0) {
+      return { knownSubtotal: 0, knowledge: "complete", sessionsObserved: 0, sessionsKnown: 0, sessionsUnknown: 0 };
+    }
+    const startPredicates = [
+      eq(normalizedEvents.eventType, "codex.session.started"),
+      gte(normalizedEvents.occurredAt, query.start),
+      lt(normalizedEvents.occurredAt, query.end),
+    ];
+    if (query.repositoryIds !== undefined) {
+      startPredicates.push(inArray(normalizedEvents.repositoryId, [...query.repositoryIds]));
+    }
     const startRows = this.db
       .select()
       .from(normalizedEvents)
-      .where(
-        and(
-          eq(normalizedEvents.eventType, "codex.session.started"),
-          gte(normalizedEvents.occurredAt, query.start),
-          lt(normalizedEvents.occurredAt, query.end),
-        ),
-      )
+      .where(and(...startPredicates))
       .all();
     const starts = startRows.map(storedEventToNormalizedEvent).filter(
       (event): event is Extract<AnyNormalizedEvent, { eventType: "codex.session.started" }> =>

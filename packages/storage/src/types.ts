@@ -73,6 +73,14 @@ export interface DailyGitActivityQuery {
   repositoryIds?: readonly string[] | undefined;
 }
 
+export interface GitActivityEventQuery {
+  /** Inclusive UTC instant. */
+  start: string;
+  /** Exclusive UTC instant. */
+  end: string;
+  repositoryIds?: readonly string[] | undefined;
+}
+
 export type CodexSessionStatus =
   | "active"
   | "completed"
@@ -119,6 +127,7 @@ export interface CodexObservedTokenQuery {
   start: string;
   /** Exclusive UTC instant. Usage snapshots at this instant belong to the next interval. */
   end: string;
+  repositoryIds?: readonly string[] | undefined;
 }
 
 export interface CodexObservedTokenResult {

@@ -109,6 +109,25 @@ describe("Storage", () => {
     expect(storage.countEvents()).toBe(1);
   });
 
+  it("enriches replayed Git activity with privacy-safe descriptive metadata", () => {
+    const original = event("git.commit.discovered", "2026-08-31T06:00:00.000Z", "enrich");
+    storage.insertEvents([original]);
+    const enriched = {
+      ...original,
+      payload: {
+        ...original.payload,
+        subject: "Remember every project",
+        url: "https://github.com/jimmy/project/commit/abc",
+      },
+    } as AnyNormalizedEvent;
+
+    expect(storage.insertEvents([enriched])).toEqual({ inserted: 0, ignored: 1 });
+    const stored = storage.listRecentEvents(1)[0];
+    expect(stored?.eventType).toBe("git.commit.discovered");
+    if (stored?.eventType !== "git.commit.discovered") throw new Error("expected commit");
+    expect(stored.payload.subject).toBe("Remember every project");
+  });
+
   it("rejects non-UTC event instants before storage", () => {
     const commit = event("git.commit.discovered", "2026-08-31T06:00:00.000Z", "utc");
     expect(() =>

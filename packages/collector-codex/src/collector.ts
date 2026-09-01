@@ -254,6 +254,7 @@ export class CodexCollector {
         agentRole: parentSessionId === undefined ? "primary" : "subagent",
         ...(parentSessionId === undefined ? {} : { parentSessionId }),
         workspaceIdentityHash: thread.workspaceIdentityHash,
+        ...(thread.repositorySlug === undefined ? {} : { repositorySlug: thread.repositorySlug }),
       };
     });
     const sessionMap = new Map(sessions.map((session) => [session.sourceSessionId, session]));

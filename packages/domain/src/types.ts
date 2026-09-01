@@ -68,6 +68,10 @@ export type EventType = (typeof EVENT_TYPES)[number];
 export interface EventPayloads {
   "git.commit.discovered": {
     sha: string;
+    /** Privacy-safe first line only; never the commit body. */
+    subject?: string | undefined;
+    /** Canonical browser URL supplied by the source, when available. */
+    url?: string | undefined;
     authorOccurredAt?: string | undefined;
     committerOccurredAt: string;
     parentShas: string[];
@@ -78,6 +82,7 @@ export interface EventPayloads {
     afterSha?: string | undefined;
     commitShas: string[];
     membershipComplete: boolean;
+    activityKind?: "push" | "force_push" | "branch_creation" | "branch_deletion" | undefined;
     forced?: boolean | undefined;
     deleted?: boolean | undefined;
   };
@@ -99,6 +104,8 @@ export interface EventPayloads {
     sourceTaskId: string;
     workspacePathHash?: string | undefined;
     workspaceIdentityHash?: string | undefined;
+    /** Privacy-safe GitHub owner/repository identity derived locally. */
+    repositorySlug?: string | undefined;
     label?: string | undefined;
   };
   "codex.session.started": {

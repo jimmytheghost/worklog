@@ -66,6 +66,7 @@ export function normalizeTaskStarted(
     payload: {
       sourceTaskId: session.sourceSessionId,
       workspaceIdentityHash: session.workspaceIdentityHash,
+      ...(session.repositorySlug === undefined ? {} : { repositorySlug: session.repositorySlug }),
     },
   };
 }

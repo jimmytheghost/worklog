@@ -9,11 +9,29 @@ The durable product decisions live in:
 - [`docs/design-direction.md`](docs/design-direction.md)
 - [`docs/architecture.md`](docs/architecture.md)
 
-## Status
+## What it does
 
-Phase 3: live GitHub activity plus an experimental, metadata-only local Codex activity collector, backed by a durable SQLite ledger and a source-qualified Overview.
+- Keeps a local SQLite ledger of commits and push activity from every repository visible to the authenticated GitHub CLI account.
+- Shows a compact overview and an exhaustive, searchable monthly Work History. The overview is intentionally short; the archive does not rank projects out of view.
+- Records privacy-safe local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
+- Runs as one bundled local service, with optional native macOS menu-bar access.
 
-The implementation is a local TypeScript application. The MVP is read-only and does not send telemetry or ingest source code, prompts, response content, commands, tool output, or diffs. Codex token totals are locally observed cumulative counters—not billing usage—and may be incomplete.
+The app is read-only and sends no telemetry. It does not ingest source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists. Commit subjects and canonical GitHub links are retained so the ledger remains useful. Codex token totals are locally observed counters—not OpenAI billing or credit balances—and unavailable data stays visibly unavailable.
+
+## Use it
+
+Requirements: macOS, Node.js 24 or newer, pnpm 11, and an authenticated GitHub CLI (`gh auth login`).
+
+Double-click `launch.command`. On first launch it installs/builds what is needed; afterward it reuses one background service at `http://127.0.0.1:4317`, refreshes automatically, and opens the dashboard. Logs live at `~/.agent-dashboard/service.log`.
+
+For the menu-bar companion:
+
+```sh
+apps/macos/scripts/package-app.sh
+open apps/macos/dist/Worklog.app
+```
+
+See [`apps/macos/README.md`](apps/macos/README.md) for native-shell details.
 
 ## Development
 
@@ -24,7 +42,7 @@ pnpm install
 pnpm dev
 ```
 
-The dashboard runs at `http://127.0.0.1:5173` and the local service defaults to `http://127.0.0.1:4317`.
+The development dashboard runs at `http://127.0.0.1:5173`; the API remains at `http://127.0.0.1:4317`.
 
 The first GitHub import uses the account already authenticated in `gh`:
 
@@ -32,9 +50,7 @@ The first GitHub import uses the account already authenticated in `gh`:
 curl --request POST http://127.0.0.1:4317/api/sync/github
 ```
 
-GitHub collection walks every live branch in every owned repository, deduplicates commits by repository and SHA, and reads push, force-push, branch-creation, and branch-deletion activity from GitHub. Set `GITHUB_SYNC_ON_START=1` when launching the workspace to refresh GitHub automatically. The local ledger defaults to `~/.agent-dashboard/agent-dashboard.sqlite` and is excluded from the repository.
-
-On macOS, double-click `launch.command` to install missing dependencies, run both applications, refresh GitHub and Codex, wait for the live snapshot, and open the dashboard.
+GitHub collection walks every live branch in accessible owned, collaborator, and organization-member repositories, deduplicates commits by repository and SHA, and reads push, force-push, branch-creation, and branch-deletion activity from GitHub. The local ledger defaults to `~/.agent-dashboard/agent-dashboard.sqlite` and is excluded from the repository. GitHub's Events API is a recent-activity source, so push coverage is explicitly labeled partial rather than presented as complete history.
 
 Import privacy-safe metadata from the local Codex installation:
 

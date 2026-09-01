@@ -33,9 +33,11 @@ export interface GitHubRepositoryRecord {
 
 export interface GitHubCommitRecord {
   sha?: unknown;
+  html_url?: unknown;
   commit?: {
     author?: { date?: unknown } | null;
     committer?: { date?: unknown } | null;
+    message?: unknown;
   };
   parents?: Array<{ sha?: unknown }>;
 }
@@ -98,6 +100,30 @@ function instant(value: unknown, field: string): string {
 function normalizedSha(value: unknown): string | undefined {
   if (typeof value !== "string" || !VALID_SHA.test(value) || ZERO_SHA.test(value)) return undefined;
   return value.toLowerCase();
+}
+
+function commitSubject(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const subject = value.split(/\r\n?|\n/, 1)[0]?.trim().slice(0, 512);
+  return subject === undefined || subject.length === 0 ? undefined : subject;
+}
+
+function canonicalCommitUrl(value: unknown, repository: GitHubRepository, sha: string): string {
+  if (typeof value === "string") {
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        parsed.username = "";
+        parsed.password = "";
+        parsed.search = "";
+        parsed.hash = "";
+        return parsed.toString();
+      }
+    } catch {
+      // Fall through to the stable github.com URL when GitHub omits or malforms html_url.
+    }
+  }
+  return `https://github.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/commit/${sha}`;
 }
 
 export function githubRepositoryId(immutableId: string): string {
@@ -190,6 +216,8 @@ export function normalizeCommit(
     return parentSha;
   });
   const idempotencyKey = commitIdempotencyKey(repository.repositoryId, sha);
+  const subject = commitSubject(record.commit?.message);
+  const url = canonicalCommitUrl(record.html_url, repository, sha);
 
   return {
     eventId: idempotencyKey,
@@ -213,6 +241,8 @@ export function normalizeCommit(
     completeness: "partial",
     payload: {
       sha,
+      ...(subject === undefined ? {} : { subject }),
+      url,
       ...(authorOccurredAt === undefined ? {} : { authorOccurredAt }),
       committerOccurredAt,
       parentShas,
@@ -263,6 +293,12 @@ export function normalizePush(
     completeness: "partial",
     payload: {
       ref: requiredString(record.payload?.ref, "event.payload.ref"),
+      activityKind:
+        typeof record.payload?.before === "string" && ZERO_SHA.test(record.payload.before)
+          ? "branch_creation"
+          : deleted === true
+            ? "branch_deletion"
+            : "push",
       ...(beforeSha === undefined ? {} : { beforeSha }),
       ...(afterSha === undefined ? {} : { afterSha }),
       commitShas,
@@ -335,6 +371,7 @@ export function normalizeRepositoryActivity(
     completeness: "partial",
     payload: {
       ref: requiredString(record.ref, "activity.ref"),
+      activityKind: record.activity_type,
       ...(beforeSha === undefined ? {} : { beforeSha }),
       ...(afterSha === undefined ? {} : { afterSha }),
       commitShas: [],
@@ -346,6 +383,11 @@ export function normalizeRepositoryActivity(
 }
 
 export function isPrivacySafeGitHubEvent(event: AnyNormalizedEvent): boolean {
-  const serialized = JSON.stringify(event);
-  return !/commit\.message|\"message\"|patch|diff|contents|token|credential/i.test(serialized);
+  const forbiddenKey = /message|patch|diff|contents?|token|credential/i;
+  const containsForbiddenKey = (value: unknown): boolean => {
+    if (Array.isArray(value)) return value.some(containsForbiddenKey);
+    if (value === null || typeof value !== "object") return false;
+    return Object.entries(value).some(([key, child]) => forbiddenKey.test(key) || containsForbiddenKey(child));
+  };
+  return !containsForbiddenKey(event);
 }

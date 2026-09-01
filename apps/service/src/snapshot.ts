@@ -2,6 +2,8 @@ import {
   localDateForInstant,
   parseMetricResult,
   utcRangeForLocalDate,
+  type AnyNormalizedEvent,
+  type EventPayloads,
   type MetricResult,
 } from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
@@ -13,7 +15,7 @@ type SnapshotStorage = Pick<
   Storage,
   | "getCoverage"
   | "listProjects"
-  | "listRecentEvents"
+  | "listGitActivityEvents"
   | "queryDailyGitActivity"
   | "queryCodexObservedTokens"
   | "listRecentCodexSessions"
@@ -43,14 +45,16 @@ function worstCompleteness(left: string, right: string) {
 }
 
 function eventSummary(
-  event: ReturnType<SnapshotStorage["listRecentEvents"]>[number],
+  event: AnyNormalizedEvent,
   projectName: string,
 ): string {
   switch (event.eventType) {
-    case "git.commit.discovered":
-      return `Commit discovered in ${projectName}`;
+    case "git.commit.discovered": {
+      const payload = event.payload as EventPayloads["git.commit.discovered"];
+      return payload.subject ?? `Commit ${payload.sha.slice(0, 7)} in ${projectName}`;
+    }
     case "github.push.observed":
-      return `Push observed on ${projectName}/${event.payload.ref.replace("refs/heads/", "")}`;
+      return `Push observed on ${projectName}/${(event.payload as EventPayloads["github.push.observed"]).ref.replace("refs/heads/", "")}`;
     case "repository.discovered":
       return `Repository discovered: ${projectName}`;
     default:
@@ -91,7 +95,7 @@ export function buildStorageSnapshot(
   const activeDays = commitCoverage !== undefined
     ? activity.filter((day) => day.commits > 0 || day.pushes > 0).length
     : null;
-  const codexSessions = storage.listRecentCodexSessions(500);
+  const codexSessions = storage.listRecentCodexSessions(12);
   const codexTokenAggregate = storage.queryCodexObservedTokens({
     start: range.start,
     end: range.end,
@@ -141,11 +145,12 @@ export function buildStorageSnapshot(
     freshness: codexCoverage?.freshness ?? "never",
   });
 
-  const recentEvents = storage.listRecentEvents(100);
+  const gitEvents = storage.listGitActivityEvents({ start: range.start, end: range.end });
+  const recentEvents = gitEvents.slice(0, 100);
   const projects = storage.listProjects();
   const projectNames = new Map(projects.map((project) => [project.id, project.name]));
   const latestProjectEvents = new Map<string, string>();
-  for (const event of recentEvents) {
+  for (const event of gitEvents) {
     if (event.repositoryId !== undefined && !latestProjectEvents.has(event.repositoryId)) {
       latestProjectEvents.set(event.repositoryId, event.occurredAt);
     }
@@ -168,7 +173,7 @@ export function buildStorageSnapshot(
         branch: project.defaultBranch ?? "unknown",
         commits,
         lastActivityAt: latestProjectEvents.get(project.id) ?? project.updatedAt,
-        status: commits > 0 ? "active" : "quiet",
+        status: latestProjectEvents.has(project.id) ? "active" : "quiet",
       };
     })
     .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt))
@@ -192,6 +197,14 @@ export function buildStorageSnapshot(
       metric("commits", commitCount, ["github"], commitCoverage),
       metric("pushes", pushCount, ["github"], pushCoverage),
       metric("active_days", activeDays, ["github"], commitCoverage),
+      metric(
+        "active_projects",
+        commitCoverage === undefined
+          ? null
+          : projectRows.filter((project) => project.status === "active").length,
+        ["github"],
+        commitCoverage,
+      ),
       codexTokenMetric,
     ],
     activityDays: activity.map((day) => ({

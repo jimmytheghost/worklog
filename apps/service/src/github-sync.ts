@@ -12,10 +12,17 @@ import type { ServiceEventHub } from "./events.js";
 export const GITHUB_SOURCE_ID = "github:primary";
 const EXPECTED_SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 const STREAMS = ["repositories", "commits", "pushes"] as const;
+const CURSOR_ADAPTER = "github-gh-api:vnext";
 
 type StoragePort = Pick<
   Storage,
-  "upsertSource" | "upsertProject" | "insertEvents" | "getCoverage" | "upsertCoverage"
+  | "upsertSource"
+  | "upsertProject"
+  | "insertEvents"
+  | "getCoverage"
+  | "upsertCoverage"
+  | "getSyncCursor"
+  | "setSyncCursor"
 >;
 
 export type GitHubCollectorPort = Pick<GitHubCollector, "collect">;
@@ -32,6 +39,7 @@ export type GitHubSyncState = {
 };
 
 const SAFE_FAILURE_MESSAGES: Record<GitHubCollectorErrorCode, string> = {
+  invalid_input: "GitHub synchronization input is invalid",
   gh_unavailable: "GitHub CLI is unavailable",
   authentication_failed: "GitHub CLI authentication is required",
   api_failed: "GitHub API request failed",
@@ -81,7 +89,11 @@ export class GitHubSyncCoordinator {
 
     let result: GitHubCollectionResult;
     try {
-      result = await this.collector.collect();
+      const cursor = this.storage.getSyncCursor(GITHUB_SOURCE_ID, CURSOR_ADAPTER);
+      const since = cursor !== null && typeof cursor === "object" && "since" in cursor && typeof cursor.since === "string"
+        ? cursor.since
+        : undefined;
+      result = await this.collector.collect(since === undefined ? {} : { since });
     } catch (error) {
       const completedAt = this.now().toISOString();
       const failure = thrownFailure(error);
@@ -126,6 +138,14 @@ export class GitHubSyncCoordinator {
       // Storage validates the complete batch first and commits normalized events atomically.
       inserted = this.storage.insertEvents(result.events);
       this.#recordCoverage(result, completedAt);
+      if (result.failures.length === 0) {
+        // Advance to the instant immediately before collection began. Events created during
+        // the network walk remain eligible on the next refresh rather than falling in a gap.
+        this.storage.setSyncCursor(
+          { sourceId: GITHUB_SOURCE_ID, adapterName: CURSOR_ADAPTER, cursor: { since: startedAt } },
+          completedAt,
+        );
+      }
     } catch {
       const state: GitHubSyncState = {
         status: "failed",

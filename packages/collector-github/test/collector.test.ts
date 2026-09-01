@@ -10,6 +10,7 @@ import {
   GitHubCollectorError,
   githubRepositoryId,
   isPrivacySafeGitHubEvent,
+  normalizeCommit,
   normalizePush,
   type CommandResult,
   type CommandRunner,
@@ -44,14 +45,14 @@ function endpoint(args: readonly string[]): string {
 }
 
 describe("GitHubCollector", () => {
-  it("discovers paginated public and private owned repositories with stable IDs", async () => {
+  it("discovers paginated owner, collaborator, and organization repositories with stable IDs", async () => {
     const runner = new FixtureRunner((_command, args) => {
       if (endpoint(args) === "user") return success(accountFixture);
       return success(repositoriesFixture);
     });
     const collector = new GitHubCollector({ runner, now });
     const account = await collector.getAuthenticatedAccount();
-    const discovered = await collector.discoverOwnedRepositories(account);
+    const discovered = await collector.discoverRepositories(account);
 
     expect(discovered.repositories.map(({ repositoryId }) => repositoryId)).toEqual([
       "github:1001",
@@ -65,6 +66,11 @@ describe("GitHubCollector", () => {
     expect(runner.calls.every(({ command, args }) => command === "gh" && Array.isArray(args))).toBe(true);
     expect(runner.calls[1]?.args).toContain("--paginate");
     expect(runner.calls[1]?.args).toContain("--slurp");
+    expect(endpoint(runner.calls[1]!.args)).toContain(
+      "affiliation=owner,collaborator,organization_member",
+    );
+    expect(discovered.batch.coverage.reason).toContain("collaborator");
+    expect(discovered.batch.coverage.reason).toContain("organization-member");
   });
 
   it("imports commits from every live branch, deduplicates shared SHAs, and retains no sensitive data", async () => {
@@ -79,7 +85,7 @@ describe("GitHubCollector", () => {
     });
     const collector = new GitHubCollector({ runner, now });
     const account = await collector.getAuthenticatedAccount();
-    const discovered = await collector.discoverOwnedRepositories(account);
+    const discovered = await collector.discoverRepositories(account);
     const imported = await collector.importAllBranchCommits(account, discovered.repositories);
 
     expect(imported.batch.events).toHaveLength(2);
@@ -88,17 +94,122 @@ describe("GitHubCollector", () => {
     expect(imported.batch.coverage.reason).toContain("every live repository branch");
     expect(imported.failures).toEqual([]);
     expect(imported.batch.events.every(isPrivacySafeGitHubEvent)).toBe(true);
-    expect(JSON.stringify(imported.batch.events)).not.toContain("must never enter");
+    expect(JSON.stringify(imported.batch.events)).not.toContain("Body must never enter");
+    expect(JSON.stringify(imported.batch.events)).not.toContain("Details remain private");
     expect(JSON.stringify(imported.batch.events)).not.toContain("secret.txt");
     expect(imported.batch.events[0]?.idempotencyKey).toContain("git.commit");
     expect(imported.batch.events[0]).toMatchObject({
       occurredAt: "2026-08-30T02:01:00.000Z",
       payload: {
+        subject: "Add incremental GitHub sync",
+        url: "https://github.com/JimmyTheGhost/agent-dashboard/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         authorOccurredAt: "2026-08-30T02:00:00.000Z",
         committerOccurredAt: "2026-08-30T02:01:00.000Z",
       },
     });
     expect(runner.calls.some(({ args }) => endpoint(args).includes("sha=codex%2Fsystem-reset"))).toBe(true);
+    expect(
+      runner.calls
+        .map(({ args }) => endpoint(args))
+        .filter((requested) => requested.includes("/commits?"))
+        .every((requested) => !requested.includes("&since=")),
+    ).toBe(true);
+  });
+
+  it("bounds incremental commit requests and locally filters repository activity", async () => {
+    const runner = new FixtureRunner((_command, args) => {
+      const requested = endpoint(args);
+      if (requested === "user") return success(accountFixture);
+      if (requested.startsWith("user/repos")) return success([repositoriesFixture[0]]);
+      if (requested.includes("/branches?")) return success(branchesFixture);
+      if (requested.includes("/commits?")) return success([[]]);
+      if (requested.includes("/activity?")) return success(activityFixture);
+      throw new Error(`unexpected endpoint: ${requested}`);
+    });
+    const collector = new GitHubCollector({ runner, now });
+    const since = "2026-08-31T08:02:00+00:00";
+    const result = await collector.collect({ since });
+    const commitsCoverage = result.coverage.find(({ stream }) => stream === "commits");
+    const pushesCoverage = result.coverage.find(({ stream }) => stream === "pushes");
+    const pushes = result.events.filter(({ eventType }) => eventType === "github.push.observed");
+
+    const commitRequests = runner.calls
+      .map(({ args }) => endpoint(args))
+      .filter((requested) => requested.includes("/commits?"));
+    expect(commitRequests).toHaveLength(2);
+    expect(commitRequests.every((requested) => requested.includes("since=2026-08-31T08%3A02%3A00.000Z"))).toBe(true);
+    expect(commitsCoverage?.reason).toContain("since 2026-08-31T08:02:00.000Z");
+    expect(pushes.map(({ sourceRecordId }) => sourceRecordId)).toEqual([
+      "activity:9002",
+      "activity:9005",
+    ]);
+    expect(pushesCoverage).toMatchObject({
+      coverageStart: "2026-08-31T08:02:00.000Z",
+      coverageEnd: "2026-08-31T08:04:00.000Z",
+    });
+    expect(pushesCoverage?.reason).toContain("since 2026-08-31T08:02:00.000Z");
+  });
+
+  it("rejects invalid or non-UTC incremental instants before making requests", async () => {
+    const runner = new FixtureRunner(() => {
+      throw new Error("runner must not be called");
+    });
+    const collector = new GitHubCollector({ runner, now });
+
+    await expect(collector.collect({ since: "2026-08-31T08:02:00-06:00" })).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "GitHub collection since must be a valid UTC instant",
+    });
+    await expect(collector.collect({ since: "2026-08-31T08:02:00-00:00" })).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+    await expect(collector.collect({ since: "2026-08-31T08:02:00" })).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+    await expect(collector.collect({ since: "not-a-date" })).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+    expect(runner.calls).toEqual([]);
+  });
+
+  it("limits commit subjects to one 512-character line and removes URL credentials and tracking data", () => {
+    const repository = {
+      id: "1001",
+      repositoryId: githubRepositoryId("1001"),
+      name: "agent-dashboard",
+      fullName: "JimmyTheGhost/agent-dashboard",
+      owner: "JimmyTheGhost",
+      defaultBranch: "main",
+      visibility: "private" as const,
+      isPrivate: true,
+      createdAt: "2026-08-30T01:00:00.000Z",
+      updatedAt: "2026-08-31T01:00:00.000Z",
+    };
+    const subject = `Track token usage ${"x".repeat(600)}`;
+    const event = normalizeCommit(
+      {
+        sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        html_url:
+          "https://user:credential@github.com/JimmyTheGhost/agent-dashboard/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?access_token=secret#diff",
+        commit: {
+          author: { date: "2026-08-30T02:00:00Z" },
+          committer: { date: "2026-08-30T02:01:00Z" },
+          message: `${subject}\rA private commit body`,
+        },
+      },
+      repository,
+      { id: "42", login: "JimmyTheGhost" },
+      now().toISOString(),
+    );
+
+    expect(event.payload.subject).toHaveLength(512);
+    expect(event.payload.subject).toBe(subject.slice(0, 512));
+    expect(event.payload.url).toBe(
+      "https://github.com/JimmyTheGhost/agent-dashboard/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(JSON.stringify(event)).not.toContain("private commit body");
+    expect(JSON.stringify(event)).not.toContain("access_token");
+    expect(isPrivacySafeGitHubEvent(event)).toBe(true);
   });
 
   it("counts push, force-push, branch creation, and branch deletion activity exactly once", async () => {
@@ -132,15 +243,16 @@ describe("GitHubCollector", () => {
       repositoryId: "github:1001",
       sourceRecordId: "activity:9001",
       completeness: "partial",
-      payload: { membershipComplete: false, ref: "refs/heads/codex/system-reset" },
+      payload: { activityKind: "push", membershipComplete: false, ref: "refs/heads/codex/system-reset" },
     });
     expect(imported.batch.events[1]).toMatchObject({
       sourceRecordId: "activity:9002",
-      payload: { forced: true },
+      payload: { activityKind: "force_push", forced: true },
     });
     expect(imported.batch.events[2]).toMatchObject({
       sourceRecordId: "activity:9003",
       payload: {
+        activityKind: "branch_creation",
         ref: "refs/heads/codex/system-reset",
         afterSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       },
@@ -149,6 +261,7 @@ describe("GitHubCollector", () => {
     expect(imported.batch.events[3]).toMatchObject({
       sourceRecordId: "activity:9005",
       payload: {
+        activityKind: "branch_deletion",
         ref: "refs/heads/codex/system-reset",
         beforeSha: "cccccccccccccccccccccccccccccccccccccccc",
         deleted: true,
@@ -173,6 +286,7 @@ describe("GitHubCollector", () => {
       now().toISOString(),
     );
     expect(legacyEvent?.sourceRecordId).toBe("9001");
+    expect(legacyEvent?.payload.activityKind).toBe("push");
     expect(legacyEvent?.idempotencyKey).not.toBe(imported.batch.events[0]?.idempotencyKey);
     expect(imported.batch.coverage.endpoint).toBe("GET /repos/{owner}/{repo}/activity");
     expect(imported.batch.coverage.reason).toContain("branch-creation");

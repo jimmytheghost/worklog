@@ -19,7 +19,7 @@ The browser interface never reads GitHub credentials, Codex state, or repositori
 
 ## Runtime
 
-- The dashboard is a desktop-first local web interface.
+- The dashboard is a compact local interface designed to sit behind a native macOS menu-bar shell; a full Work History window exposes complete monthly records.
 - The service binds to `127.0.0.1` by default.
 - Server-sent events provide lightweight collector and sync updates.
 - SQLite will hold the append-only event ledger, source observations, sync cursors, and rebuildable aggregates.

@@ -322,7 +322,7 @@ describe("Codex service integration", () => {
     const snapshot = (await app.inject({ method: "GET", url: "/api/snapshot" })).json();
     const tokens = snapshot.summary.find((metric: { metric: string }) => metric.metric === "codex_observed_tokens");
 
-    expect(snapshot.agents).toHaveLength(500);
+    expect(snapshot.agents).toHaveLength(12);
     expect(tokens).toMatchObject({ value: 501, completeness: "complete" });
   });
 

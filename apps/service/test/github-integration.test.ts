@@ -302,6 +302,7 @@ describe("GitHub service integration", () => {
       expect.arrayContaining([
         expect.objectContaining({ metric: "commits", value: 1, completeness: "partial" }),
         expect.objectContaining({ metric: "pushes", value: 1, completeness: "partial" }),
+        expect.objectContaining({ metric: "active_projects", value: 1, completeness: "partial" }),
         expect.objectContaining({ metric: "codex_observed_tokens", value: null }),
       ]),
     );

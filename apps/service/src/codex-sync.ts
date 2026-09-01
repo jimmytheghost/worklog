@@ -4,6 +4,7 @@ import {
   type CodexCollector,
   type CodexCollectorErrorCode,
 } from "@agent-dashboard/collector-codex";
+import type { AnyNormalizedEvent } from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
 
 import type { ServiceEventHub } from "./events.js";
@@ -14,7 +15,7 @@ const EXPECTED_SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 
 type StoragePort = Pick<
   Storage,
-  "upsertSource" | "insertEvents" | "getCoverage" | "upsertCoverage"
+  "upsertSource" | "insertEvents" | "getCoverage" | "upsertCoverage" | "listProjects"
 >;
 
 export type CodexCollectorPort = Pick<CodexCollector, "collect">;
@@ -94,7 +95,25 @@ export class CodexSyncCoordinator {
         },
         startedAt,
       );
-      const inserted = this.storage.insertEvents(result.events);
+      const projectsBySlug = new Map(
+        this.storage.listProjects().flatMap((project) =>
+          project.owner === null
+            ? []
+            : [[`${project.owner}/${project.name}`.toLowerCase(), project.id] as const],
+        ),
+      );
+      const repositoryBySession = new Map(
+        result.sessions.flatMap((session) => {
+          if (session.repositorySlug === undefined) return [];
+          const repositoryId = projectsBySlug.get(session.repositorySlug.toLowerCase());
+          return repositoryId === undefined ? [] : [[session.sourceSessionId, repositoryId] as const];
+        }),
+      );
+      const associatedEvents: AnyNormalizedEvent[] = result.events.map((event) => {
+        const repositoryId = repositoryBySession.get(event.sessionId ?? event.taskId ?? "");
+        return repositoryId === undefined ? event : { ...event, repositoryId } as AnyNormalizedEvent;
+      });
+      const inserted = this.storage.insertEvents(associatedEvents);
       this.storage.upsertCoverage(
         {
           coverageKey: CODEX_COVERAGE_KEY,

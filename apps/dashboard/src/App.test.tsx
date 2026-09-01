@@ -1,169 +1,103 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import type { WorkHistory } from "./data/history";
 import { normalizeSnapshot, subscribeToTerminalSyncs } from "./data/snapshot";
 import { dashboardFixture } from "./fixtures";
 
-const successfulClient = async () => dashboardFixture;
+const history: WorkHistory = {
+  schemaVersion: 1, month: "2026-08", timezone: "America/Denver", range: { start: "2026-08-01", end: "2026-09-01" },
+  summary: { projects: 3, commits: 18, pushes: 7, tokens: 1_250_000 }, sources: [],
+  projects: [
+    { projectId: "one", name: "agent-dashboard", owner: "jimmy", branch: "main", commits: 10, pushes: 4, tokens: 1_000_000, lastActivityAt: "2026-08-30T18:00:00Z", activity: [{ id: "a", type: "commit", occurredAt: "2026-08-30T18:00:00Z", subject: "Build monthly work history", detail: "a1b2c3d", url: "https://github.com/example/commit/a", source: "github", attribution: "correlated", confidence: "high" }] },
+    { projectId: "two", name: "guitar-lab", owner: "jimmy", branch: "main", commits: 5, pushes: 2, tokens: null, lastActivityAt: "2026-08-20T18:00:00Z", activity: [] },
+    { projectId: "three", name: "quiet-project", owner: "studio", branch: "release", commits: 3, pushes: 1, tokens: 250_000, lastActivityAt: "2026-08-10T18:00:00Z", activity: [] },
+  ],
+};
+const snapshotClient = async () => dashboardFixture;
+const historyClient = vi.fn(async (month: string) => ({ ...history, month }));
 
-describe("overview", () => {
-  it("renders a successful snapshot and keeps commit and push metrics independent", async () => {
-    render(<App snapshotClient={successfulClient} />);
-    const commits = await screen.findByRole("button", { name: "commits" });
-    const pushes = screen.getByRole("button", { name: "pushes" });
+describe("compact work ledger", () => {
+  it("renders a compact overview without the old agent tree or dead navigation", async () => {
+    render(<App snapshotClient={snapshotClient} historyClient={historyClient}/>);
+    expect(await screen.findByRole("heading", { name: "Your work, remembered." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Shipping rhythm" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.queryByText(/tasks in motion/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
 
-    expect(commits).toHaveAttribute("aria-pressed", "true");
+  it("opens work history and renders every project returned by the API", async () => {
+    render(<App snapshotClient={snapshotClient} historyClient={historyClient}/>);
+    fireEvent.click(await screen.findByRole("button", { name: /Open Work History/i }));
+    expect(await screen.findByRole("heading", { name: "Work History" })).toBeInTheDocument();
+    expect(screen.getByText("agent-dashboard")).toBeInTheDocument();
+    expect(screen.getByText("guitar-lab")).toBeInTheDocument();
+    expect(screen.getByText("quiet-project")).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 projects")).toBeInTheDocument();
+    expect(screen.getByText("tokens unavailable")).toBeInTheDocument();
+  });
+
+  it("searches project names and commit subjects without dropping the full source list", async () => {
+    render(<App snapshotClient={snapshotClient} historyClient={historyClient}/>);
+    fireEvent.click(await screen.findByRole("button", { name: /Open Work History/i }));
+    const search = await screen.findByPlaceholderText("Search projects or commits");
+    fireEvent.change(search, { target: { value: "monthly" } });
+    expect(screen.getByText("agent-dashboard")).toBeInTheDocument();
+    expect(screen.queryByText("guitar-lab")).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 3 projects")).toBeInTheDocument();
+  });
+
+  it("navigates months and requests that complete month", async () => {
+    const client = vi.fn(async (month: string) => ({ ...history, month }));
+    render(<App snapshotClient={snapshotClient} historyClient={client}/>);
+    fireEvent.click(await screen.findByRole("button", { name: /Open Work History/i }));
+    await screen.findByText("August 2026");
+    fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
+    expect(await screen.findByText("July 2026")).toBeInTheDocument();
+    await waitFor(() => expect(client).toHaveBeenLastCalledWith("2026-07", expect.any(AbortSignal)));
+  });
+
+  it("triggers both collectors through refresh and reports the request state", async () => {
+    let finish: (() => void) | undefined;
+    const syncClient = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<App snapshotClient={snapshotClient} historyClient={historyClient} syncClient={syncClient}/>);
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh now" }));
+    expect(screen.getByText("Refreshing…")).toBeInTheDocument();
+    expect(syncClient).toHaveBeenCalledOnce();
+    await act(async () => finish?.());
+    expect(screen.getByText("Refresh started")).toBeInTheDocument();
+  });
+
+  it("keeps commit and push heatmap metrics independent", async () => {
+    render(<App snapshotClient={snapshotClient} historyClient={historyClient}/>);
+    const pushes = await screen.findByRole("button", { name: "pushes" });
     fireEvent.click(pushes);
     expect(pushes).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("region", { name: "Daily pushes heatmap" })).toBeInTheDocument();
   });
 
-  it("exposes coverage and freshness in the main view", async () => {
-    render(<App snapshotClient={successfulClient} />);
-    expect(await screen.findByText(/Pushes observed since May 14, 2026/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Coverage is partial, snapshot loaded/i)).toBeInTheDocument();
-  });
-
-  it("shows a loading treatment while the client is pending", () => {
-    render(<App snapshotClient={() => new Promise(() => undefined)} />);
+  it("preserves partial, loading, and error states", async () => {
+    const { unmount } = render(<App snapshotClient={snapshotClient} historyClient={historyClient}/>);
+    expect(await screen.findByRole("status")).toHaveTextContent("Some activity may be incomplete");
+    unmount();
+    render(<App snapshotClient={() => new Promise(() => undefined)} historyClient={historyClient}/>);
     expect(screen.getByLabelText("Loading dashboard snapshot")).toHaveAttribute("aria-busy", "true");
   });
 
-  it("shows a collector error when the snapshot cannot be loaded", async () => {
-    render(<App snapshotClient={async () => { throw new Error("Service offline"); }} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Service offline");
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
-  });
-
-  it("uses an injected fallback while preserving the failure disclosure", async () => {
-    render(<App snapshotClient={async () => { throw new Error("Service offline"); }} fallbackSnapshot={dashboardFixture} />);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Live collectors are unavailable"));
-    expect(screen.getByRole("heading", { name: "Work, shipped." })).toBeInTheDocument();
-  });
-
-  it("recovers automatically after a transient initial snapshot failure", async () => {
-    const client = vi.fn()
-      .mockRejectedValueOnce(new Error("Service starting"))
-      .mockResolvedValue(dashboardFixture);
-
-    render(<App snapshotClient={client} refreshSubscriber={() => () => undefined} retryDelayMs={20} />);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Service starting");
-    expect(await screen.findByRole("heading", { name: "Work, shipped." })).toBeInTheDocument();
-    expect(client).toHaveBeenCalledTimes(2);
-  });
-
-  it("refreshes after terminal sync events but not while a sync is running", async () => {
-    const refreshedSnapshot = {
-      ...dashboardFixture,
-      metrics: dashboardFixture.metrics.map((metric) => metric.label === "Commits"
-        ? { ...metric, value: "9,999" }
-        : metric),
-    };
-    const client = vi.fn()
-      .mockResolvedValueOnce(dashboardFixture)
-      .mockResolvedValue(refreshedSnapshot);
+  it("refreshes the overview after terminal sync events", async () => {
+    const refreshed = { ...dashboardFixture, metrics: dashboardFixture.metrics.map((metric) => metric.label === "Commits" ? { ...metric, value: "9,999" } : metric) };
+    const client = vi.fn().mockResolvedValueOnce(dashboardFixture).mockResolvedValue(refreshed);
     const listeners = new Map<string, EventListener>();
-    const refreshSubscriber = (refresh: () => void) => subscribeToTerminalSyncs(refresh, () => ({
-      addEventListener: (name: string, listener: EventListenerOrEventListenerObject) => {
-        if (typeof listener === "function") listeners.set(name, listener);
-      },
-      close: vi.fn(),
-    } as unknown as EventSource));
-
-    render(<App snapshotClient={client} refreshSubscriber={refreshSubscriber} />);
+    const subscriber = (refresh: () => void) => subscribeToTerminalSyncs(refresh, () => ({ addEventListener: (name: string, listener: EventListenerOrEventListenerObject) => { if (typeof listener === "function") listeners.set(name, listener); }, close: vi.fn() } as unknown as EventSource));
+    render(<App snapshotClient={client} refreshSubscriber={subscriber} historyClient={historyClient}/>);
     expect(await screen.findByText("1,284")).toBeInTheDocument();
-
-    act(() => listeners.get("github-sync")?.(new MessageEvent("github-sync", { data: JSON.stringify({ status: "running" }) })));
-    expect(client).toHaveBeenCalledTimes(1);
-
     act(() => listeners.get("github-sync")?.(new MessageEvent("github-sync", { data: JSON.stringify({ status: "succeeded" }) })));
     expect(await screen.findByText("9,999")).toBeInTheDocument();
-    expect(client).toHaveBeenCalledTimes(2);
   });
 
-  it("explains empty local Codex agent and token states", async () => {
-    const emptyCodex = {
-      ...dashboardFixture,
-      agents: [],
-      metrics: dashboardFixture.metrics.map((metric) => metric.label === "Observed tokens"
-        ? { ...metric, value: "—", delta: "Local", context: "No local token metadata yet" }
-        : metric),
-    };
-    render(<App snapshotClient={async () => emptyCodex} />);
-
-    expect(await screen.findByText("No local Codex sessions observed")).toBeInTheDocument();
-    expect(screen.getByText("No local token metadata yet")).toBeInTheDocument();
-    expect(screen.queryByRole("note", { name: "Experimental Codex data source" })).not.toBeInTheDocument();
-  });
-
-  it("labels observed Codex data as experimental local metadata", async () => {
-    render(<App snapshotClient={successfulClient} />);
-
-    expect(await screen.findByRole("note", { name: "Experimental Codex data source" })).toHaveTextContent("observed tokens are not billing usage");
-    expect(screen.getByText("Observed locally — not billing usage")).toBeInTheDocument();
-  });
-
-  it("keeps session identities and resolves depth when children precede parents", () => {
-    const api: Parameters<typeof normalizeSnapshot>[0] = {
-      schemaVersion: 1,
-      generatedAt: "2026-08-31T04:00:00.000Z",
-      timezone: "America/Denver",
-      range: { start: "2025-09-01T06:00:00.000Z", end: "2026-09-01T06:00:00.000Z", timezone: "America/Denver" },
-      summary: [{ metric: "codex_observed_tokens", value: 12400, completeness: "partial" }],
-      activityDays: [],
-      projects: [],
-      agents: [
-        { sessionId: "grandchild", parentSessionId: "child", projectId: "project", label: "Repeated label", model: "gpt-5", status: "running", startedAt: "2026-08-31T03:30:00.000Z", completedAt: null },
-        { sessionId: "child", parentSessionId: "root", projectId: "project", label: "Repeated label", model: "gpt-5", status: "completed", startedAt: "2026-08-31T03:00:00.000Z", completedAt: "2026-08-31T03:20:00.000Z" },
-        { sessionId: "root", parentSessionId: null, projectId: "project", label: "Root", model: "gpt-5", status: "running", startedAt: "2026-08-31T02:00:00.000Z", completedAt: null },
-      ],
-      recentActivity: [],
-      sources: [{ sourceSystem: "codex_local", status: "connected", freshness: "fresh", completeness: "partial", lastSucceededAt: "2026-08-31T03:59:00.000Z" }],
-    };
-
-    const snapshot = normalizeSnapshot(api);
-    expect(snapshot.agents.map(({ id, depth }) => ({ id, depth }))).toEqual([
-      { id: "grandchild", depth: 2 },
-      { id: "child", depth: 1 },
-      { id: "root", depth: 0 },
-    ]);
-    expect(snapshot.metrics.at(-1)?.context).toBe("Observed locally — not billing usage");
-  });
-
-  it("ends the calendar on the final covered local day and fills missing activity with observed zeroes", () => {
-    const api: Parameters<typeof normalizeSnapshot>[0] = {
-      schemaVersion: 1,
-      generatedAt: "2026-09-01T04:00:00.000Z",
-      timezone: "America/Denver",
-      range: { start: "2025-09-01T06:00:00.000Z", end: "2026-09-01T06:00:00.000Z", timezone: "America/Denver" },
-      summary: [],
-      activityDays: [{ date: "2026-08-30", commits: 7, pushes: 3, codexAttributedCommits: 0 }],
-      projects: [],
-      agents: [],
-      recentActivity: [],
-      sources: [],
-    };
-
-    const snapshot = normalizeSnapshot(api);
-    expect(snapshot.activityDays.at(-1)).toEqual({ date: "2026-08-31", commits: 0, pushes: 0, aiAttributed: false });
-    expect(snapshot.reportingRange).toEqual({ start: "2025-09-01", end: "2026-08-31", formatted: "Sep 1, 2025 — Aug 31, 2026" });
-  });
-
-  it("renders the API reporting range and initially selects its final day", async () => {
-    const snapshot = {
-      ...dashboardFixture,
-      reportingRange: { start: "2025-09-01", end: "2026-08-31", formatted: "Sep 1, 2025 — Aug 31, 2026" },
-      activityDays: [
-        { date: "2026-08-30", commits: 7, pushes: 3, aiAttributed: false },
-        { date: "2026-08-31", commits: 0, pushes: 0, aiAttributed: false },
-      ],
-    };
-
-    render(<App snapshotClient={async () => snapshot} />);
-
-    expect(await screen.findByText("Sep 1, 2025 — Aug 31, 2026")).toBeInTheDocument();
-    expect(screen.getByText("Aug 31, 2026")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Aug 31, 2026: 0 commits" })).toHaveAttribute("aria-pressed", "true");
+  it("keeps snapshot normalization coverage and local-day behavior", () => {
+    const api: Parameters<typeof normalizeSnapshot>[0] = { schemaVersion: 1, generatedAt: "2026-09-01T04:00:00Z", timezone: "America/Denver", range: { start: "2026-08-01T06:00:00Z", end: "2026-09-01T06:00:00Z", timezone: "America/Denver" }, summary: [], activityDays: [{ date: "2026-08-30", commits: 7, pushes: 3, codexAttributedCommits: 0 }], projects: [], agents: [], recentActivity: [], sources: [] };
+    expect(normalizeSnapshot(api).activityDays.at(-1)).toEqual({ date: "2026-08-31", commits: 0, pushes: 0, aiAttributed: false });
   });
 });

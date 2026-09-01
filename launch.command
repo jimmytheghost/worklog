@@ -3,13 +3,11 @@
 set -u
 
 PROJECT_DIR="${0:A:h}"
-DASHBOARD_URL="http://127.0.0.1:5173"
-SERVICE_HEALTH_URL="http://127.0.0.1:4317/health"
-LOCK_DIR="${TMPDIR:-/tmp}/agent-dashboard-${UID}.lock"
-LOCK_OWNER_FILE="$LOCK_DIR/owner"
-STARTUP_TIMEOUT_SECONDS=300
-STARTUP_ATTEMPTS=$(( STARTUP_TIMEOUT_SECONDS * 2 ))
-OPENER_PID=""
+DASHBOARD_URL="${DASHBOARD_URL:-http://127.0.0.1:4317}"
+DASHBOARD_OPEN_BROWSER="${DASHBOARD_OPEN_BROWSER:-1}"
+SERVICE_HEALTH_URL="$DASHBOARD_URL/health"
+LOCK_DIR="${TMPDIR:-/tmp}/agent-dashboard-${UID}.launch-lock"
+STARTUP_ATTEMPTS=60
 
 pause_before_close() {
   if [[ -t 0 ]]; then
@@ -17,140 +15,69 @@ pause_before_close() {
   fi
 }
 
-service_syncs_are_terminal() {
-  curl --silent --fail --max-time 2 "$SERVICE_HEALTH_URL" \
-    | node -e '
-          let input = "";
-          process.stdin.on("data", (chunk) => { input += chunk; });
-          process.stdin.on("end", () => {
-            try {
-              const health = JSON.parse(input);
-              const terminal = new Set(["idle", "succeeded", "partial", "failed", "disabled"]);
-              process.exit(
-                health.status === "ok"
-                  && terminal.has(health.githubSync)
-                  && terminal.has(health.codexSync)
-                  ? 0
-                  : 1,
-              );
-            } catch {
-              process.exit(1);
-            }
-          });
-        ' >/dev/null 2>&1
+open_dashboard() {
+  [[ "$DASHBOARD_OPEN_BROWSER" == "0" ]] || open "$DASHBOARD_URL"
 }
 
-dashboard_is_healthy() {
-  curl --silent --fail --max-time 2 "$DASHBOARD_URL" >/dev/null 2>&1 \
-    && curl --silent --fail --max-time 5 "$DASHBOARD_URL/api/snapshot" >/dev/null 2>&1
+service_is_ready() {
+  curl --silent --fail --max-time 2 "$SERVICE_HEALTH_URL" 2>/dev/null \
+    | grep -q '"service":"@agent-dashboard/service"' \
+    && curl --silent --fail --max-time 2 "$DASHBOARD_URL/" >/dev/null 2>&1
 }
 
-stack_is_ready() {
-  service_syncs_are_terminal && dashboard_is_healthy
+release_launch_lock() {
+  rmdir "$LOCK_DIR" >/dev/null 2>&1 || true
 }
 
-report_readiness_failure() {
-  if ! curl --silent --fail --max-time 2 "$DASHBOARD_URL" >/dev/null 2>&1; then
-    echo "- Dashboard server is not responding on port 5173."
-  fi
-  if ! curl --silent --fail --max-time 5 "$DASHBOARD_URL/api/snapshot" >/dev/null 2>&1; then
-    echo "- Snapshot API is not returning a successful response."
-  fi
-
-  local health
-  health="$(curl --silent --fail --max-time 2 "$SERVICE_HEALTH_URL" 2>/dev/null)" || {
-    echo "- Local service is not responding on port 4317."
-    return
-  }
-  print -rn -- "$health" | node -e '
-    let input = "";
-    process.stdin.on("data", (chunk) => { input += chunk; });
-    process.stdin.on("end", () => {
-      try {
-        const health = JSON.parse(input);
-        console.log(`- GitHub sync: ${String(health.githubSync ?? "unknown")}; Codex sync: ${String(health.codexSync ?? "unknown")}.`);
-      } catch {
-        console.log("- Local service returned an unreadable health response.");
-      }
-    });
-  '
-}
-
-lock_owner_is_this_launcher() {
-  local owner_pid="$1"
-  local owner_project="$2"
-  local owner_command
-
-  [[ "$owner_pid" == <-> ]] || return 1
-  [[ "$owner_project" == "$PROJECT_DIR" ]] || return 1
-  kill -0 "$owner_pid" >/dev/null 2>&1 || return 1
-  owner_command="$(ps -p "$owner_pid" -o command= 2>/dev/null)"
-  [[ "$owner_command" == *"launch.command"* ]]
-}
-
-release_lock() {
-  local recorded_pid=""
-  if [[ -f "$LOCK_OWNER_FILE" ]]; then
-    IFS='|' read -r recorded_pid _ < "$LOCK_OWNER_FILE" || true
-  fi
-  if [[ "$recorded_pid" == "$$" ]]; then
-    rm -f "$LOCK_OWNER_FILE"
-    rmdir "$LOCK_DIR" >/dev/null 2>&1 || true
-  fi
-}
-
-cleanup() {
-  if [[ -n "$OPENER_PID" ]]; then
-    kill "$OPENER_PID" >/dev/null 2>&1 || true
-  fi
-  release_lock
-}
-
-acquire_lock() {
-  local owner_pid=""
-  local owner_project=""
+acquire_launch_lock() {
   local attempt
-
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    print -r -- "$$|$PROJECT_DIR" > "$LOCK_OWNER_FILE"
-    return 0
-  fi
-
-  # The winning launcher may still be writing its owner record.
-  for attempt in {1..10}; do
-    if [[ -f "$LOCK_OWNER_FILE" ]]; then
-      IFS='|' read -r owner_pid owner_project < "$LOCK_OWNER_FILE" || true
-      break
+  for attempt in {1..50}; do
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+      trap release_launch_lock EXIT INT TERM
+      return 0
+    fi
+    if service_is_ready; then
+      open_dashboard
+      exit 0
     fi
     sleep 0.1
   done
 
-  if lock_owner_is_this_launcher "$owner_pid" "$owner_project"; then
-    if stack_is_ready; then
-      echo "Agent Dashboard is already running. Opening it now."
-      open "$DASHBOARD_URL"
-    else
-      echo "Agent Dashboard is already starting (launcher PID $owner_pid)."
-      echo "Wait for its original Terminal window to report that live data is ready."
-      pause_before_close
-    fi
-    exit 0
-  fi
+  echo "Agent Dashboard is already being started by another launcher."
+  echo "Try opening it again in a few seconds."
+  pause_before_close
+  exit 1
+}
 
-  # No matching live launcher owns this exact lock, so clean up the stale record
-  # and retry the atomic mkdir. Never signal or terminate the recorded PID.
-  rm -f "$LOCK_OWNER_FILE"
-  rmdir "$LOCK_DIR" >/dev/null 2>&1 || true
-  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    echo "Agent Dashboard could not acquire its startup lock."
-    echo "Another launcher may have started at the same time; try again in a moment."
-    pause_before_close
-    exit 1
-  fi
-  print -r -- "$$|$PROJECT_DIR" > "$LOCK_OWNER_FILE"
+production_build_required() {
+  local service_entry="apps/service/dist/server.js"
+  local dashboard_entry="apps/dashboard/dist/index.html"
+
+  [[ -f "$service_entry" && -f "$dashboard_entry" ]] || return 0
+  find apps/service/src packages -type f -newer "$service_entry" -print -quit 2>/dev/null | grep -q . && return 0
+  find apps/dashboard/src -type f -newer "$dashboard_entry" -print -quit 2>/dev/null | grep -q . && return 0
+  [[ apps/service/package.json -nt "$service_entry" ]] && return 0
+  [[ apps/service/tsup.config.ts -nt "$service_entry" ]] && return 0
+  [[ apps/dashboard/package.json -nt "$dashboard_entry" ]] && return 0
+  [[ apps/dashboard/vite.config.ts -nt "$dashboard_entry" ]] && return 0
+  return 1
+}
+
+wait_until_ready() {
+  local attempt
+  for (( attempt = 1; attempt <= STARTUP_ATTEMPTS; attempt++ )); do
+    service_is_ready && return 0
+    sleep 0.5
+  done
+  return 1
 }
 
 cd "$PROJECT_DIR" || exit 1
+
+if service_is_ready; then
+  open_dashboard
+  exit 0
+fi
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Agent Dashboard needs Node.js 24 or newer."
@@ -166,48 +93,96 @@ if (( NODE_MAJOR < 24 )); then
   exit 1
 fi
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "Agent Dashboard needs pnpm 11."
-  echo "Install it with: corepack enable && corepack prepare pnpm@11.18.0 --activate"
+acquire_launch_lock
+
+APP_STATE_DIR="$(node -p 'require("node:os").homedir() + "/.agent-dashboard"')"
+SERVICE_PID_FILE="$APP_STATE_DIR/service.pid"
+SERVICE_LOG_FILE="$APP_STATE_DIR/service.log"
+mkdir -p -m 700 "$APP_STATE_DIR" || {
+  echo "Could not create the local Agent Dashboard data directory."
   pause_before_close
   exit 1
+}
+
+if [[ -f "$SERVICE_PID_FILE" ]]; then
+  SERVICE_PID=""
+  SERVICE_PROJECT=""
+  IFS='|' read -r SERVICE_PID SERVICE_PROJECT < "$SERVICE_PID_FILE" || true
+  SERVICE_COMMAND="$(ps -p "$SERVICE_PID" -o command= 2>/dev/null)"
+  if [[ "$SERVICE_PID" == <-> \
+    && "$SERVICE_PROJECT" == "$PROJECT_DIR" \
+    && "$SERVICE_COMMAND" == *"apps/service/dist/server.js"* ]] \
+    && kill -0 "$SERVICE_PID" >/dev/null 2>&1; then
+    echo "Agent Dashboard is still starting (process $SERVICE_PID)."
+    if wait_until_ready; then
+      open_dashboard
+      exit 0
+    fi
+    echo "The existing service did not become ready."
+    echo "Details are in: $SERVICE_LOG_FILE"
+    echo "If needed, stop process $SERVICE_PID before trying again."
+    pause_before_close
+    exit 1
+  fi
+  rm -f "$SERVICE_PID_FILE"
 fi
 
-acquire_lock
-trap cleanup EXIT INT TERM
+NEEDS_BUILD=0
+if production_build_required; then
+  NEEDS_BUILD=1
+fi
+
+if [[ ! -d node_modules || "$NEEDS_BUILD" -eq 1 ]]; then
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "Building Agent Dashboard requires pnpm 11."
+    echo "Install it with: corepack enable && corepack prepare pnpm@11.18.0 --activate"
+    pause_before_close
+    exit 1
+  fi
+fi
 
 if [[ ! -d node_modules ]]; then
-  echo "Installing Agent Dashboard dependencies..."
-  pnpm install || {
+  echo "Installing Agent Dashboard dependencies (first launch only)..."
+  pnpm install --frozen-lockfile || {
     echo "Dependency installation failed."
     pause_before_close
     exit 1
   }
 fi
 
+if (( NEEDS_BUILD == 1 )); then
+  echo "Preparing the production application..."
+  pnpm build || {
+    echo "The production build failed."
+    pause_before_close
+    exit 1
+  }
+fi
+
+export NODE_ENV="production"
+export SERVICE_DASHBOARD_PATH="$PROJECT_DIR/apps/dashboard/dist"
 export GITHUB_SYNC_ON_START="${GITHUB_SYNC_ON_START:-1}"
 export CODEX_SYNC_ON_START="${CODEX_SYNC_ON_START:-1}"
+export GITHUB_SYNC_INTERVAL_MS="${GITHUB_SYNC_INTERVAL_MS:-900000}"
+export CODEX_SYNC_INTERVAL_MS="${CODEX_SYNC_INTERVAL_MS:-300000}"
 
-echo "Starting Agent Dashboard..."
-echo "The dashboard will open automatically after live data is ready at $DASHBOARD_URL"
-echo "Press Control-C to stop it."
-echo
+echo "Starting Agent Dashboard in the background..."
+nohup node --max-old-space-size=192 --expose-gc apps/service/dist/server.js </dev/null >>"$SERVICE_LOG_FILE" 2>&1 &
+SERVICE_PID=$!
+print -r -- "$SERVICE_PID|$PROJECT_DIR" > "$SERVICE_PID_FILE"
+disown "$SERVICE_PID" 2>/dev/null || true
 
-(
-  for (( attempt = 1; attempt <= STARTUP_ATTEMPTS; attempt++ )); do
-    if stack_is_ready; then
-      echo "Live data is ready. Opening Agent Dashboard."
-      open "$DASHBOARD_URL"
-      exit 0
-    fi
-    sleep 0.5
-  done
-  echo
-  echo "Agent Dashboard did not become ready within ${STARTUP_TIMEOUT_SECONDS} seconds."
-  echo "The dashboard, snapshot API, and completed startup syncs are all required."
-  report_readiness_failure
-  echo "Review the errors above, then press Control-C and launch it again."
-) &
-OPENER_PID=$!
+if wait_until_ready; then
+  open_dashboard
+  echo "Agent Dashboard is ready."
+  echo "It will keep itself current in the background."
+  exit 0
+fi
 
-pnpm dev
+echo "Agent Dashboard did not become ready within 30 seconds."
+echo "Details are in: $SERVICE_LOG_FILE"
+if ! kill -0 "$SERVICE_PID" >/dev/null 2>&1; then
+  echo "The service exited during startup."
+fi
+pause_before_close
+exit 1

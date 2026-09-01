@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import BetterSqlite3 from "better-sqlite3";
 
 import { CodexCollectorError, sanitizedReadError } from "./errors.js";
@@ -11,6 +13,22 @@ import type {
 } from "./types.js";
 
 const REQUIRED_THREAD_COLUMNS = ["id", "rollout_path", "created_at", "updated_at", "cwd"];
+
+function githubRepositorySlug(workspace: string): string | undefined {
+  let remote: string;
+  try {
+    remote = execFileSync("git", ["-C", workspace, "config", "--get", "remote.origin.url"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1_000,
+      windowsHide: true,
+    }).trim();
+  } catch {
+    return undefined;
+  }
+  const match = /^(?:https?:\/\/github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i.exec(remote);
+  return match === null ? undefined : `${match[1]}/${match[2]}`;
+}
 
 function schemaDescription(database: BetterSqlite3.Database): SourceSchemaDescription {
   const userVersion = database.pragma("user_version", { simple: true }) as number;
@@ -83,6 +101,7 @@ function readThreads(database: BetterSqlite3.Database, schema: SourceSchemaDescr
     ${optionalColumn(threadColumns, "updated_at_ms")}
     FROM threads ORDER BY created_at ASC, id ASC`;
   const rows = database.prepare(sql).all() as ThreadRow[];
+  const repositoryByWorkspace = new Map<string, string | undefined>();
   return rows.map((row) => {
     if (
       typeof row.id !== "string" ||
@@ -91,12 +110,17 @@ function readThreads(database: BetterSqlite3.Database, schema: SourceSchemaDescr
     ) {
       throw new CodexCollectorError("unsupported_schema", "Codex thread index has invalid metadata");
     }
+    if (!repositoryByWorkspace.has(row.cwd)) {
+      repositoryByWorkspace.set(row.cwd, githubRepositorySlug(row.cwd));
+    }
+    const repositorySlug = repositoryByWorkspace.get(row.cwd);
     return {
       id: row.id,
       rolloutPath: row.rollout_path,
       createdAt: instantFromEpoch(row.created_at, row.created_at_ms),
       updatedAt: instantFromEpoch(row.updated_at, row.updated_at_ms),
       workspaceIdentityHash: workspaceIdentityHash(row.cwd),
+      ...(repositorySlug === undefined ? {} : { repositorySlug }),
       ...(typeof row.model === "string" && row.model.length > 0 ? { model: row.model } : {}),
       reasoningEffort:
         typeof row.reasoning_effort === "string"

@@ -19,6 +19,7 @@ export interface CodexThreadRecord {
   createdAt: string;
   updatedAt: string;
   workspaceIdentityHash: string;
+  repositorySlug?: string;
   model?: string;
   reasoningEffort: ReasoningEffort;
   indexedAgentRole?: string;
@@ -94,6 +95,7 @@ export interface CodexSessionMetadata {
   agentRole: AgentRole;
   parentSessionId?: string;
   workspaceIdentityHash: string;
+  repositorySlug?: string;
 }
 
 export type ResolvedEdgeStatus = "open" | "closed" | "stale" | "unknown";

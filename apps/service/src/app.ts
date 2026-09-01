@@ -2,17 +2,21 @@ import type { CodexCollector } from "@agent-dashboard/collector-codex";
 import type { GitHubCollector } from "@agent-dashboard/collector-github";
 import type { Storage } from "@agent-dashboard/storage";
 import Fastify, { type FastifyInstance } from "fastify";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { extname, join, normalize, resolve, sep } from "node:path";
 
 import { ServiceEventHub } from "./events.js";
 import { CodexSyncCoordinator } from "./codex-sync.js";
 import { snapshotFixture } from "./fixtures/snapshot.js";
 import { GitHubSyncCoordinator } from "./github-sync.js";
+import { buildMonthlyHistory } from "./history.js";
 import { buildStorageSnapshot } from "./snapshot.js";
 
 type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
 
 type BuildAppOptions = {
   logger?: false | { level: LogLevel };
+  dashboardPath?: string;
   sseHeartbeatMs?: number;
   /** Allows a bounded stream in tests without changing the public endpoint contract. */
   sseMaxHeartbeats?: number;
@@ -23,6 +27,8 @@ type BuildAppOptions = {
   fixtureMode?: boolean;
   githubSyncOnStart?: boolean;
   codexSyncOnStart?: boolean;
+  githubSyncIntervalMs?: number;
+  codexSyncIntervalMs?: number;
   timeZone?: string;
   now?: () => Date;
 };
@@ -40,6 +46,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     options.storage !== undefined && options.codexCollector !== undefined
       ? new CodexSyncCoordinator(options.storage, options.codexCollector, eventHub, now)
       : undefined;
+
+  const scheduledRefreshes: NodeJS.Timeout[] = [];
 
   app.get("/health", async () => ({
     status: "ok",
@@ -60,6 +68,28 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       timeZone: options.timeZone ?? "America/Denver",
       now: now(),
     });
+  });
+
+  app.get<{ Querystring: { month?: string } }>("/api/history", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    if (fixtureMode || options.storage === undefined) {
+      return reply.code(503).send({ error: "Work history is unavailable" });
+    }
+    const month = request.query.month;
+    if (month === undefined) {
+      return reply.code(400).send({ error: "month must use YYYY-MM" });
+    }
+    try {
+      return buildMonthlyHistory(options.storage, {
+        month,
+        timeZone: options.timeZone ?? "America/Denver",
+      });
+    } catch (error) {
+      if (error instanceof RangeError) {
+        return reply.code(400).send({ error: error.message });
+      }
+      throw error;
+    }
   });
 
   app.post("/api/sync/github", async (_request, reply) => {
@@ -84,6 +114,28 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
     const state = await codexCoordinator.sync();
     return reply.code(state.status === "failed" ? 503 : 200).send(state);
+  });
+
+  app.post("/api/sync", async (_request, reply) => {
+    if (githubCoordinator === undefined && codexCoordinator === undefined) {
+      return reply.code(503).send({
+        status: "unavailable",
+        error: "Synchronization is not configured",
+      });
+    }
+
+    const [github, codex] = await Promise.all([
+      githubCoordinator?.sync(),
+      codexCoordinator?.sync(),
+    ]);
+    const states = [github?.status, codex?.status].filter((status) => status !== undefined);
+    const status = states.every((state) => state === "failed")
+      ? "failed"
+      : states.some((state) => state === "failed" || state === "partial")
+        ? "partial"
+        : "succeeded";
+
+    return reply.code(status === "failed" ? 503 : 200).send({ status, github, codex });
   });
 
   app.get("/api/events", async (_request, reply) => {
@@ -140,33 +192,96 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     reply.raw.once("error", cleanup);
   });
 
-  if (options.githubSyncOnStart === true && githubCoordinator !== undefined) {
-    app.addHook("onReady", () => {
-      void githubCoordinator
-        .sync()
-        .then((state) => {
-          if (state.status === "failed") {
-            app.log.warn({ code: state.error?.code }, "GitHub synchronization on start failed");
-          }
-        })
-        .catch(() => {
-          app.log.warn("GitHub synchronization on start failed unexpectedly");
-        });
-    });
-  }
+  const runInBackground = (
+    name: "GitHub" | "Codex",
+    sync: () => Promise<{ status: string; error?: { code: string } }>,
+  ) => {
+    void sync()
+      .then((state) => {
+        if (state.status === "failed") {
+          app.log.warn({ code: state.error?.code }, `${name} synchronization failed`);
+        }
+      })
+      .catch(() => app.log.warn(`${name} synchronization failed unexpectedly`))
+      .finally(() => {
+        const collectGarbage = (globalThis as typeof globalThis & { gc?: () => void }).gc;
+        collectGarbage?.();
+      });
+  };
 
-  if (options.codexSyncOnStart === true && codexCoordinator !== undefined) {
-    app.addHook("onReady", () => {
-      void codexCoordinator
-        .sync()
-        .then((state) => {
-          if (state.status === "failed") {
-            app.log.warn({ code: state.error?.code }, "Codex synchronization on start failed");
-          }
-        })
-        .catch(() => {
-          app.log.warn("Codex synchronization on start failed unexpectedly");
-        });
+  const scheduleRefresh = (
+    name: "GitHub" | "Codex",
+    sync: () => Promise<{ status: string; error?: { code: string } }>,
+    syncOnStart: boolean,
+    intervalMs: number | undefined,
+  ) => {
+    if (syncOnStart) runInBackground(name, sync);
+    if (intervalMs === undefined || intervalMs <= 0) return;
+    const timer = setInterval(() => runInBackground(name, sync), intervalMs);
+    timer.unref();
+    scheduledRefreshes.push(timer);
+  };
+
+  app.addHook("onReady", () => {
+    if (githubCoordinator !== undefined) {
+      scheduleRefresh(
+        "GitHub",
+        () => githubCoordinator.sync(),
+        options.githubSyncOnStart === true,
+        options.githubSyncIntervalMs,
+      );
+    }
+    if (codexCoordinator !== undefined) {
+      scheduleRefresh(
+        "Codex",
+        () => codexCoordinator.sync(),
+        options.codexSyncOnStart === true,
+        options.codexSyncIntervalMs,
+      );
+    }
+  });
+
+  app.addHook("onClose", () => {
+    for (const timer of scheduledRefreshes.splice(0)) clearInterval(timer);
+  });
+
+  if (options.dashboardPath !== undefined) {
+    const dashboardRoot = resolve(options.dashboardPath);
+    const contentTypes: Record<string, string> = {
+      ".css": "text/css; charset=utf-8",
+      ".html": "text/html; charset=utf-8",
+      ".ico": "image/x-icon",
+      ".js": "text/javascript; charset=utf-8",
+      ".json": "application/json; charset=utf-8",
+      ".map": "application/json; charset=utf-8",
+      ".png": "image/png",
+      ".svg": "image/svg+xml",
+      ".webp": "image/webp",
+      ".woff": "font/woff",
+      ".woff2": "font/woff2",
+    };
+
+    app.get("/api/*", async (_request, reply) => {
+      return reply.code(404).send({ error: "API endpoint not found" });
+    });
+
+    app.get("/*", async (request, reply) => {
+      const requestedPath = normalize(decodeURIComponent(request.url.split("?", 1)[0] ?? "/"));
+      const relativePath = requestedPath === "/" ? "index.html" : requestedPath.replace(/^\/+/, "");
+      const candidate = resolve(join(dashboardRoot, relativePath));
+      const withinDashboard = candidate === dashboardRoot || candidate.startsWith(`${dashboardRoot}${sep}`);
+      const filePath =
+        withinDashboard && existsSync(candidate) && statSync(candidate).isFile()
+          ? candidate
+          : join(dashboardRoot, "index.html");
+
+      if (!existsSync(filePath)) {
+        return reply.code(404).send({ error: "Dashboard assets are unavailable" });
+      }
+
+      reply.header("cache-control", filePath.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable");
+      reply.type(contentTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream");
+      return reply.send(createReadStream(filePath));
     });
   }
 

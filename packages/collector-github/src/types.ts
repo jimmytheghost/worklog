@@ -50,6 +50,7 @@ export type GitHubCollectorErrorCode =
   | "gh_unavailable"
   | "authentication_failed"
   | "api_failed"
+  | "invalid_input"
   | "malformed_response";
 
 export interface CollectionFailure {
@@ -71,4 +72,9 @@ export interface GitHubCollectorOptions {
   runner?: CommandRunner;
   now?: () => Date;
   ghCommand?: string;
+}
+
+export interface GitHubCollectionInput {
+  /** UTC ISO-8601 instant used to bound commit and push-activity collection. */
+  since?: string;
 }

@@ -1,246 +1,64 @@
 import { useMemo, useRef, useState } from "react";
+import { defaultHistoryClient, defaultSyncClient, useHistory, type HistoryClient, type HistoryProject, type SyncClient, type WorkHistory } from "./data/history";
 import { defaultSnapshotClient, subscribeToTerminalSyncs, useSnapshot, type DashboardSnapshot, type DayActivity, type Metric, type SnapshotClient, type SnapshotRefreshSubscriber } from "./data/snapshot";
 
-const Icon = ({ name, size = 18 }: { name: "grid" | "folder" | "agent" | "usage" | "settings" | "arrow" | "branch" | "clock"; size?: number }) => {
-  const paths = {
-    grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
-    folder: <path d="M3 7.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7l-2-3H5a2 2 0 0 0-2 2v2.5Z"/>,
-    agent: <><path d="M12 3v3M8 3h8M5 9h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/><path d="M8 17h8"/></>,
-    usage: <><path d="M4 19V9M10 19V5M16 19v-7M22 19V2"/><path d="M2 19h21"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.38.36.72.65 1 .29.28.67.43 1.05.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></>,
-    arrow: <path d="m9 18 6-6-6-6"/>,
-    branch: <><circle cx="6" cy="5" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10M18 8v2a4 4 0 0 1-4 4H6"/></>,
-    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
-  } as const;
-  return <svg aria-hidden="true" viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
-};
+const paths = {
+  pulse: <path d="M3 12h4l2.4-6 4.2 12 2.2-6H21"/>, refresh: <><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></>,
+  arrow: <path d="m9 18 6-6-6-6"/>, back: <path d="m15 18-6-6 6-6"/>, search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
+  branch: <><circle cx="6" cy="5" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10M18 8v2a4 4 0 0 1-4 4H6"/></>,
+  github: <><circle cx="12" cy="12" r="9"/><path d="M8 18c-1.5.5-1.5-1-2-1.5M16 19v-3c0-1 .4-1.8 1-2.3"/></>,
+} as const;
+function Icon({ name, size = 18 }: { name: keyof typeof paths; size?: number }) { return <svg aria-hidden="true" viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>; }
+function number(value: number | null) { if (value === null) return "—"; if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`; if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`; if (value >= 1e4) return `${Math.round(value / 1e3)}K`; return new Intl.NumberFormat("en-US").format(value); }
+function friendlyDate(value: string) { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`)); }
+function monthLabel(month: string) { return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-15T12:00:00Z`)); }
+function shiftMonth(month: string, amount: number) { const date = new Date(`${month}-15T12:00:00Z`); date.setUTCMonth(date.getUTCMonth() + amount); return date.toISOString().slice(0, 7); }
+function localMonth(value: string, timeZone: string) { const parts = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "2-digit", timeZone }).formatToParts(new Date(value)); const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ""; return `${part("year")}-${part("month")}`; }
 
-const navItems = [
-  { label: "Overview", icon: "grid" },
-  { label: "Projects", icon: "folder" },
-  { label: "Agents", icon: "agent" },
-  { label: "Usage", icon: "usage" },
-] as const;
-
-function Header({ snapshot, degraded = false }: { snapshot?: DashboardSnapshot; degraded?: boolean }) {
-  const hasCollectorError = snapshot?.collectors.some((collector) => collector.status === "error") ?? false;
-  const hasPartialCoverage = snapshot?.collectors.some((collector) => collector.status === "partial") ?? false;
-  const hasConnectedCollector = snapshot?.collectors.some((collector) => collector.status === "healthy" || collector.status === "partial") ?? false;
-  const healthLabel = degraded
-    ? "Using local sample data"
-    : hasCollectorError
-      ? "Collector needs attention"
-      : hasPartialCoverage
-        ? "Coverage is partial"
-        : hasConnectedCollector
-          ? "Collectors connected"
-          : "No collectors connected";
-  const isWarning = degraded || hasCollectorError || hasPartialCoverage || !hasConnectedCollector;
-  return <header className="topbar">
-    <a className="brand" href="#main" aria-label="Agent Dashboard overview">
-      <span className="brand-mark"><span /><span /><span /></span>
-      <span><strong>Agent</strong><small>Dashboard</small></span>
-    </a>
-    <nav aria-label="Primary navigation">
-      {navItems.map((item, index) => <a key={item.label} className={index === 0 ? "active" : ""} href={index === 0 ? "#main" : `#${item.label.toLowerCase()}`} aria-current={index === 0 ? "page" : undefined}><Icon name={item.icon} />{item.label}</a>)}
-    </nav>
-    <div className="system-state">
-      <button className="sync-button" type="button" aria-label={`${healthLabel}, ${degraded ? "live snapshot unavailable" : "snapshot loaded"}`}>
-        <span className={`status-dot ${isWarning ? "warning" : ""}`} />
-        <span><strong>{healthLabel}</strong><small>{degraded ? "Live snapshot unavailable" : "Snapshot loaded"}</small></span>
-      </button>
-      <button className="icon-button" type="button" aria-label="Settings"><Icon name="settings" /></button>
-    </div>
-  </header>;
+function Header({ history, onBack }: { history: boolean; onBack: () => void }) {
+  return <header className="app-header"><button className="brand" type="button" onClick={onBack} aria-label="Open overview"><span className="brand-mark"><Icon name="pulse" size={17}/></span><span><strong>Worklog</strong><small>Private activity ledger</small></span></button>{history && <button className="quiet-button" type="button" onClick={onBack}><Icon name="back" size={16}/> Overview</button>}</header>;
 }
-
-function MetricStrip({ metrics }: Pick<DashboardSnapshot, "metrics">) {
-  return <section className="metric-strip" aria-label="Activity summary metrics">
-    {metrics.map((metric) => <article className={`metric ${metric.label === "Observed tokens" ? "observed-usage" : ""}`} key={metric.label}>
-      <p>{metric.label}</p>
-      <div><strong>{metric.value}</strong><span>{metric.delta}</span></div>
-      <small>{metric.context}</small>
-    </article>)}
-  </section>;
+function Notice({ snapshot, error }: { snapshot: DashboardSnapshot; error?: Error }) {
+  const partial = snapshot.collectors.filter((item) => item.status === "error" || item.status === "partial");
+  if (!error && partial.length === 0) return null;
+  return <aside className="notice" role="status"><span className="notice-dot"/><div><strong>{error ? "Showing cached activity" : "Some activity may be incomplete"}</strong><p>{error?.message ?? partial.map((item) => `${item.name}: ${item.detail}`).join(" · ")}</p></div></aside>;
 }
-
-function intensity(value: number | null) {
-  if (value === null) return "future";
-  if (value === 0) return "zero";
-  if (value === 1) return "low";
-  if (value <= 3) return "mid";
-  if (value <= 6) return "high";
-  return "peak";
-}
-
-function friendlyDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
-}
+function MetricStrip({ metrics }: Pick<DashboardSnapshot, "metrics">) { return <section className="metric-strip" aria-label="Activity summary">{metrics.map((metric) => <article className="metric" key={metric.label}><p>{metric.label}</p><strong>{metric.value}</strong><small>{metric.context}</small></article>)}</section>; }
+function intensity(value: number | null) { if (value === null) return "future"; if (value === 0) return "zero"; if (value < 3) return "low"; if (value < 6) return "mid"; if (value < 10) return "high"; return "peak"; }
 
 function Heatmap({ days, coverage }: { days: DayActivity[]; coverage: DashboardSnapshot["coverage"] }) {
-  const [metric, setMetric] = useState<Metric>("commits");
-  const initialSelection = useMemo(() => [...days].reverse().find((day) => day.commits !== null) ?? days[0]!, [days]);
-  const [selected, setSelected] = useState<DayActivity>(initialSelection);
-  const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const handleKey = (event: React.KeyboardEvent, index: number) => {
-    const movement = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }[event.key];
-    if (!movement) return;
-    event.preventDefault();
-    const target = Math.max(0, Math.min(days.length - 1, index + movement));
-    cellRefs.current[target]?.focus();
-  };
-
-  return <section className="activity-panel" aria-labelledby="activity-title">
-    <div className="panel-toolbar">
-      <div><span className="eyebrow" id="activity-title">Activity record</span><span className="toolbar-note">America / Denver</span></div>
-      <div className="controls">
-        <fieldset className="segment"><legend>Metric</legend>{(["commits", "pushes"] as Metric[]).map((value) => <button key={value} type="button" aria-pressed={metric === value} onClick={() => setMetric(value)}>{value}</button>)}</fieldset>
-        <label className="select-control"><span>Source</span><select defaultValue="all"><option value="all">All sources</option><option>GitHub</option><option>Local Git</option></select></label>
-        <label className="select-control"><span>Projects</span><select defaultValue="all"><option value="all">All projects</option><option>agent-dashboard</option><option>agentic-toolkit</option></select></label>
-      </div>
-    </div>
-    <div className="heatmap-content">
-      <div className="heatmap-scroll" role="region" aria-label={`Daily ${metric} heatmap`} tabIndex={0}>
-        <div className="month-row" aria-hidden="true"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
-        <div className="heatmap-layout">
-          <div className="weekday-labels" aria-hidden="true"><span>Mon</span><span>Wed</span><span>Fri</span></div>
-          <div className="heatmap-grid">
-            {days.map((day, index) => {
-              const value = day[metric];
-              return <button
-                className={`day-cell ${intensity(value)} ${selected.date === day.date ? "selected" : ""}`}
-                key={day.date}
-                ref={(node) => { cellRefs.current[index] = node; }}
-                type="button"
-                aria-label={`${friendlyDate(day.date)}: ${value === null ? "not in range" : `${value} ${metric}`}${day.aiAttributed ? ", includes AI-attributed activity" : ""}`}
-                aria-pressed={selected.date === day.date}
-                onClick={() => setSelected(day)}
-                onKeyDown={(event) => handleKey(event, index)}
-              >{day.aiAttributed && <span aria-hidden="true" />}</button>;
-            })}
-          </div>
-        </div>
-      </div>
-      <aside className="day-inspector" aria-live="polite">
-        <div><span className="eyebrow">Selected day</span><strong>{friendlyDate(selected.date)}</strong></div>
-        <div className="day-stats"><p><span>Commits</span><strong>{selected.commits ?? "—"}</strong></p><p><span>Pushes</span><strong>{selected.pushes ?? "—"}</strong></p><p><span>Projects</span><strong>{Math.min(4, selected.commits ?? 0)}</strong></p></div>
-        <p className="inspection-note"><span className="confidence-mark" /> Codex attribution <strong>{selected.aiAttributed ? "Correlated" : "Unknown"}</strong></p>
-      </aside>
-    </div>
-    <footer className="heatmap-footer">
-      <div className="legend"><span>Less</span>{["zero", "low", "mid", "high", "peak"].map((level) => <i className={level} key={level} />)}<span>More</span><b><span /> AI-attributed</b></div>
-      <p><span className="coverage-icon">◒</span><strong>{coverage.commits}</strong> · {coverage.pushes}</p>
-    </footer>
-  </section>;
+  const [metric, setMetric] = useState<Metric>("commits"); const visible = days.slice(-105); const initial = [...visible].reverse().find((day) => day.commits !== null) ?? visible[0]!; const [selected, setSelected] = useState(initial); const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  return <section className="heatmap-panel" aria-labelledby="heatmap-title"><header className="panel-header"><div><p className="eyebrow">Last 15 weeks</p><h2 id="heatmap-title">Shipping rhythm</h2></div><div className="segment" aria-label="Heatmap metric">{(["commits", "pushes"] as Metric[]).map((value) => <button key={value} type="button" aria-pressed={metric === value} onClick={() => setMetric(value)}>{value}</button>)}</div></header><div className="heatmap-body"><div className="heatmap-scroll" role="region" aria-label={`Daily ${metric} heatmap`} tabIndex={0}><div className="heatmap-grid">{visible.map((day, index) => <button key={day.date} ref={(node) => { refs.current[index] = node; }} type="button" className={`day-cell ${intensity(day[metric])} ${selected.date === day.date ? "selected" : ""}`} aria-pressed={selected.date === day.date} aria-label={`${friendlyDate(day.date)}: ${day[metric] === null ? "not in range" : `${day[metric]} ${metric}`}`} onClick={() => setSelected(day)} onKeyDown={(event) => { const move = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }[event.key]; if (!move) return; event.preventDefault(); refs.current[Math.max(0, Math.min(visible.length - 1, index + move))]?.focus(); }}/>)}</div></div><aside className="day-summary" aria-live="polite"><span>{friendlyDate(selected.date)}</span><div><strong>{selected.commits ?? "—"}</strong> commits <strong>{selected.pushes ?? "—"}</strong> pushes</div></aside></div><footer className="coverage-line"><span>{coverage.commits}</span><span>{coverage.pushes}</span></footer></section>;
 }
-
-function SectionHeader({ eyebrow, title, action }: { eyebrow: string; title?: string; action: string }) {
-  return <header className="section-header"><div><span className="eyebrow">{eyebrow}</span>{title && <h2>{title}</h2>}</div><a href="#details">{action}<Icon name="arrow" size={15} /></a></header>;
+function RecentProjects({ projects, open }: { projects: DashboardSnapshot["projects"]; open: () => void }) {
+  return <section className="list-panel" aria-labelledby="recent-projects-title"><header className="panel-header"><div><p className="eyebrow">Recently touched</p><h2 id="recent-projects-title">Projects</h2></div><button className="text-button" type="button" onClick={open}>All projects <Icon name="arrow" size={14}/></button></header>{projects.length === 0 ? <p className="empty-copy">No project activity has been recorded yet.</p> : <ul className="project-list">{projects.slice(0, 6).map((project) => <li key={project.name}><div><strong>{project.name}</strong><small><Icon name="branch" size={12}/> {project.branch}</small></div><span><strong>{project.commits}</strong> commits</span><time>{project.updated} ago</time></li>)}</ul>}</section>;
 }
-
-function ProjectsPanel({ projects }: Pick<DashboardSnapshot, "projects">) {
-  return <section className="support-panel projects-panel" aria-labelledby="projects-title">
-    <SectionHeader eyebrow={`Active projects · ${projects.length}`} title="Where the work is moving" action="View all" />
-    <div className="project-table" role="table" aria-label="Active projects">
-      <div className="project-head" role="row"><span role="columnheader" id="projects-title">Repository</span><span role="columnheader">Commits</span><span role="columnheader">Agents</span><span role="columnheader">Updated</span></div>
-      {projects.map((project) => <a className="project-row" href="#project" role="row" key={project.name}>
-        <span role="cell"><strong>{project.name}</strong><small><Icon name="branch" size={12} />{project.branch}</small></span>
-        <strong role="cell">{project.commits}</strong><span role="cell">{project.agents || "—"}</span><span role="cell">{project.updated}</span>
-      </a>)}
-    </div>
-  </section>;
+function RecentActivity({ activity }: { activity: DashboardSnapshot["recentActivity"] }) {
+  const meaningful = activity.filter((event) => !/agent|session/i.test(event.title)); const visible = (meaningful.length ? meaningful : activity).slice(0, 5);
+  return <section className="list-panel" aria-labelledby="recent-activity-title"><header className="panel-header"><div><p className="eyebrow">Latest</p><h2 id="recent-activity-title">Activity</h2></div></header>{visible.length === 0 ? <p className="empty-copy">Nothing shipped yet. New commits and pushes will appear here.</p> : <ol className="event-list">{visible.map((event) => <li key={event.id}><span className={`event-mark ${event.tone}`}/><div><strong>{event.subject || event.title}</strong><small>{event.title} · {event.source}</small></div><time>{event.time}</time></li>)}</ol>}</section>;
 }
-
-function AgentsPanel({ agents }: { agents: DashboardSnapshot["agents"] }) {
-  const running = agents.filter((agent) => agent.status === "Running").length;
-  return <section className="support-panel agents-panel" aria-labelledby="agents-title">
-    <SectionHeader eyebrow="Agents · Today" title={agents.length === 0 ? "No agent data yet" : running === 1 ? "One task in motion" : `${running} tasks in motion`} action="Open graph" />
-    {agents.length === 0 ? <div className="agent-empty" id="agents-title">
-      <span className="agent-node"><Icon name="agent" size={16} /></span>
-      <div><strong>No local Codex sessions observed</strong><p>New tasks and sub-agents will appear here after the local Codex source records them.</p></div>
-    </div> : <ol className="agent-tree" id="agents-title">
-      {agents.map((agent) => <li key={agent.id} style={{ "--depth": agent.depth } as React.CSSProperties} className={`agent-row depth-${Math.min(agent.depth, 2)}`}>
-        <span className={`agent-node ${agent.status.toLowerCase()}`}><Icon name="agent" size={14} /></span>
-        <span className="agent-copy"><strong>{agent.name}</strong><small>{agent.meta}</small></span>
-        <span className={`status-label ${agent.status.toLowerCase()}`}>{agent.status}</span>
-        <span className="duration">{agent.duration}</span>
-      </li>)}
-    </ol>}
-    <div className="agent-summary"><p><span>{agents.length}</span> agents observed</p><p><span>{running}</span> running now</p><p><span>{agents.filter((agent) => agent.depth > 0).length}</span> sub-agents</p></div>
-  </section>;
+function Overview({ snapshot, open, syncClient }: { snapshot: DashboardSnapshot; open: () => void; syncClient: SyncClient }) {
+  const [sync, setSync] = useState<"idle" | "running" | "done" | "error">("idle");
+  async function refresh() { setSync("running"); try { await syncClient(); setSync("done"); } catch { setSync("error"); } }
+  const collector = snapshot.collectors.find((item) => item.status === "healthy" || item.status === "partial");
+  return <main id="main" className="overview"><section className="hero"><div><p className="eyebrow"><span className="live-dot"/> {snapshot.timezone}</p><h1>Your work, remembered.</h1><p>A quick read on what shipped and where your time went.</p></div><div className="sync-card"><span><strong>{sync === "running" ? "Refreshing…" : sync === "error" ? "Refresh failed" : sync === "done" ? "Refresh started" : "Ledger ready"}</strong><small>{collector?.detail ?? `Snapshot ${friendlyDate(snapshot.generatedAt)}`}</small></span><button type="button" onClick={refresh} disabled={sync === "running"}><Icon name="refresh" size={16}/> Refresh now</button></div></section><MetricStrip metrics={snapshot.metrics}/><Heatmap days={snapshot.activityDays} coverage={snapshot.coverage}/><div className="overview-grid"><RecentProjects projects={snapshot.projects} open={open}/><RecentActivity activity={snapshot.recentActivity}/></div><button className="history-cta" type="button" onClick={open}><span><small>Monthly archive</small><strong>Open Work History</strong><em>Every project, commit, push, and observed token.</em></span><Icon name="arrow" size={22}/></button></main>;
 }
-
-function CodexSourceNotice({ snapshot }: { snapshot: DashboardSnapshot }) {
-  const hasObservedTokens = snapshot.metrics.some((metric) => metric.label === "Observed tokens" && metric.value !== "—");
-  if (snapshot.agents.length === 0 && !hasObservedTokens) return null;
-  return <aside className="codex-source-notice" role="note" aria-label="Experimental Codex data source">
-    <span className="experimental-badge">Experimental source</span>
-    <p><strong>Codex activity is observed from local metadata.</strong> Agent relationships and token totals may be incomplete; observed tokens are not billing usage.</p>
-  </aside>;
+function HistorySummary({ history }: { history: WorkHistory }) { return <section className="history-summary" aria-label="Monthly summary"><article><span>Projects</span><strong>{history.summary.projects}</strong></article><article><span>Commits</span><strong>{history.summary.commits}</strong></article><article><span>Pushes</span><strong>{history.summary.pushes}</strong></article><article><span>Observed tokens</span><strong>{number(history.summary.tokens)}</strong><small>{history.summary.tokens === null ? "Not available" : "Local metadata"}</small></article></section>; }
+function ProjectHistory({ project, timezone }: { project: HistoryProject; timezone: string }) {
+  return <details className="history-project"><summary><span className="disclosure"><Icon name="arrow" size={16}/></span><span className="project-name"><strong>{project.name}</strong><small>{project.owner}{project.branch ? ` / ${project.branch}` : ""}</small></span><span className="project-stat"><strong>{project.commits}</strong><small>commits</small></span><span className="project-stat"><strong>{project.pushes}</strong><small>pushes</small></span><span className="project-stat"><strong>{number(project.tokens)}</strong><small>{project.tokens === null ? "tokens unavailable" : "tokens"}</small></span><time>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: timezone }).format(new Date(project.lastActivityAt))}</time></summary><ol className="history-events">{project.activity.length === 0 ? <li className="empty-copy">No item-level activity is available for this project.</li> : project.activity.map((event) => <li key={event.id}><span className={`activity-type ${event.type.includes("push") ? "push" : "commit"}`}>{event.type.includes("push") ? "Push" : "Commit"}</span><div><strong>{event.subject || event.detail || "Untitled activity"}</strong><small>{event.detail}{event.attribution && event.attribution !== "unknown" ? ` · ${event.attribution} (${event.confidence})` : ""}</small></div><time>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: timezone }).format(new Date(event.occurredAt))}</time>{event.url ? <a href={event.url} target="_blank" rel="noreferrer" aria-label={`Open ${event.subject || event.type} on GitHub`}><Icon name="github" size={17}/></a> : <span/>}</li>)}</ol></details>;
 }
-
-function ActivityFeed({ activity }: { activity: DashboardSnapshot["recentActivity"] }) {
-  return <section className="feed-panel" aria-labelledby="feed-title">
-    <SectionHeader eyebrow="Recent activity" action="View timeline" />
-    <h2 className="sr-only" id="feed-title">Recent activity</h2>
-    <ol className="activity-feed">
-      {activity.map((event) => <li key={event.id}>
-        <time>{event.time}</time><span className={`feed-mark ${event.tone}`} /><span className="feed-title"><strong>{event.title}</strong><small>{event.subject}</small></span><code>{event.detail}</code><span className="source-badge">{event.source}</span><button type="button" aria-label={`Inspect ${event.title}`}><Icon name="arrow" size={16} /></button>
-      </li>)}
-    </ol>
-  </section>;
+function WorkHistoryView({ initialMonth, client }: { initialMonth: string; client: HistoryClient }) {
+  const [month, setMonth] = useState(initialMonth); const [query, setQuery] = useState(""); const state = useHistory(client, month, true);
+  const projects = useMemo(() => { const term = query.trim().toLowerCase(); if (!state.history || !term) return state.history?.projects ?? []; return state.history.projects.filter((project) => `${project.owner}/${project.name} ${project.branch} ${project.activity.map((event) => event.subject).join(" ")}`.toLowerCase().includes(term)); }, [query, state.history]);
+  return <main id="main" className="history-view"><section className="history-hero"><div><p className="eyebrow">Complete monthly ledger</p><h1>Work History</h1><p>Every project observed during the month. Nothing is ranked out of view.</p></div><div className="month-picker"><button type="button" aria-label="Previous month" onClick={() => setMonth((value) => shiftMonth(value, -1))}><Icon name="back"/></button><strong aria-live="polite">{monthLabel(month)}</strong><button type="button" aria-label="Next month" onClick={() => setMonth((value) => shiftMonth(value, 1))}><Icon name="arrow"/></button></div></section>{state.status === "loading" && !state.history && <section className="history-loading" aria-busy="true"><span className="spinner"/> Loading {monthLabel(month)}…</section>}{state.status === "error" && !state.history && <section className="history-error" role="alert"><strong>Work history could not be loaded.</strong><p>{state.error.message}</p></section>}{state.history && <><HistorySummary history={state.history}/><section className="history-list" aria-labelledby="projects-heading"><header><div><p className="eyebrow">{projects.length} of {state.history.projects.length} projects</p><h2 id="projects-heading">Projects touched</h2></div><label className="search"><span className="sr-only">Search work history</span><Icon name="search" size={16}/><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects or commits"/></label></header>{projects.length === 0 ? <p className="history-empty">No projects match “{query}”.</p> : projects.map((project) => <ProjectHistory key={project.projectId} project={project} timezone={state.history!.timezone}/>)}</section></>}</main>;
 }
+function Loading() { return <main id="main" className="loading-overview" aria-busy="true" aria-label="Loading dashboard snapshot"><span className="spinner"/><strong>Opening your ledger…</strong><small>Cached activity will appear as soon as it is ready.</small></main>; }
+function Fatal({ error }: { error: Error }) { return <main id="main" className="fatal-error"><div role="alert"><span>!</span><p className="eyebrow">Ledger unavailable</p><h1>We couldn’t open your activity.</h1><p>{error.message}</p><button type="button" onClick={() => window.location.reload()}>Try again</button></div></main>; }
 
-function LoadingOverview() {
-  return <main id="main" aria-busy="true" aria-label="Loading dashboard snapshot">
-    <section className="page-intro loading-intro"><div><span className="skeleton short" /><span className="skeleton title" /><span className="skeleton copy" /></div></section>
-    <section className="metric-strip loading-metrics" aria-label="Loading summary metrics">{Array.from({ length: 4 }, (_, index) => <div className="metric" key={index}><span className="skeleton short" /><span className="skeleton value" /><span className="skeleton short" /></div>)}</section>
-    <section className="activity-panel loading-panel"><div className="panel-toolbar"><span className="skeleton short" /></div><div className="loading-grid" aria-hidden="true">{Array.from({ length: 105 }, (_, index) => <span key={index} />)}</div><p>Reading the local event ledger…</p></section>
-  </main>;
-}
-
-function SnapshotError({ error }: { error: Error }) {
-  return <main id="main" className="error-page">
-    <section className="error-state" role="alert"><span className="error-glyph">!</span><p className="eyebrow">Collector unavailable</p><h1>The activity snapshot could not be loaded.</h1><p>{error.message}. The service remains read-only; no local data was changed.</p><button type="button" onClick={() => window.location.reload()}>Try again</button></section>
-  </main>;
-}
-
-function CollectorNotice({ error, snapshot }: { error: Error; snapshot: DashboardSnapshot }) {
-  return <aside className="collector-notice" role="status"><span className="error-glyph">!</span><div><strong>Live collectors are unavailable</strong><p>{error.message}. Showing the bundled development snapshot from {friendlyDate(snapshot.generatedAt.slice(0, 10))}.</p></div></aside>;
-}
-
-function CollectorHealthNotice({ snapshot }: { snapshot: DashboardSnapshot }) {
-  const failed = snapshot.collectors.filter((collector) => collector.status === "error");
-  if (failed.length === 0) return null;
-  return <aside className="collector-notice" role="status"><span className="error-glyph">!</span><div><strong>{failed.length === 1 ? `${failed[0]!.name} collector needs attention` : `${failed.length} collectors need attention`}</strong><p>{failed.map((collector) => `${collector.name}: ${collector.detail}`).join(" · ")}. Other snapshot data remains available.</p></div></aside>;
-}
-
-export type AppProps = { snapshotClient?: SnapshotClient; fallbackSnapshot?: DashboardSnapshot; refreshSubscriber?: SnapshotRefreshSubscriber; retryDelayMs?: number };
-
-export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot, refreshSubscriber = subscribeToTerminalSyncs, retryDelayMs }: AppProps) {
-  const snapshotState = useSnapshot(snapshotClient, fallbackSnapshot, refreshSubscriber, retryDelayMs);
-
-  if (snapshotState.status === "loading") return <><a className="skip-link" href="#main">Skip to dashboard</a><Header /><LoadingOverview /></>;
-  if (!snapshotState.snapshot) return <><a className="skip-link" href="#main">Skip to dashboard</a><Header degraded /><SnapshotError error={snapshotState.error} /></>;
-  const snapshot = snapshotState.snapshot;
-
-  return <>
-    <a className="skip-link" href="#main">Skip to dashboard</a>
-    <Header snapshot={snapshot} degraded={snapshotState.usingFallback} />
-    <main id="main">
-      {snapshotState.status === "error" && <CollectorNotice error={snapshotState.error} snapshot={snapshot} />}
-      {snapshotState.status === "success" && <CollectorHealthNotice snapshot={snapshot} />}
-      <CodexSourceNotice snapshot={snapshot} />
-      <section className="page-intro">
-        <div><p className="eyebrow"><span /> Activity · America / Denver</p><h1>Work, shipped.</h1><p>A daily record of commits, pushes, and the agents behind them.</p></div>
-        <div className="range-summary"><span className="eyebrow">Reporting range</span><button type="button">Last 12 months <span>⌄</span></button><small><Icon name="clock" size={13} /> {snapshot.reportingRange.formatted}</small></div>
-      </section>
-      <MetricStrip metrics={snapshot.metrics} />
-      <Heatmap days={snapshot.activityDays} coverage={snapshot.coverage} />
-      <div className="support-grid"><ProjectsPanel projects={snapshot.projects} /><AgentsPanel agents={snapshot.agents} /></div>
-      <ActivityFeed activity={snapshot.recentActivity} />
-      <footer className="app-footer"><p><span className="status-dot" />Local ledger online</p><p>Read-only · Metadata only · <a href="#sources">Inspect data sources</a></p></footer>
-    </main>
-  </>;
+export type AppProps = { snapshotClient?: SnapshotClient; fallbackSnapshot?: DashboardSnapshot; refreshSubscriber?: SnapshotRefreshSubscriber; retryDelayMs?: number; historyClient?: HistoryClient; syncClient?: SyncClient };
+export function App({ snapshotClient = defaultSnapshotClient, fallbackSnapshot, refreshSubscriber = subscribeToTerminalSyncs, retryDelayMs, historyClient = defaultHistoryClient, syncClient = defaultSyncClient }: AppProps) {
+  const state = useSnapshot(snapshotClient, fallbackSnapshot, refreshSubscriber, retryDelayMs); const [view, setView] = useState<"overview" | "history">(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "history" ? "history" : "overview");
+  if (state.status === "loading") return <><a className="skip-link" href="#main">Skip to dashboard</a><Header history={false} onBack={() => setView("overview")}/><Loading/></>;
+  if (!state.snapshot) return <><a className="skip-link" href="#main">Skip to dashboard</a><Header history={false} onBack={() => setView("overview")}/><Fatal error={state.error}/></>;
+  const snapshot = state.snapshot; const noticeProps = state.status === "error" ? { snapshot, error: state.error } : { snapshot }; return <><a className="skip-link" href="#main">Skip to dashboard</a><Header history={view === "history"} onBack={() => setView("overview")}/><div className="notice-wrap"><Notice {...noticeProps}/></div>{view === "overview" ? <Overview snapshot={snapshot} open={() => setView("history")} syncClient={syncClient}/> : <WorkHistoryView initialMonth={localMonth(snapshot.generatedAt, snapshot.timezone)} client={historyClient}/>}<footer className="app-footer"><span><i className="live-dot"/> Local ledger</span><span>Metadata only · Your data stays on this Mac</span></footer></>;
 }

@@ -26,6 +26,8 @@ const workspaceIdentityHash = z
   .regex(/^[0-9a-fA-F]{64}$/)
   .transform((value) => value.toLowerCase());
 const metadataLabel = z.string().trim().min(1).max(256);
+const commitSubject = z.string().trim().min(1).max(512);
+const httpUrl = z.string().url().refine((value) => value.startsWith("https://") || value.startsWith("http://"));
 
 export const attributionSchema = z.enum(ATTRIBUTIONS);
 export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
@@ -46,6 +48,8 @@ const associationPayloadSchema = z.strictObject({
 export const eventPayloadSchemas = {
   "git.commit.discovered": z.strictObject({
     sha,
+    subject: commitSubject.optional(),
+    url: httpUrl.optional(),
     authorOccurredAt: instant.optional(),
     committerOccurredAt: instant,
     parentShas: z.array(sha),
@@ -56,6 +60,7 @@ export const eventPayloadSchemas = {
     afterSha: sha.optional(),
     commitShas: z.array(sha),
     membershipComplete: z.boolean(),
+    activityKind: z.enum(["push", "force_push", "branch_creation", "branch_deletion"]).optional(),
     forced: z.boolean().optional(),
     deleted: z.boolean().optional(),
   }),
@@ -77,6 +82,7 @@ export const eventPayloadSchemas = {
     sourceTaskId: nonEmptyString,
     workspacePathHash: nonEmptyString.optional(),
     workspaceIdentityHash: workspaceIdentityHash.optional(),
+    repositorySlug: z.string().regex(/^[^/\s]+\/[^/\s]+$/).max(256).optional(),
     label: metadataLabel.optional(),
   }),
   "codex.session.started": z.strictObject({
