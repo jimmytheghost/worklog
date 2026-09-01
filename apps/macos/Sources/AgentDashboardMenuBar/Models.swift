@@ -1,5 +1,28 @@
 import Foundation
 
+enum ActivityPeriod: String, CaseIterable, Codable, Identifiable {
+    case day, week, month, year, all
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
+struct PeriodSummary: Codable, Equatable {
+    struct Metrics: Codable, Equatable {
+        let tokens: Double?
+        let commits: Double
+        let pushes: Double
+        let activeDays: Double
+        let projects: Double
+    }
+
+    let schemaVersion: Int
+    let period: ActivityPeriod
+    let timezone: String
+    let metrics: Metrics
+    let recentActivity: [DashboardSnapshot.Activity]
+}
+
 struct DashboardSnapshot: Codable, Equatable {
     struct Metric: Codable, Equatable {
         let metric: String
@@ -33,6 +56,14 @@ struct DashboardSnapshot: Codable, Equatable {
         let lastSucceededAt: String?
     }
 
+    struct DayActivity: Codable, Equatable, Identifiable {
+        let date: String
+        let commits: Double
+        let pushes: Double
+
+        var id: String { date }
+    }
+
     let schemaVersion: Int
     let generatedAt: String
     let timezone: String
@@ -40,6 +71,7 @@ struct DashboardSnapshot: Codable, Equatable {
     let projects: [Project]
     let recentActivity: [Activity]
     let sources: [Source]
+    let activityDays: [DayActivity]?
 
     func metric(_ name: String) -> Double? {
         summary.first(where: { $0.metric == name })?.value
@@ -52,6 +84,10 @@ struct DashboardSnapshot: Codable, Equatable {
 
     var meaningfulActivity: [Activity] {
         Array(recentActivity.filter(\.isMeaningful).prefix(5))
+    }
+
+    var heatmapDays: [DayActivity] {
+        Array((activityDays ?? []).suffix(90))
     }
 
     var syncSummary: String {

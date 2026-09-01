@@ -1,175 +1,88 @@
-# Agent Dashboard Product Brief
+# Worklog Product Brief
+
+Status: active product baseline
 
 ## Product intent
 
-Agent Dashboard is a private, local-first command center for understanding personal software work across GitHub and Codex. It should answer three questions quickly:
+Worklog is a private, local-first record of the software work one person actually did. It should answer three questions in a few seconds:
 
-1. What did I build and ship?
-2. What are my Codex agents doing?
-3. How much AI capacity am I using?
+1. What did I commit and push today, this week, this month, or this year?
+2. Which projects did I touch, including the ones I would otherwise forget?
+3. How many Codex tokens were locally observed while I worked?
 
-The product favors trustworthy, inspectable data over vanity totals. It should feel like a polished instrument: dense enough to be useful, calm enough to check every day, and explicit about where each number came from.
+The primary experience should feel like a task-bar utility: click the menu-bar icon, read the answer, and move on. The complete monthly archive is available one click away. The app must stay small enough for one person to run without babysitting it.
 
-## Primary workflows
+## Current experience
 
-### Review recent output
+### Menu-bar Worklog
 
-Open the dashboard and see daily, weekly, and yearly development activity. Switch between commits and pushes, inspect a day, and follow its events back to repositories and Codex tasks.
+- Day, Week, Month, Year, and All range selector.
+- Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
+- Clickable days with exact commit and push totals in a compact detail strip.
+- Observed tokens, commits, pushes, active days, and project totals.
+- Recent work with commit subjects and repository/ref push descriptions.
+- Quiet refresh, cached-data, source-health, and shutdown behavior.
 
-### Inspect a project
+### Work History
 
-Select a repository to see its recent commits, observed pushes, branches, latest activity, associated Codex tasks, and collection status.
+- Complete month-by-month archive rather than a “top projects” ranking.
+- Searchable work rows with dates, repositories, commit subjects, push descriptions, and links where available.
+- All projects represented when they have qualifying recorded work.
 
-### Follow agent work
+## Range semantics
 
-Review recent Codex tasks and their sub-agent hierarchy. See status, model, duration, token totals, associated project, and any Git activity confidently connected to the task.
+- **Day:** today in the configured local timezone.
+- **Week:** today plus the previous six local calendar days.
+- **Month:** the current local calendar month through now.
+- **Year:** the current local calendar year through now.
+- **All:** the entire recorded local ledger.
 
-### Understand usage
-
-Review locally observed Codex token usage independently from official OpenAI API organization usage. Filter by time range, model, or project without implying that the two sources are equivalent.
-
-### Verify the data
-
-Inspect source, freshness, coverage, and attribution confidence for dashboard totals. Export or back up the local event history.
-
-## MVP sections
-
-### Overview
-
-- Contribution-style daily activity grid with independent commit and push views
-- Today, this week, and this year summary metrics
-- Recently active projects and agents
-- Unified chronological activity feed
-- Visible sync freshness and incomplete-coverage states
-
-### Projects
-
-- Repositories owned by the configured GitHub account
-- Activity history, latest commits, and observed pushes
-- Branch, language, and last-activity context when available
-- Codex tasks associated with each repository
-
-### Agents
-
-- Codex task history and current status
-- Parent and sub-agent topology
-- Model, duration, project, and locally observed token totals
-- Correlated Git activity with explicit confidence labels
-
-### Usage
-
-- Locally observed Codex token usage
-- Optional official OpenAI API organization usage
-- Date, model, and project filters where supported by the source
-- Source and collection coverage shown alongside every aggregate
-
-### Settings and data
-
-- GitHub, Codex, and optional OpenAI API connection state
-- Repository inclusion controls
-- Collector health, last sync, and history coverage
-- Local database backup and export
+The 90-day heatmap is an independent orientation tool and stays fixed when the summary range changes.
 
 ## Product truth rules
 
-These rules are part of the product contract, not presentation details.
+### Commits and pushes are different
 
-### Commits and pushes are different events
+A commit records repository history. A push changes one or more remote refs and can contain zero, one, or many commits. Worklog stores and reports them separately. “Both” is only a heatmap display mode; it does not merge their underlying meanings.
 
-A commit records a change to repository history. A push transfers one or more refs and may contain zero, one, or many commits. The dashboard stores and reports commits and pushes separately and never derives a push count from commit count.
+### Coverage must be honest
 
-### Coverage must be visible
+Reachable commit history can be reconstructed more completely than push history. GitHub only exposes recent push activity, so push totals are observed and partial, never presented as lifetime-complete.
 
-Historical commits may be reconstructed from repository history. Historical pushes may not be fully recoverable. Push metrics must state the observation window, such as `Observed since 2026-09-01`, and must never present partial data as a lifetime total.
+### Token usage is observed, not billed
 
-### Usage sources remain separate
+The current total comes from local Codex counters. It is not an OpenAI credit balance, subscription limit, invoice, or billing-grade total. Official usage may be added later only as a separately labeled source.
 
-Locally observed Codex tokens and official OpenAI API organization usage are different datasets. They may appear in one interface but must retain separate totals, labels, source metadata, and coverage. The product must not invent cost estimates where pricing or billing context is unavailable.
+### The archive must not forget projects
 
-### Attribution and confidence remain separate
+Compact overview space may show only recent events, but Work History must retain every project with recorded activity for the selected month. No project disappears because it falls below an arbitrary top-four or top-five cutoff.
 
-Activity attribution is classified as **Codex**, **human**, or **unknown**. The evidence supporting a relationship is classified independently as **confirmed**, **correlated**, or **unknown**. For example, a commit may be `Codex / correlated` when its repository, branch, SHA, and timing align with a task but no durable source identifier explicitly links them.
+### Missing is not zero
 
-Inferred relationships must remain visibly distinguishable from confirmed relationships, and unknown activity must never be silently treated as human or AI-generated.
-
-### Source and freshness are inspectable
-
-Every aggregate must be traceable to a source adapter and collection time. Stale, unavailable, and partially collected data are product states with clear UI treatment, not silent failures.
+Unknown, unavailable, partial, stale, and confirmed zero are different states. The interface must not silently turn one into another.
 
 ### Collection is private and minimal
 
-The MVP stores metadata needed for activity and usage analysis. It does not ingest prompt text, response text, terminal command contents, private source code, or repository file contents. Credentials remain local and are never written to application logs.
+Worklog stores the metadata required to explain activity. It does not ingest prompts, responses, commands, tool output, source files, diffs, patches, file lists, or commit bodies. Privacy-safe first-line commit subjects and canonical GitHub links are allowed.
 
-Git commit metadata may include the privacy-safe first-line subject and canonical GitHub URL so the monthly work history can explain what changed. Commit bodies, diffs, patches, and repository file contents remain prohibited.
+## Explicit non-goals
 
-### Synchronization is idempotent
+- Launching, steering, approving, or terminating agents.
+- A live agent hierarchy or operations console.
+- Editing repositories, branches, issues, pull requests, or files.
+- Team analytics, employee monitoring, leaderboards, or public profiles.
+- Perfect reconstruction of pushes that GitHub no longer exposes.
+- Billing-grade accounting or invented credit/cost estimates.
+- Semantic analysis of source code or conversations.
+- Cloud synchronization, multi-user hosting, or mobile clients.
+- A large multi-route dashboard that requires constant maintenance.
 
-Re-running a collector over the same source records must not create duplicate events or inflate aggregates. Source identifiers and normalization versions must be retained for reconciliation.
+## Acceptance standard
 
-## Explicit non-goals for the MVP
+Worklog is successful when it starts reliably, refreshes without intervention, remains useful when a source is temporarily unavailable, reports honest ranges, keeps commits and pushes separate, preserves the complete project archive, and can be understood at a glance from the menu bar.
 
-- Launching, steering, approving, or terminating agents
-- Editing repositories, branches, issues, pull requests, or files
-- Replacing GitHub, Codex, or an IDE
-- Team analytics, employee monitoring, leaderboards, or public profiles
-- Perfect reconstruction of push history before collection began
-- Billing-grade accounting or combining unlike usage sources into one total
-- Semantic analysis of prompts, responses, commands, or source code
-- Supporting multiple GitHub or OpenAI identities
-- Mobile applications, cloud synchronization, or multi-device hosting
-- Desktop packaging before the local web experience is proven
-- Hiding historical projects because they fall outside a compact overview ranking
+Any new feature must earn its place by improving that daily loop without adding a second service, another always-running agent, or a maintenance-heavy subsystem.
 
-## MVP acceptance criteria
+## Next product phase
 
-The MVP is complete when all of the following are true:
-
-- The application runs locally and binds services only to the loopback interface by default.
-- A user can connect the configured GitHub identity and discover owned repositories.
-- Commit import is repeatable, deduplicated, and reconciles with sampled repository history.
-- Push activity is stored independently, and its first-observed date is visible anywhere a push aggregate appears.
-- The overview heatmap can switch between commit and push counts and drill into a selected day.
-- Project pages show recent Git activity, data freshness, and associated Codex tasks.
-- The Codex adapter imports task metadata, parent/sub-agent relationships, model, timing, status, and locally observed token totals without storing conversational content.
-- Agent-to-project and agent-to-Git relationships display their attribution confidence.
-- Codex-observed usage and official API usage, when configured, remain separately labeled and totaled.
-- Collector retries and full re-syncs do not create duplicate events.
-- Empty, loading, stale, partial, disconnected, and collector-error states are understandable in the interface.
-- The local event database can be exported or backed up.
-- Automated tests cover event normalization, deduplication, day-boundary aggregation, and the primary Overview-to-detail workflow.
-
-## Phased roadmap
-
-### Phase 0: Product and data contract
-
-Define metrics, non-goals, source adapters, normalized events, confidence rules, completeness behavior, and the initial overview wireframe. Exit when every proposed dashboard number has an identified source and failure state.
-
-### Phase 1: Foundation
-
-Create the local application, database migrations, deterministic fixtures, design system, navigation shell, and shared data-state components. Exit when the complete interface shell runs against sample data.
-
-### Phase 2: GitHub vertical slice
-
-Discover owned repositories, import commits, collect available push events, implement deduplication, and build the activity grid plus project drill-down. Exit when sampled dashboard totals reconcile with GitHub and local repository evidence.
-
-### Phase 3: Codex vertical slice
-
-Import metadata-only task records, normalize parent/sub-agent relationships, render agent topology, and correlate tasks with projects and Git events. Exit when recent Codex work can be navigated from agent to project with confidence labels.
-
-### Phase 4: Usage and integration
-
-Add Codex-observed usage, optional official OpenAI API usage, the unified activity feed, filters, and data export. Exit when each aggregate is traceable and source separation is preserved throughout the interface.
-
-### Phase 5: Dogfooding and hardening
-
-Reconcile totals, exercise edge cases, improve collector resilience, accessibility, performance, and visual quality, and validate backup recovery. Only then decide whether desktop packaging, webhooks, or broader account support provide enough value for a later release.
-
-## Initial assumptions
-
-- The dashboard serves one person and one GitHub identity: `JimmyTheGhost`.
-- Repository scope defaults to owned repositories; forks and archived repositories can be included deliberately later.
-- Calendar aggregation uses `America/Denver` day boundaries and stores source timestamps in UTC.
-- Counts are raw event counts unless a view explicitly defines another measure.
-- GitHub collection starts with authenticated local tooling and polling; prospective webhooks are a later option.
-- Codex data is read through a versioned, metadata-only adapter because local formats may change.
-- The MVP is read-only and local-first, using a durable local event ledger as its analytical foundation.
+Continue with visual and interaction refinements based on real daily use. Prefer small, testable improvements to the existing popover and Work History. Add new collectors or deeper analysis only after the core work ledger has proven a clear gap.

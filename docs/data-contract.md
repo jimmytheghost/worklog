@@ -46,7 +46,7 @@ All counts use raw event or entity counts unless the metric explicitly says othe
 - **Pushes:** count of distinct observed push or ref-changing operations. A push containing multiple commits counts as one push. A force push and a branch/tag creation or deletion each count as a push when the source records them as such.
 - **Pushed commits:** sum of distinct commit SHAs introduced by each observed push. This metric can exceed unique commits because the same commit may be pushed to multiple repositories or refs; the UI must label it explicitly.
 - **Active repositories:** distinct repositories with at least one qualifying commit, push, or associated Codex task during the interval.
-- **Activity heatmap value:** selected metric aggregated into calendar days in the configured timezone. The initial selector supports `commits` and `pushes`; their scales and legends are independent.
+- **Activity heatmap value:** selected metric aggregated into calendar days in the configured timezone. The selector supports `commits`, `pushes`, and `both`. `Both` sums the two counts only for cell intensity; exact commit and push values remain separate everywhere else.
 
 Do not infer historical push counts from commit timestamps, reflogs, or current branch state. Such evidence may support a separately labeled estimate in a future version, but it is excluded from MVP push totals.
 
@@ -65,6 +65,18 @@ Do not infer historical push counts from commit timestamps, reflogs, or current 
 - **API cost:** currency amount returned by the official costs endpoint, preserving currency and bucket interval.
 
 OpenAI API usage and local Codex observed usage are separate series. They must not be summed into a single total unless a later reconciliation mechanism proves the datasets are mutually exclusive and documents that proof. No monetary estimate should be generated for subscription-backed Codex usage unless a pricing and billing source explicitly supports it.
+
+### Reporting ranges
+
+Summary ranges use local calendar boundaries and half-open intervals:
+
+- `day`: the start of today through now.
+- `week`: the start of today minus six calendar days through now.
+- `month`: the start of the current calendar month through now.
+- `year`: the start of the current calendar year through now.
+- `all`: the full recorded ledger.
+
+The activity heatmap is always the trailing 90 local calendar days including today. It is independent of the summary range selector.
 
 ## Provenance, confidence, completeness, and freshness
 
@@ -247,7 +259,7 @@ Must not ingest or persist:
 - Codex prompt or response bodies.
 - Shell command text or terminal output.
 - Repository file contents, patches, or diffs.
-- Commit patch contents; commit subjects/bodies are excluded by default.
+- Commit bodies, patch contents, diffs, and file lists. A privacy-safe first-line commit subject and canonical GitHub URL are allowed.
 - Environment variables, credentials, API keys, OAuth tokens, or Git credential material.
 - GitHub issue, pull request, discussion, or comment bodies unless a future opt-in feature defines a separate contract.
 
@@ -316,7 +328,7 @@ type MetricResult = {
 
 ## MVP assumptions and deferred decisions
 
-- Included scope defaults to repositories owned by the configured GitHub account; forks, organization repositories, and collaborator repositories require explicit inclusion rules later.
+- Included scope covers accessible owned, collaborator, and organization-member repositories returned for the configured GitHub account. Archived repositories are retained when discovered; collector inclusion remains explicit and testable.
 - The configured personal identity may include multiple verified Git names/emails and GitHub identities.
 - Polling repository Activity is the initial collection mechanism. Webhooks may improve prospective push completeness beyond the available Activity history without changing the normalized event semantics.
 - One local user/profile is supported initially, while source and entity IDs remain namespaced for future multi-profile support.
@@ -325,7 +337,7 @@ type MetricResult = {
 
 ## Validation requirements
 
-Before Phase 0 exits, fixtures or representative sanitized records should demonstrate:
+Fixtures or representative sanitized records must demonstrate:
 
 - One commit observed locally and through GitHub is counted once.
 - One push containing multiple commits increments pushes by one and commits by the correct distinct count.
@@ -336,5 +348,7 @@ Before Phase 0 exits, fixtures or representative sanitized records should demons
 - Missing token counter classes remain unknown rather than zero.
 - Local Codex usage and OpenAI API usage remain separate in queries and charts.
 - Day assignment across Mountain Time daylight-saving transitions is correct.
+- Day, rolling seven-day week, month, year, and all-time summary boundaries are correct.
+- The trailing 90-day heatmap preserves separate commit and push counts in all three display modes.
 - Partial pagination and stale sources surface their coverage/freshness state in aggregate results.
 - Logs, observations, database rows, and exports contain none of the prohibited content classes.

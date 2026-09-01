@@ -39,11 +39,43 @@ struct DashboardMenuView: View {
                 statusLine
             }
             Spacer()
-            if store.state == .refreshing {
+            if store.state == .refreshing || store.periodIsLoading {
                 ProgressView().controlSize(.small)
             }
+            periodMenu
         }
         .padding(14)
+    }
+
+    private var periodMenu: some View {
+        Menu {
+            ForEach(ActivityPeriod.allCases) { period in
+                Button {
+                    store.selectPeriod(period)
+                } label: {
+                    if store.selectedPeriod == period {
+                        Label(period.title, systemImage: "checkmark")
+                    } else {
+                        Text(period.title)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(store.selectedPeriod.title)
+                    .font(.caption.weight(.semibold))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Activity range")
     }
 
     @ViewBuilder
@@ -65,23 +97,25 @@ struct DashboardMenuView: View {
     private func content(_ snapshot: DashboardSnapshot) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                ActivityHeatmapView(days: snapshot.heatmapDays)
+
                 LazyVGrid(columns: columns, spacing: 8) {
-                    metric("Observed tokens", snapshot.metric("codex_observed_tokens"), "sparkles")
-                    metric("Commits", snapshot.metric("commits"), "point.topleft.down.to.point.bottomright.curvepath")
-                    metric("Pushes", snapshot.metric("pushes"), "arrow.up.circle")
-                    metric("Active days", snapshot.metric("active_days"), "calendar")
-                    metric("Projects", snapshot.activeProjects, "folder")
+                    metric("Observed tokens", store.metric("codex_observed_tokens"), "sparkles")
+                    metric("Commits", store.metric("commits"), "point.topleft.down.to.point.bottomright.curvepath")
+                    metric("Pushes", store.metric("pushes"), "arrow.up.circle")
+                    metric("Active days", store.metric("active_days"), "calendar")
+                    metric("Projects", store.metric("active_projects"), "folder")
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("RECENT WORK").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                    if snapshot.meaningfulActivity.isEmpty {
+                    if store.meaningfulActivity.isEmpty {
                         Text("No recent commits or pushes yet.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .padding(.vertical, 10)
                     } else {
-                        ForEach(snapshot.meaningfulActivity) { activity in
+                        ForEach(store.meaningfulActivity) { activity in
                             activityRow(activity)
                         }
                     }
@@ -89,7 +123,10 @@ struct DashboardMenuView: View {
             }
             .padding(14)
         }
-        .frame(maxHeight: 500)
+        // MenuBarExtra can lose the ScrollView's intrinsic height after the
+        // window is destroyed and recreated. Keep a compact, stable viewport
+        // so reopening the popover cannot collapse the dashboard to zero.
+        .frame(minHeight: 320, maxHeight: 500, alignment: .top)
     }
 
     private func metric(_ label: String, _ value: Double?, _ icon: String) -> some View {

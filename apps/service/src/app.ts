@@ -3,6 +3,7 @@ import type { GitHubCollector } from "@agent-dashboard/collector-github";
 import type { Storage } from "@agent-dashboard/storage";
 import Fastify, { type FastifyInstance } from "fastify";
 import { createReadStream, existsSync, statSync } from "node:fs";
+import type { ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
 import { ServiceEventHub } from "./events.js";
@@ -10,6 +11,7 @@ import { CodexSyncCoordinator } from "./codex-sync.js";
 import { snapshotFixture } from "./fixtures/snapshot.js";
 import { GitHubSyncCoordinator } from "./github-sync.js";
 import { buildMonthlyHistory } from "./history.js";
+import { buildPeriodSummary, PERIODS, type SummaryPeriod } from "./period-summary.js";
 import { buildStorageSnapshot } from "./snapshot.js";
 
 type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
@@ -48,6 +50,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       : undefined;
 
   const scheduledRefreshes: NodeJS.Timeout[] = [];
+  const activeEventStreams = new Set<ServerResponse>();
 
   app.get("/health", async () => ({
     status: "ok",
@@ -90,6 +93,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       }
       throw error;
     }
+  });
+
+  app.get<{ Querystring: { period?: string } }>("/api/summary", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    if (fixtureMode || options.storage === undefined) {
+      return reply.code(503).send({ error: "Period summary is unavailable" });
+    }
+    const period = request.query.period;
+    if (period === undefined || !PERIODS.includes(period as SummaryPeriod)) {
+      return reply.code(400).send({ error: "period must be day, week, month, year, or all" });
+    }
+    return buildPeriodSummary(options.storage, {
+      period: period as SummaryPeriod,
+      timeZone: options.timeZone ?? "America/Denver",
+      now: now(),
+    });
   });
 
   app.post("/api/sync/github", async (_request, reply) => {
@@ -140,6 +159,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.get("/api/events", async (_request, reply) => {
     reply.hijack();
+    activeEventStreams.add(reply.raw);
     reply.raw.writeHead(200, {
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",
@@ -186,6 +206,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     function cleanup() {
       clearInterval(heartbeat);
       unsubscribe();
+      activeEventStreams.delete(reply.raw);
     }
 
     reply.raw.once("close", cleanup);
@@ -243,6 +264,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.addHook("onClose", () => {
     for (const timer of scheduledRefreshes.splice(0)) clearInterval(timer);
+  });
+
+  app.addHook("preClose", () => {
+    for (const stream of activeEventStreams) stream.end();
+    activeEventStreams.clear();
   });
 
   if (options.dashboardPath !== undefined) {

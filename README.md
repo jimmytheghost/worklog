@@ -1,6 +1,6 @@
-# Agent Dashboard
+# Worklog
 
-A private, local-first command center for GitHub activity, Codex agents, and observed AI usage.
+A private, local-first menu-bar record of GitHub activity, projects, and locally observed Codex usage.
 
 The durable product decisions live in:
 
@@ -8,13 +8,16 @@ The durable product decisions live in:
 - [`docs/data-contract.md`](docs/data-contract.md)
 - [`docs/design-direction.md`](docs/design-direction.md)
 - [`docs/architecture.md`](docs/architecture.md)
+- [`docs/handoff.md`](docs/handoff.md) — start here when continuing the project
 
 ## What it does
 
 - Keeps a local SQLite ledger of commits and push activity from every repository visible to the authenticated GitHub CLI account.
-- Shows a compact overview and an exhaustive, searchable monthly Work History. The overview is intentionally short; the archive does not rank projects out of view.
+- Shows Day, rolling Week, Month, Year, and All totals in a compact menu-bar popover.
+- Includes a clickable grayscale heatmap for the trailing 90 days with Commit, Push, and Both modes.
+- Keeps an exhaustive, searchable monthly Work History. The overview is intentionally short; the archive does not rank projects out of view.
 - Records privacy-safe local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
-- Runs as one bundled local service, with optional native macOS menu-bar access.
+- Runs as one bundled local service behind a native macOS menu-bar app; the browser dashboard remains available for full history.
 
 The app is read-only and sends no telemetry. It does not ingest source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists. Commit subjects and canonical GitHub links are retained so the ledger remains useful. Codex token totals are locally observed counters—not OpenAI billing or credit balances—and unavailable data stays visibly unavailable.
 
@@ -22,14 +25,16 @@ The app is read-only and sends no telemetry. It does not ingest source code, pro
 
 Requirements: macOS, Node.js 24 or newer, pnpm 11, and an authenticated GitHub CLI (`gh auth login`).
 
-Double-click `launch.command`. On first launch it installs/builds what is needed; afterward it reuses one background service at `http://127.0.0.1:4317`, refreshes automatically, and opens the dashboard. Logs live at `~/.agent-dashboard/service.log`.
-
-For the menu-bar companion:
+For the intended daily experience, package and open the native app:
 
 ```sh
 apps/macos/scripts/package-app.sh
 open apps/macos/dist/Worklog.app
 ```
+
+The packaged app starts and reuses one background service at `http://127.0.0.1:4317`, refreshes automatically, and keeps the last successful snapshot available during a transient failure. Logs live at `~/.agent-dashboard/service.log`.
+
+Double-click `launch.command` when you want the browser dashboard directly. On first launch it installs/builds what is needed; afterward it reuses the same service.
 
 See [`apps/macos/README.md`](apps/macos/README.md) for native-shell details.
 

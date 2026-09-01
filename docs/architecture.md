@@ -1,116 +1,98 @@
-# Agent Dashboard Architecture
+# Worklog Architecture
 
-Status: Phase 3 GitHub and local Codex vertical slices
+Status: implemented local-first desktop application
 
-## Shape
+## Product shape
 
-Agent Dashboard is a local TypeScript workspace with two applications and shared packages:
+Worklog is deliberately one small system with two views:
 
-```text
-apps/dashboard        React and Vite interface
-apps/service          Fastify localhost service and collectors
-packages/domain       Source-neutral events, validation, and aggregation
-packages/storage      SQLite event ledger and privacy-safe read models
-packages/collector-github  Read-only GitHub normalization
-packages/collector-codex   Experimental metadata-only local Codex adapter
-```
+- `apps/macos`: the primary daily surface, a native macOS menu-bar popover.
+- `apps/dashboard`: the fuller browser view used for monthly Work History and deeper inspection.
+- `apps/service`: one Fastify process that collects, stores, aggregates, and serves data on loopback.
+- `packages/domain`: source-neutral event contracts and aggregation rules.
+- `packages/storage`: the SQLite event ledger and read models.
+- `packages/collector-github`: read-only GitHub normalization.
+- `packages/collector-codex`: experimental, metadata-only local Codex normalization.
 
-The browser interface never reads GitHub credentials, Codex state, or repositories directly. Collectors run in the local service, normalize privacy-safe metadata through the domain package, and persist it in the application database. The dashboard consumes source-qualified API responses and live update notifications.
+There is no fleet of background agents. The packaged app starts one production service when needed and reuses it. The browser and native clients never read credentials, repositories, or Codex state directly.
 
 ## Runtime
 
-- The dashboard is a compact local interface designed to sit behind a native macOS menu-bar shell; a full Work History window exposes complete monthly records.
-- The service binds to `127.0.0.1` by default.
-- Server-sent events provide lightweight collector and sync updates.
-- SQLite will hold the append-only event ledger, source observations, sync cursors, and rebuildable aggregates.
-- Desktop packaging is deferred until the browser-based experience proves useful.
+- The service binds to `127.0.0.1:4317` by default.
+- SQLite at `~/.agent-dashboard/agent-dashboard.sqlite` is the durable source of truth.
+- Server-sent events notify clients after synchronization without polling aggressively.
+- The native app caches the last successful snapshot so reopening remains useful during a transient service failure.
+- The packaged native app has no Dock icon and can start the service from the repository location embedded at package time.
+- `launch.command` remains the simple browser launcher and development fallback.
 
 ## Data flow
 
 ```text
-GitHub / local Git / local Codex / optional OpenAI Usage API
-                            |
-                    versioned collectors
-                            |
-             privacy allowlist and normalization
-                            |
-                    append-only event ledger
-                            |
-               source-qualified daily aggregates
-                            |
-                  local API and event stream
-                            |
-                         dashboard
+GitHub + local Codex metadata
+              |
+      read-only collectors
+              |
+    privacy allowlist + normalization
+              |
+       append-only SQLite ledger
+              |
+       summaries + monthly history
+              |
+  menu-bar popover / Work History window
 ```
 
-Raw prompts, responses, terminal commands, tool output, diffs, repository file contents, and credentials do not cross the privacy allowlist.
+Prompts, responses, terminal commands, tool output, diffs, repository contents, credentials, and commit bodies do not cross the privacy boundary. A commit's first-line subject and canonical GitHub link are allowed because they make the work ledger understandable.
 
-## Package responsibilities
+## Service responsibilities
 
-### `@agent-dashboard/domain`
+The service owns configuration, migrations, collectors, scheduling, aggregation, and graceful shutdown. Its public local API is:
 
-- Defines normalized event and metric contracts.
-- Validates runtime records with strict schemas.
-- Generates deterministic source-aware idempotency keys.
-- Deduplicates replayed observations.
-- Buckets UTC instants into configurable local calendar days.
-- Keeps attribution, confidence, completeness, and freshness independent.
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Process and source health |
+| `GET /api/snapshot` | Current overview plus fixed trailing 90-day activity |
+| `GET /api/summary?period=…` | Day, rolling week, month, year, or all-time totals and recent work |
+| `GET /api/history?month=YYYY-MM` | Complete monthly work-history rows |
+| `GET /api/events` | Live server-sent update stream |
+| `POST /api/sync` | Refresh all enabled collectors |
+| `POST /api/sync/github` | Refresh GitHub only |
+| `POST /api/sync/codex` | Refresh local Codex metadata only |
 
-The package does not know about HTTP, storage, React, authentication, or source credentials.
+Closing the service explicitly closes active event streams, so relaunches do not hang behind stale connections.
 
-### `@agent-dashboard/service`
+## Collector boundaries
 
-- Owns configuration, API lifecycle, collectors, storage, migrations, and sync scheduling.
-- Exposes health, snapshot, and live-event endpoints to the local dashboard.
-- Reads source data without executing repository-owned code.
-- Preserves the last successful data when a later sync fails.
+### GitHub
 
-The Phase 3 service uses the durable SQLite ledger, authenticated GitHub collector, and experimental local Codex collector in normal operation. Codex collection is opt-in at startup or available through an explicit sync endpoint. Deterministic fixture mode remains available only for tests and deliberate development fallback.
+- Uses the authenticated `gh` CLI identity without copying its token into the app.
+- Discovers accessible owned, collaborator, and organization-member repositories.
+- Walks live branches and deduplicates authored commits by repository and SHA.
+- Records push, force-push, branch-creation, and branch-deletion observations separately from commits.
+- Labels push history partial because GitHub does not expose an unlimited historical push ledger.
 
-### `@agent-dashboard/collector-github`
+### Codex
 
-- Discovers every owned public and private repository visible to the authenticated `gh` account.
-- Enumerates every live branch and imports author-filtered commits, deduplicated by repository and SHA.
-- Imports push, force-push, branch-creation, and branch-deletion operations from each repository's Activity history across all refs.
-- Semantically deduplicates equivalent observations when old user Events and repository Activity overlap in the append-only ledger.
-- Retains partial coverage labels because deleted refs and activity outside GitHub's available history cannot be reconstructed exactly.
+- Reads known local sources in place and stores only an explicit metadata allowlist.
+- Hashes workspace identities and resolves them to repositories when possible.
+- Stores lifecycle/model metadata and the latest cumulative observed token counters.
+- Treats missing counters as unknown and labels this unsupported local format experimental and partial.
+- Does not claim that locally observed tokens equal OpenAI billing or credit balances.
 
-### `@agent-dashboard/collector-codex`
+## Client responsibilities
 
-- Opens known local SQLite sources read-only and parses rollout records through a strict metadata allowlist.
-- Hashes workspace identities and sanitizes warnings before they leave the collector.
-- Emits agent lifecycle, parent/sub-agent relationships, model/reasoning metadata, and only the latest cumulative usage observation per session.
-- Treats missing counters as unknown and marks all coverage experimental, partial, and unsupported.
-- Never parses or copies prompts, responses, commands, tool output, diffs, credentials, source code, or raw paths.
+The native popover is intentionally compact: range selection, a grayscale 90-day commit/push heatmap, five summary metrics, recent work, refresh, and a link to Work History. The range picker changes totals and recent work; it does not change the fixed 90-day heatmap.
 
-### `@agent-dashboard/dashboard`
+The browser dashboard provides the complete monthly archive so projects are never hidden merely because they are not among the most active. Neither client launches or controls agents.
 
-- Renders Overview, Projects, Agents, Usage, and source-health views.
-- Treats zero, unknown, partial, stale, and unavailable as different states.
-- Provides accessible keyboard and tabular equivalents for visualizations.
-- Keeps commits and pushes, as well as local Codex and official API usage, separate.
+## Reliability and security
 
-The Overview consumes the local service snapshot and retains an explicit development-only fixture fallback for disconnected UI work.
-
-## Security boundary
-
-- Bind only to loopback unless a future feature explicitly requires otherwise.
-- Keep GitHub authentication in `gh` initially; do not copy tokens into browser storage or SQLite.
-- Use read-only source access and explicitly approved local repository roots.
-- Log identifiers and collector state, not sensitive payload contents.
-- Add an ephemeral local session token before the service exposes real private metadata.
-- Store the database in the operating system's application-data directory and support backup/export.
+- Loopback-only HTTP; no telemetry or cloud database.
+- Read-only source adapters and idempotent synchronization.
+- Last successful data survives later collector failures.
+- Credentials stay with the authenticated source tooling.
+- Source, freshness, and partial coverage remain distinct from numeric zero.
+- Database backup/export is a local file operation.
 
 ## Verification
 
-- Unit tests cover schemas, idempotency, replay deduplication, and calendar boundaries.
-- Service tests exercise configuration and routes through Fastify injection.
-- Interface tests cover primary Overview interactions.
-- Browser QA validates desktop and narrow layouts, keyboard semantics, and browser errors.
-- Dashboard clients retry transient startup failures and refresh snapshots after terminal collector events.
-- Sanitized, versioned collector fixtures detect required and additive upstream schema drift safely.
-- Database privacy checks reject prohibited payload keys after live reconciliation.
-
-## Directed agent workflow
-
-Implementation proceeds in waves with exclusive directory ownership. The director freezes shared contracts, assigns bounded package work to sub-agents, integrates their changes, resolves cross-package issues, performs visual QA, and runs the full workspace validation before committing. Root configuration, lockfiles, schema boundary changes, and cross-package refactors remain director-owned.
+The workspace test suite covers contracts, storage, collectors, calendar boundaries, period summaries, service routes, SSE shutdown, and core client models. Type checking and production builds run before release checkpoints. The native release package is built, ad-hoc signed, and its property list validated by `apps/macos/scripts/package-app.sh`.

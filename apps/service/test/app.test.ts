@@ -83,6 +83,19 @@ describe("local service", () => {
     expect(response.body).toContain('"sequence":1');
   });
 
+  it("closes open event streams during service shutdown", async () => {
+    const app = buildApp({ sseHeartbeatMs: 60_000 });
+    await app.listen({ host: "127.0.0.1", port: 0 });
+    const address = app.server.address();
+    if (address === null || typeof address === "string") throw new Error("Expected TCP address");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/events`);
+    const reader = response.body?.getReader();
+    expect((await reader?.read())?.done).toBe(false);
+
+    await expect(app.close()).resolves.toBeUndefined();
+    expect((await reader?.read())?.done).toBe(true);
+  });
+
   it("serves built dashboard assets and uses the index for client-side routes", async () => {
     const dashboardPath = mkdtempSync(join(tmpdir(), "agent-dashboard-service-"));
     temporaryDirectories.push(dashboardPath);

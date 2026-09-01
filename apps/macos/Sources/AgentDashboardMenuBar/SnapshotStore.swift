@@ -11,6 +11,9 @@ final class SnapshotStore: ObservableObject {
     }
 
     @Published private(set) var snapshot: DashboardSnapshot?
+    @Published private(set) var periodSummary: PeriodSummary?
+    @Published private(set) var selectedPeriod: ActivityPeriod
+    @Published private(set) var periodIsLoading = false
     @Published private(set) var state: State
 
     private let baseURL: URL
@@ -28,8 +31,39 @@ final class SnapshotStore: ObservableObject {
         self.session = session
         self.cacheURL = cacheURL ?? Self.defaultCacheURL
         let cachedSnapshot = Self.readCache(from: self.cacheURL)
+        let savedPeriod = UserDefaults.standard.string(forKey: "worklog.selectedPeriod")
         snapshot = cachedSnapshot
+        selectedPeriod = savedPeriod.flatMap(ActivityPeriod.init(rawValue:)) ?? .year
         state = cachedSnapshot == nil ? .loading : .ready
+    }
+
+    func metric(_ name: String) -> Double? {
+        if let metrics = periodSummary?.metrics {
+            switch name {
+            case "codex_observed_tokens": return metrics.tokens
+            case "commits": return metrics.commits
+            case "pushes": return metrics.pushes
+            case "active_days": return metrics.activeDays
+            case "active_projects": return metrics.projects
+            default: return nil
+            }
+        }
+        return selectedPeriod == .year ? snapshot?.metric(name) : nil
+    }
+
+    var meaningfulActivity: [DashboardSnapshot.Activity] {
+        if let periodSummary {
+            return Array(periodSummary.recentActivity.filter(\.isMeaningful).prefix(5))
+        }
+        return selectedPeriod == .year ? (snapshot?.meaningfulActivity ?? []) : []
+    }
+
+    func selectPeriod(_ period: ActivityPeriod) {
+        guard selectedPeriod != period else { return }
+        selectedPeriod = period
+        periodSummary = nil
+        UserDefaults.standard.set(period.rawValue, forKey: "worklog.selectedPeriod")
+        Task { await fetchPeriodSummary() }
     }
 
     var workHistoryURL: URL {
@@ -57,6 +91,7 @@ final class SnapshotStore: ObservableObject {
             let (_, response) = try await session.data(for: request)
             try Self.requireSuccess(response)
             try await fetchSnapshotWhileLocked()
+            await fetchPeriodSummary()
         } catch {
             state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
         }
@@ -69,6 +104,7 @@ final class SnapshotStore: ObservableObject {
 
         do {
             try await fetchSnapshotWhileLocked()
+            await fetchPeriodSummary()
         } catch {
             if Self.isConnectionFailure(error), !serviceLaunchAttempted {
                 serviceLaunchAttempted = true
@@ -76,6 +112,7 @@ final class SnapshotStore: ObservableObject {
                     try startLocalService()
                     state = .startingService
                     try await waitForLocalService()
+                    await fetchPeriodSummary()
                     return
                 } catch {
                     state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
@@ -131,6 +168,25 @@ final class SnapshotStore: ObservableObject {
         snapshot = decoded
         state = .ready
         try? Self.writeCache(data, to: cacheURL)
+    }
+
+    private func fetchPeriodSummary() async {
+        let requestedPeriod = selectedPeriod
+        periodIsLoading = true
+        defer { periodIsLoading = false }
+        do {
+            var components = URLComponents(url: baseURL.appending(path: "api/summary"), resolvingAgainstBaseURL: false)!
+            components.queryItems = [URLQueryItem(name: "period", value: requestedPeriod.rawValue)]
+            var request = URLRequest(url: components.url!)
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.timeoutInterval = 15
+            let (data, response) = try await session.data(for: request)
+            try Self.requireSuccess(response)
+            let decoded = try JSONDecoder().decode(PeriodSummary.self, from: data)
+            if selectedPeriod == requestedPeriod { periodSummary = decoded }
+        } catch {
+            // Keep the full snapshot visible if this optional refinement fails.
+        }
     }
 
     private static func requireSuccess(_ response: URLResponse) throws {
