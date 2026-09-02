@@ -4,6 +4,8 @@ A minimal native macOS 14+ app for the local Worklog service. It displays cached
 
 The popover includes Day, rolling seven-day Week, Month, Year, and All summaries; a clickable trailing 90-day grayscale heatmap with Commit, Push, and Both modes; recent work; refresh; Work History; and quit controls.
 
+Click the header gear to open Settings. **Start on computer startup** uses macOS Login Items to open Worklog when you sign in. The switch reflects the system setting; if macOS requires approval, Settings links to Login Items. Changing startup behavior requires the packaged app, rather than `swift run`.
+
 ## Develop
 
 ```sh
@@ -29,3 +31,9 @@ open dist/Worklog.app
 Pass an output directory as the first argument to place `Worklog.app` elsewhere. The script builds a release executable and assembles an `LSUIElement` application bundle, so normal launches show only the menu-bar item.
 
 The repository path is embedded at packaging time. Run the packaging script again if the repository moves. The generated `dist/Worklog.app` is a local build artifact and is not committed.
+
+The bundle includes `Resources/Worklog.icns`, with a mint activity trace on a graphite tile. To regenerate all icon sizes and the PNG preview from the vector drawing:
+
+```sh
+swift scripts/generate-icon.swift
+```

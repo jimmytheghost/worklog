@@ -61,6 +61,29 @@ struct ModelsTests {
         #expect(snapshot.syncSummary == "Cached data · refresh recommended")
     }
 
+    @Test func separatesSparkFactsFromMainGauges() {
+        typealias Account = DashboardSnapshot.CodexAccount
+        let weekly = Account.Window(usedPercent: 51, windowDurationMinutes: 10_080, resetsAt: nil)
+        let short = Account.Window(usedPercent: 12, windowDurationMinutes: 300, resetsAt: nil)
+        let account = Account(
+            observedAt: "2026-09-01T12:00:00Z", planType: "pro",
+            rateLimits: [
+                .init(limitId: "codex", limitName: nil, primary: weekly, secondary: nil),
+                .init(limitId: "codex_spark", limitName: nil, primary: weekly, secondary: short),
+            ],
+            bankedResetCount: 1, credits: nil,
+            tokenUsage: .init(lifetimeTokens: nil, peakDailyTokens: nil,
+                             longestRunningTurnSeconds: nil, currentStreakDays: nil, longestStreakDays: nil)
+        )
+
+        #expect(account.gaugeWindows.count == 1)
+        #expect(account.gaugeWindows.first?.limitId == "codex")
+        #expect(account.sparkWindows.map { $0.window.title } == ["5-hour", "Weekly"])
+        #expect(account.sparkWindows.map { $0.window.remainingPercent } == [88, 49])
+        #expect(Account.LabeledWindow(limitId: "other", name: "GPT-5.3-Codex-Spark", window: weekly).isSpark)
+        #expect(!Account.LabeledWindow(limitId: "codex", name: nil, window: weekly).isSpark)
+    }
+
     @Test func decodesCodexAccountUsageAndBankedResets() throws {
         let json = """
         {"schemaVersion":1,"generatedAt":"2026-09-01T12:00:00Z","timezone":"America/Denver","codexAccount":{"observedAt":"2026-09-01T12:00:00Z","planType":"pro","rateLimits":[{"limitId":"codex","limitName":null,"primary":{"usedPercent":44,"windowDurationMinutes":10080,"resetsAt":"2026-09-07T02:28:17Z"},"secondary":null}],"bankedResetCount":1,"credits":{"hasCredits":false,"unlimited":false,"balance":"0"},"tokenUsage":{"lifetimeTokens":1234567,"peakDailyTokens":45678,"longestRunningTurnSeconds":540,"currentStreakDays":8,"longestStreakDays":14}},"summary":[],"projects":[],"recentActivity":[],"sources":[]}

@@ -148,11 +148,23 @@ struct ActivityHeatmapView: View {
     }
 
     private func formatted(_ date: String) -> String {
+        ActivityDayLabel.formatted(date)
+    }
+}
+
+enum ActivityDayLabel {
+    static func formatted(_ date: String, locale: Locale = .current) -> String {
         let values = date.split(separator: "-").compactMap { Int($0) }
         guard values.count == 3 else { return date }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let instant = calendar.date(from: DateComponents(year: values[0], month: values[1], day: values[2]))!
-        return instant.formatted(.dateTime.month(.abbreviated).day())
+        guard let instant = calendar.date(from: DateComponents(year: values[0], month: values[1], day: values[2])) else {
+            return date
+        }
+        // These are already local calendar dates from the ledger, not UTC events.
+        // Use the same neutral zone to format them so the Mac's zone cannot shift a day.
+        let style = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+            .month(.abbreviated).day()
+        return instant.formatted(style)
     }
 }

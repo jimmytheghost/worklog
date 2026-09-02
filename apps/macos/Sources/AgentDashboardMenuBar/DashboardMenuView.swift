@@ -1,8 +1,19 @@
 import AppKit
 import SwiftUI
 
+private struct OverviewHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct DashboardMenuView: View {
     @ObservedObject var store: SnapshotStore
+    @StateObject private var loginItem = LoginItemStore()
+    @State private var showingSettings = false
+    @State private var overviewHeight: CGFloat = 480
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
@@ -11,7 +22,9 @@ struct DashboardMenuView: View {
             header
             Divider()
             Group {
-                if let snapshot = store.snapshot {
+                if showingSettings {
+                    SettingsView(loginItem: loginItem) { showingSettings = false }
+                } else if let snapshot = store.snapshot {
                     content(snapshot)
                 } else if case let .error(message) = store.state {
                     emptyState(title: "Worklog is offline", detail: message, icon: "wifi.slash")
@@ -42,7 +55,18 @@ struct DashboardMenuView: View {
             if store.state == .refreshing || store.periodIsLoading {
                 ProgressView().controlSize(.small)
             }
-            periodMenu
+            Button {
+                showingSettings.toggle()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(showingSettings ? Color.mint : Color.secondary)
+                    .frame(width: 26, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(showingSettings ? "Back to overview" : "Settings")
+            .accessibilityLabel(showingSettings ? "Back to overview" : "Settings")
         }
         .padding(14)
     }
@@ -97,9 +121,15 @@ struct DashboardMenuView: View {
     private func content(_ snapshot: DashboardSnapshot) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ActivityHeatmapView(days: snapshot.heatmapDays)
-
-                codexAccountUsage(snapshot.codexAccount)
+                VStack(alignment: .leading, spacing: 14) {
+                    ActivityHeatmapView(days: snapshot.heatmapDays)
+                    codexAccountUsage(snapshot.codexAccount)
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: OverviewHeightKey.self, value: geometry.size.height)
+                    }
+                }
 
                 LazyVGrid(columns: columns, spacing: 8) {
                     metric("Observed tokens", store.metric("codex_observed_tokens"), "sparkles")
@@ -125,10 +155,12 @@ struct DashboardMenuView: View {
             }
             .padding(14)
         }
-        // MenuBarExtra can lose the ScrollView's intrinsic height after the
-        // window is destroyed and recreated. Keep a compact, stable viewport
-        // so reopening the popover cannot collapse the dashboard to zero.
-        .frame(minHeight: 320, maxHeight: 500, alignment: .top)
+        // Fit the overview without extra viewport allowance, keeping the next
+        // row of metrics below the action bar until the user scrolls.
+        .frame(height: overviewHeight, alignment: .top)
+        .onPreferenceChange(OverviewHeightKey.self) { height in
+            if height > 0 { overviewHeight = height }
+        }
     }
 
     @ViewBuilder
@@ -148,10 +180,11 @@ struct DashboardMenuView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                periodMenu
             }
 
             if let account, !account.windows.isEmpty {
-                ForEach(Array(account.windows.enumerated()), id: \.offset) { _, item in
+                ForEach(Array(account.gaugeWindows.enumerated()), id: \.offset) { _, item in
                     VStack(spacing: 5) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(item.window.remainingPercent.rounded()))%")
@@ -176,6 +209,11 @@ struct DashboardMenuView: View {
                     accountFact("Longest turn", minuteCount(account.tokenUsage.longestRunningTurnSeconds))
                     accountFact("Banked resets", CompactNumber.format(account.bankedResetCount))
                     accountFact("Credits", account.creditLabel)
+                    ForEach(Array(account.sparkWindows.enumerated()), id: \.offset) { _, item in
+                        accountFact("Spark · \(item.window.title)", "\(Int(item.window.remainingPercent.rounded()))%")
+                            .accessibilityLabel("Codex Spark \(item.window.title): \(Int(item.window.remainingPercent.rounded())) percent remaining")
+                            .help("Codex Spark \(item.window.title) usage remaining")
+                    }
                 }
             } else {
                 Text("Sign in with Codex, then refresh Worklog.")

@@ -71,15 +71,28 @@ struct DashboardSnapshot: Codable, Equatable {
         let tokenUsage: TokenUsage
 
         struct LabeledWindow: Equatable {
+            let limitId: String
             let name: String?
             let window: Window
+
+            var isSpark: Bool {
+                limitId.localizedCaseInsensitiveContains("spark")
+                    || (name?.localizedCaseInsensitiveContains("spark") ?? false)
+            }
         }
 
         var windows: [LabeledWindow] {
             rateLimits.flatMap { limit in
                 [limit.primary, limit.secondary]
                     .compactMap { $0 }
-                    .map { LabeledWindow(name: limit.limitName, window: $0) }
+                    .map { LabeledWindow(limitId: limit.limitId, name: limit.limitName, window: $0) }
+            }
+        }
+        var gaugeWindows: [LabeledWindow] { windows.filter { !$0.isSpark } }
+        var sparkWindows: [LabeledWindow] {
+            windows.filter(\.isSpark).sorted {
+                ($0.window.windowDurationMinutes ?? .infinity)
+                    < ($1.window.windowDurationMinutes ?? .infinity)
             }
         }
         var creditLabel: String {
