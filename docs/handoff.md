@@ -11,7 +11,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 ## What is implemented
 
 - Native macOS menu-bar popover with cached-first loading and no Dock icon.
-- Day, Week, Month, Year, and All summaries. Week is today plus the previous six days.
+- Day, Week, Month, Year, and All summaries. Week is today plus the previous six local calendar days; Month is today plus the previous 29.
 - Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
 - Click-to-inspect heatmap days with separate commit and push counts.
 - Observed token, commit, push, active-day, and project totals.

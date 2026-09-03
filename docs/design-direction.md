@@ -52,7 +52,7 @@ Color is never the only carrier of meaning. Icons, labels, selection shapes, and
 
 ## Range control
 
-Use a single compact native menu with one disclosure indicator. The label is the active range. Week means a rolling seven-day view—today and the previous six days—not a Monday-to-Sunday calendar week.
+Use a single compact native menu with one disclosure indicator. The label is the active range. Week includes today and the previous six local calendar days. Month includes today and the previous 29 local calendar days.
 
 Changing the range updates metric cards and recent work without changing the 90-day heatmap.
 

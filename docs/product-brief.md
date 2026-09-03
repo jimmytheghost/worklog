@@ -34,7 +34,7 @@ The primary experience should feel like a task-bar utility: click the menu-bar i
 
 - **Day:** today in the configured local timezone.
 - **Week:** today plus the previous six local calendar days.
-- **Month:** the current local calendar month through now.
+- **Month:** the rolling 30 local calendar days ending today (today plus the previous 29 days).
 - **Year:** the current local calendar year through now.
 - **All:** the entire recorded local ledger.
 

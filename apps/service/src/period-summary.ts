@@ -21,7 +21,7 @@ function shiftLocalDate(localDate: string, days: number): string {
 function startForPeriod(period: SummaryPeriod, today: string): string {
   if (period === "all") return "1970-01-01";
   if (period === "year") return `${today.slice(0, 4)}-01-01`;
-  if (period === "month") return `${today.slice(0, 7)}-01`;
+  if (period === "month") return shiftLocalDate(today, -29);
   if (period === "week") return shiftLocalDate(today, -6);
   return today;
 }

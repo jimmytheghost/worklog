@@ -2,7 +2,7 @@
 
 A minimal native macOS 14+ app for the local Worklog service. It displays cached data immediately, refreshes from `http://127.0.0.1:4317`, and has no Dock icon when packaged. The packaged app quietly starts the one production service when needed.
 
-The popover includes Day, rolling seven-day Week, Month, Year, and All summaries; a clickable trailing 90-day grayscale heatmap with Commit, Push, and Both modes; recent work; refresh; Work History; and quit controls.
+The popover includes Day, rolling seven-day Week, rolling 30-day Month, Year, and All summaries; a clickable trailing 90-day grayscale heatmap with Commit, Push, and Both modes; recent work; refresh; Work History; and quit controls. Week and Month both include today as their last day.
 
 Click the header gear to open Settings. **Start on computer startup** uses macOS Login Items to open Worklog when you sign in. The switch reflects the system setting; if macOS requires approval, Settings links to Login Items. Changing startup behavior requires the packaged app, rather than `swift run`.
 
