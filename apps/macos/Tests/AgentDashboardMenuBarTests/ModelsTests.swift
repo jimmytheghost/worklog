@@ -4,6 +4,33 @@ import Testing
 
 @Suite("Snapshot models")
 struct ModelsTests {
+    @Test func resetCountdownUsesActualTimeAndHandlesTimestampFormats() throws {
+        typealias Window = DashboardSnapshot.CodexAccount.Window
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-10-11T21:00:00Z"))
+        for timestamp in ["2026-10-11T23:14:00Z", "2026-10-11T23:14:00.000Z", "2026-10-11T17:14:00-06:00"] {
+            let window = Window(usedPercent: 29, windowDurationMinutes: 300, resetsAt: timestamp)
+            #expect(window.remainingLabel(at: now) == "2h 14m until reset")
+            #expect(window.remainingLabel(at: now.addingTimeInterval(60)) == "2h 13m until reset")
+            #expect(window.remainingLabel(at: now.addingTimeInterval(8_040)) == "Reset due · refresh")
+            #expect(window.remainingLabel(at: now.addingTimeInterval(9_000)) == "Reset due · refresh")
+            #expect(window.remainingPercent == 71)
+        }
+    }
+
+    @Test func resetCountdownFormatsDaysAndRoundsUpPartialMinutes() throws {
+        typealias Window = DashboardSnapshot.CodexAccount.Window
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-10-11T21:00:00Z"))
+        let weekly = Window(usedPercent: 5, windowDurationMinutes: 10_080, resetsAt: "2026-10-13T23:14:00Z")
+        #expect(weekly.remainingLabel(at: now) == "2d 2h 14m until reset")
+        let short = Window(usedPercent: 29, windowDurationMinutes: 300, resetsAt: "2026-10-11T22:00:00Z")
+        #expect(short.remainingLabel(at: now) == "1h until reset")
+        #expect(short.remainingLabel(at: now.addingTimeInterval(3_599)) == "1m until reset")
+        for timestamp: String? in [nil, "invalid"] {
+            let missing = Window(usedPercent: 29, windowDurationMinutes: 300, resetsAt: timestamp)
+            #expect(missing.remainingLabel(at: now) == "5-hour remaining")
+        }
+    }
+
     @Test func decodesSnapshotAndKeepsFiveMeaningfulEvents() throws {
         let activity = (0..<7).map { index in
             """

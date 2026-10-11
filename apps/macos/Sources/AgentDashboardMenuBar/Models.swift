@@ -31,6 +31,30 @@ struct DashboardSnapshot: Codable, Equatable {
             let resetsAt: String?
 
             var remainingPercent: Double { max(0, min(100, 100 - usedPercent)) }
+            var resetDate: Date? {
+                guard let resetsAt else { return nil }
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: resetsAt) { return date }
+                formatter.formatOptions = [.withInternetDateTime]
+                return formatter.date(from: resetsAt)
+            }
+
+            func remainingLabel(at now: Date) -> String {
+                guard let resetDate else { return "\(title) remaining" }
+                let seconds = resetDate.timeIntervalSince(now)
+                guard seconds > 0 else { return "Reset due · refresh" }
+                let minutes = Int(ceil(seconds / 60))
+                let days = minutes / 1_440
+                let hours = (minutes % 1_440) / 60
+                let remainder = minutes % 60
+                var parts: [String] = []
+                if days > 0 { parts.append("\(days)d") }
+                if hours > 0 { parts.append("\(hours)h") }
+                if remainder > 0 { parts.append("\(remainder)m") }
+                return parts.joined(separator: " ") + " until reset"
+            }
+
             var title: String {
                 switch windowDurationMinutes {
                 case 300: "5-hour"

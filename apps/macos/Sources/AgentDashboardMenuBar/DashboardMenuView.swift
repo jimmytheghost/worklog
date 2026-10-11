@@ -189,13 +189,15 @@ struct DashboardMenuView: View {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(item.window.remainingPercent.rounded()))%")
                                 .font(.title3.monospacedDigit().weight(.semibold))
-                            Text("\(item.name.map { "\($0) · " } ?? "")\(item.window.title) remaining")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            if let reset = resetDescription(item.window.resetsAt) {
-                                Text(reset).font(.caption2).foregroundStyle(.secondary)
+                            TimelineView(.periodic(from: .now, by: 60)) { context in
+                                Text("\(item.name.map { "\($0) · " } ?? "")\(item.window.remainingLabel(at: context.date))")
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .help("\(item.window.title) usage remaining" + (item.window.resetDate.map {
+                                        " · Resets " + $0.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+                                    } ?? " · Reset time unavailable"))
                             }
+                            Spacer()
                         }
                         ProgressView(value: item.window.remainingPercent, total: 100)
                             .tint(.mint)
@@ -239,11 +241,6 @@ struct DashboardMenuView: View {
 
     private func minuteCount(_ seconds: Double?) -> String {
         seconds.map { "\(Int(($0 / 60).rounded()))m" } ?? "—"
-    }
-
-    private func resetDescription(_ value: String?) -> String? {
-        guard let value, let date = ISO8601DateFormatter().date(from: value) else { return nil }
-        return "Resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
     }
 
     private func metric(_ label: String, _ value: Double?, _ icon: String) -> some View {
