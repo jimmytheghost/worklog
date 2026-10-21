@@ -160,12 +160,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     return reply.code(status === "failed" ? 503 : 200).send({ status, local, account });
   });
 
-  app.post("/api/sync", async (_request, reply) => {
+  app.post("/api/sync", async (request, reply) => {
     if (githubCoordinator === undefined && codexCoordinator === undefined && codexAccountCoordinator === undefined) {
       return reply.code(503).send({
         status: "unavailable",
         error: "Synchronization is not configured",
       });
+    }
+
+    // Interactive clients can acknowledge immediately and observe each collector separately.
+    // Keep the blocking response for scripts that need the final result.
+    const preference = [request.headers.prefer].flat().join(",");
+    if (preference.split(",").some((value) => value.trim() === "respond-async")) {
+      if (githubCoordinator) runInBackground("GitHub", () => githubCoordinator.sync());
+      if (codexCoordinator) runInBackground("Codex", () => codexCoordinator.sync());
+      if (codexAccountCoordinator) runInBackground("Codex", () => codexAccountCoordinator.sync());
+      return reply.code(202).header("preference-applied", "respond-async").send({ status: "running" });
     }
 
     const [github, codex, codexAccount] = await Promise.all([

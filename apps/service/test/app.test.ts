@@ -130,6 +130,37 @@ describe("local service", () => {
     });
   });
 
+  it("acknowledges interactive refreshes while a collector is pending and reuses the active sync", async () => {
+    let calls = 0;
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => { finish = resolve; });
+    const app = buildApp({
+      storage: { getSyncCursor: () => undefined } as unknown as Storage,
+      githubCollector: { collect: async () => {
+        calls += 1;
+        await pending;
+        throw new Error("expected failure");
+      } },
+    });
+    apps.push(app);
+    try {
+      const first = await app.inject({ method: "POST", url: "/api/sync", headers: { prefer: "respond-async" } });
+      expect(first.statusCode).toBe(202);
+      expect(first.headers["preference-applied"]).toBe("respond-async");
+      expect(first.json()).toEqual({ status: "running" });
+      expect((await app.inject({ method: "GET", url: "/health" })).json().githubSync).toBe("running");
+      expect((await app.inject({ method: "POST", url: "/api/sync", headers: { prefer: "respond-async" } })).statusCode).toBe(202);
+      expect(calls).toBe(1);
+    } finally {
+      finish();
+    }
+    await expect.poll(async () => (await app.inject({ method: "GET", url: "/health" })).json().githubSync).toBe("failed");
+    // Existing script clients still get a final response.
+    const blocking = await app.inject({ method: "POST", url: "/api/sync" });
+    expect(blocking.statusCode).toBe(503);
+    expect(blocking.json().github.status).toBe("failed");
+  });
+
   it("runs configured refreshes in the background without delaying readiness", async () => {
     let collectionCalls = 0;
     const app = buildApp({

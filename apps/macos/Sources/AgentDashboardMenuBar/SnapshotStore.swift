@@ -14,6 +14,7 @@ final class SnapshotStore: ObservableObject {
     @Published private(set) var periodSummary: PeriodSummary?
     @Published private(set) var selectedPeriod: ActivityPeriod
     @Published private(set) var periodIsLoading = false
+    @Published private(set) var refreshDetail = "Refreshing collectors…"
     @Published private(set) var state: State
 
     private let baseURL: URL
@@ -87,11 +88,15 @@ final class SnapshotStore: ObservableObject {
         do {
             var request = URLRequest(url: baseURL.appending(path: "api/sync"))
             request.httpMethod = "POST"
-            request.timeoutInterval = 120
+            request.setValue("respond-async", forHTTPHeaderField: "Prefer")
+            request.timeoutInterval = 15
             let (_, response) = try await session.data(for: request)
             try Self.requireSuccess(response)
             try await fetchSnapshotWhileLocked()
             await fetchPeriodSummary()
+            try await followRunningCollectors()
+        } catch is CancellationError {
+            state = .ready
         } catch {
             state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
         }
@@ -105,6 +110,9 @@ final class SnapshotStore: ObservableObject {
         do {
             try await fetchSnapshotWhileLocked()
             await fetchPeriodSummary()
+            try await followRunningCollectors()
+        } catch is CancellationError {
+            state = .ready
         } catch {
             if Self.isConnectionFailure(error), !serviceLaunchAttempted {
                 serviceLaunchAttempted = true
@@ -113,6 +121,7 @@ final class SnapshotStore: ObservableObject {
                     state = .startingService
                     try await waitForLocalService()
                     await fetchPeriodSummary()
+                    try await followRunningCollectors()
                     return
                 } catch {
                     state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
@@ -120,6 +129,43 @@ final class SnapshotStore: ObservableObject {
                 }
             }
             state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
+        }
+    }
+
+    private struct CollectorHealth: Decodable {
+        let githubSync: String
+        let codexSync: String
+        let codexAccountSync: String
+
+        var runningNames: [String] {
+            [("GitHub", githubSync), ("Codex sessions", codexSync), ("Codex account", codexAccountSync)]
+                .filter { $0.1 == "running" }.map { $0.0 }
+        }
+
+        var failed: Bool {
+            [githubSync, codexSync, codexAccountSync].contains("failed")
+        }
+    }
+
+    private func followRunningCollectors() async throws {
+        while true {
+            try Task.checkCancellation()
+            var request = URLRequest(url: baseURL.appending(path: "health"))
+            request.timeoutInterval = 15
+            let (data, response) = try await session.data(for: request)
+            try Self.requireSuccess(response)
+            let health = try JSONDecoder().decode(CollectorHealth.self, from: data)
+            // Read partial results too, so a slow collector never hides completed updates.
+            try await fetchSnapshotWhileLocked()
+            await fetchPeriodSummary()
+            guard !health.runningNames.isEmpty else {
+                state = .ready
+                if health.failed { state = .error("Some sources failed to refresh · showing available data") }
+                return
+            }
+            refreshDetail = "Refreshing " + health.runningNames.joined(separator: ", ") + "…"
+            state = .refreshing
+            try await Task.sleep(for: .seconds(2))
         }
     }
 
@@ -166,7 +212,7 @@ final class SnapshotStore: ObservableObject {
         try Self.requireSuccess(response)
         let decoded = try JSONDecoder().decode(DashboardSnapshot.self, from: data)
         snapshot = decoded
-        state = .ready
+        if state != .refreshing { state = .ready }
         try? Self.writeCache(data, to: cacheURL)
     }
 

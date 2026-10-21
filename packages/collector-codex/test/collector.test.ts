@@ -1,4 +1,4 @@
-import { appendFileSync, copyFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, copyFileSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp } from "node:fs/promises";
@@ -152,6 +152,32 @@ describe("CodexCollector", () => {
     expect(JSON.stringify(result)).not.toContain("workspace-primary");
     expect(after.size).toBe(before.size);
     expect(after.mtimeMs).toBe(before.mtimeMs);
+  });
+
+  it("reuses unchanged metadata, rereads edits, and invalidates missing files", async () => {
+    const fixture = await fixtureRoot();
+    const collector = new CodexCollector({ codexRoot: fixture.root, now: () => NOW });
+    const first = await collector.collect();
+    expect(first.coverage.rolloutFilesRead).toBe(3);
+    const unchanged = await collector.collect();
+    expect(unchanged.coverage.rolloutFilesRead).toBe(0);
+    expect(unchanged.events).toEqual(first.events);
+    expect(unchanged.warnings).toEqual(first.warnings);
+
+    const path = join(fixture.root, "sessions", "rollout-primary.jsonl");
+    appendFileSync(path, '\n{"timestamp":"2026-08-30T01:05:00Z","type":"event_msg","payload":{"type":"token_count","info":null}}\n');
+    const changed = await collector.collect();
+    expect(changed.coverage.rolloutFilesRead).toBe(1);
+    expect(changed.events.find((event) => event.eventType === "codex.usage.recorded" && event.sessionId === "session-primary")?.payload).toMatchObject({ countersAvailable: false });
+
+    unlinkSync(path);
+    const missing = await collector.collect();
+    expect(missing.warnings).toContainEqual(expect.objectContaining({ code: "rollout_missing", sessionId: "session-primary" }));
+    expect(missing.events.some((event) => event.eventType === "codex.usage.recorded" && event.sessionId === "session-primary")).toBe(false);
+    copyFileSync(new URL("rollout-primary.jsonl", FIXTURES), path);
+    const restored = await collector.collect();
+    expect(restored.coverage.rolloutFilesRead).toBe(1);
+    expect(restored.events).toEqual(first.events);
   });
 
   it("selects only the latest cumulative token snapshot for a session", async () => {

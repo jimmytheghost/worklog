@@ -116,6 +116,38 @@ describe("GitHubCollector", () => {
     ).toBe(true);
   });
 
+  it("walks every repository with at most four concurrent requests", async () => {
+    let active = 0;
+    let peak = 0;
+    const visited: string[] = [];
+    const runner = new FixtureRunner(async (_command, args) => {
+      const requested = endpoint(args);
+      if (requested === "user") return success(accountFixture);
+      if (requested.startsWith("user/repos")) return success(repositoriesFixture);
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      visited.push(requested);
+      active -= 1;
+      return success(requested.includes("/branches?") ? [[{ name: "main" }]] : [[]]);
+    });
+    const collector = new GitHubCollector({ runner, now });
+    const account = await collector.getAuthenticatedAccount();
+    const discovered = await collector.discoverRepositories(account);
+    const repositories = Array.from({ length: 9 }, (_, index) => ({
+      ...discovered.repositories[0]!, name: `repo-${index}`, repositoryId: `github:${index}`,
+    }));
+    const commits = await collector.importAllBranchCommits(account, repositories);
+    const pushes = await collector.importRepositoryPushActivity(account, repositories);
+    expect(peak).toBe(4);
+    expect(active).toBe(0);
+    expect(commits.failures).toEqual([]);
+    expect(pushes.failures).toEqual([]);
+    expect(visited.filter((value) => value.includes("/branches?"))).toHaveLength(9);
+    expect(visited.filter((value) => value.includes("/commits?"))).toHaveLength(9);
+    expect(visited.filter((value) => value.includes("/activity?"))).toHaveLength(9);
+  });
+
   it("bounds incremental commit requests and locally filters repository activity", async () => {
     const runner = new FixtureRunner((_command, args) => {
       const requested = endpoint(args);

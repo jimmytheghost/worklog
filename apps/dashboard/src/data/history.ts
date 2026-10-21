@@ -32,7 +32,7 @@ export function createHistoryClient(fetcher: typeof fetch = fetch): HistoryClien
 
 export function createSyncClient(fetcher: typeof fetch = fetch): SyncClient {
   return async () => {
-    const response = await fetcher("/api/sync", { method: "POST", headers: { accept: "application/json" } });
+    const response = await fetcher("/api/sync", { method: "POST", headers: { accept: "application/json", prefer: "respond-async" } });
     if (!response.ok) throw new Error(`Refresh request failed (${response.status})`);
   };
 }

@@ -50,6 +50,17 @@ function dateRange(events: readonly AnyNormalizedEvent[]): Pick<CollectionCovera
   return { coverageStart: dates[0]!, coverageEnd: dates.at(-1)! };
 }
 
+// Bound network concurrency without skipping any repositories or branches.
+async function forEachRepository<T>(items: readonly T[], visit: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++]!;
+      await visit(item);
+    }
+  }));
+}
+
 export class GitHubCollector {
   private readonly client: GhApiClient;
   private readonly now: () => Date;
@@ -116,14 +127,14 @@ export class GitHubCollector {
     const events: AnyNormalizedEvent[] = [];
     const failures: GitHubCollectionResult["failures"] = [];
 
-    for (const repository of repositories) {
+    await forEachRepository(repositories, async (repository) => {
       const repositoryEndpoint = `repos/${encodePath(repository.owner)}/${encodePath(repository.name)}`;
       let branches: GitHubBranchRecord[];
       try {
         branches = await this.client.getPaginated<GitHubBranchRecord>(`${repositoryEndpoint}/branches?per_page=100`);
       } catch (error) {
         failures.push(collectionFailure(error, "commits", repository.repositoryId));
-        continue;
+        return;
       }
 
       for (const branch of branches) {
@@ -136,7 +147,7 @@ export class GitHubCollector {
           failures.push(collectionFailure(error, "commits", repository.repositoryId));
         }
       }
-    }
+    });
 
     const uniqueEvents = deduplicateEvents(events);
     return {
@@ -181,7 +192,7 @@ export class GitHubCollector {
     const events: AnyNormalizedEvent[] = [];
     const failures: GitHubCollectionResult["failures"] = [];
 
-    for (const repository of repositories) {
+    await forEachRepository(repositories, async (repository) => {
       const endpoint = `repos/${encodePath(repository.owner)}/${encodePath(repository.name)}/activity?time_period=year&per_page=100`;
       try {
         const records = await this.client.getPaginated<GitHubRepositoryActivityRecord>(endpoint);
@@ -197,7 +208,7 @@ export class GitHubCollector {
       } catch (error) {
         failures.push(collectionFailure(error, "pushes", repository.repositoryId));
       }
-    }
+    });
 
     const uniqueEvents = deduplicateEvents(events);
     return {

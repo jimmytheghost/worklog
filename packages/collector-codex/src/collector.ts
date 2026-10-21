@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { isAbsolute, resolve, sep } from "node:path";
 
 import { deduplicateEvents, type AnyNormalizedEvent } from "@agent-dashboard/domain";
@@ -141,6 +142,8 @@ function resolveEdges(
 
 export class CodexCollector {
   private readonly options: CodexCollectorOptions;
+  // Only allowlisted metadata is cached; file content is never retained.
+  private readonly rolloutCache = new Map<string, { fingerprint: string; metadata: RolloutMetadata }>();
 
   constructor(options: CodexCollectorOptions = {}) {
     this.options = options;
@@ -169,6 +172,10 @@ export class CodexCollector {
     let malformedMetadataLines = 0;
     let sessionsMissingCounters = 0;
 
+    const indexedPaths = new Set(index.threads.map((thread) => safeRolloutPath(paths.root, thread.rolloutPath)));
+    for (const path of this.rolloutCache.keys()) {
+      if (!indexedPaths.has(path)) this.rolloutCache.delete(path);
+    }
     for (const thread of index.threads) {
       const rolloutPath = safeRolloutPath(paths.root, thread.rolloutPath);
       if (rolloutPath === undefined) {
@@ -184,6 +191,7 @@ export class CodexCollector {
         continue;
       }
       if (!existsSync(rolloutPath)) {
+        this.rolloutCache.delete(rolloutPath);
         warnings.push({
           code: "rollout_missing",
           sessionId: thread.id,
@@ -196,9 +204,23 @@ export class CodexCollector {
         continue;
       }
       try {
-        const metadata = await readRolloutMetadata(rolloutPath);
+        const before = await stat(rolloutPath, { bigint: true });
+        if (!before.isFile()) throw new Error("Rollout is not a regular file");
+        const fingerprint = `${before.dev}:${before.ino}:${before.size}:${before.mtimeNs}:${before.ctimeNs}`;
+        const cached = this.rolloutCache.get(rolloutPath);
+        let metadata: RolloutMetadata;
+        if (cached?.fingerprint === fingerprint) {
+          metadata = cached.metadata;
+        } else {
+          this.rolloutCache.delete(rolloutPath);
+          metadata = await readRolloutMetadata(rolloutPath);
+          rolloutFilesRead += 1;
+          const after = await stat(rolloutPath, { bigint: true });
+          const afterFingerprint = `${after.dev}:${after.ino}:${after.size}:${after.mtimeNs}:${after.ctimeNs}`;
+          // A file being written during collection must be read again next time.
+          if (fingerprint === afterFingerprint) this.rolloutCache.set(rolloutPath, { fingerprint, metadata });
+        }
         rolloutBySession.set(thread.id, metadata);
-        rolloutFilesRead += 1;
         malformedMetadataLines += metadata.malformedMetadataLines;
         if (
           metadata.latestTokenObservation !== undefined &&
@@ -212,6 +234,7 @@ export class CodexCollector {
           });
         }
       } catch {
+        this.rolloutCache.delete(rolloutPath);
         warnings.push({
           code: "rollout_unreadable",
           sessionId: thread.id,

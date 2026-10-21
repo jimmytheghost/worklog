@@ -110,7 +110,7 @@ struct DashboardMenuView: View {
         case .startingService:
             Text("Starting the local ledger…").foregroundStyle(.secondary)
         case .refreshing:
-            Text("Refreshing collectors…").foregroundStyle(.secondary)
+            Text(store.refreshDetail).foregroundStyle(.secondary)
         case let .error(message):
             Text(message).foregroundStyle(.orange)
         case .ready:
