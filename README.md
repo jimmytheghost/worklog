@@ -1,73 +1,101 @@
 # Worklog
 
-A private, local-first menu-bar record of GitHub activity, projects, and Codex usage.
+A local macOS menu-bar app for keeping track of GitHub commits, pushes, and Codex usage.
 
-The durable product decisions live in:
+This was inspired by [CodexBar](https://github.com/steipete/CodexBar), but I also wanted to keep track of my GitHub commits and pushes. Mostly, I wanted to try building my own menu-bar app. This is my first one, and it seemed like a good opportunity to learn.
 
-- [`docs/product-brief.md`](docs/product-brief.md)
-- [`docs/data-contract.md`](docs/data-contract.md)
-- [`docs/design-direction.md`](docs/design-direction.md)
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/handoff.md`](docs/handoff.md) — start here when continuing the project
+I'm sharing it as-is in case anyone else wants it. If it's useful, take it. If you want something different, fork it and have your agents, or yourself, make it work the way you want. There's no promise of ongoing support or a release schedule. You don't need to wait on me to change your copy.
 
-## What it does
+## What it does today
 
-- Keeps a local SQLite ledger of commits and push activity from every repository visible to the authenticated GitHub CLI account.
-- Shows Day, rolling Week, Month, Year, and All totals in a compact menu-bar popover.
-- Includes a clickable grayscale heatmap for the trailing 90 days with Commit, Push, and Both modes.
-- Keeps an exhaustive, searchable monthly Work History. The overview is intentionally short; the archive does not rank projects out of view.
-- Records privacy-safe local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
-- Shows the signed-in Codex account's current rate-limit windows, reset times, lifetime token facts, credits, and available banked resets.
-- Runs as one bundled local service behind a native macOS menu-bar app; the browser dashboard remains available for full history.
+- Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
+- Shows Day, rolling Week, rolling Month, Year, and All summaries in a native menu-bar popover, with no Dock icon.
+- Includes a clickable grayscale heatmap for the trailing 90 days, with Commit, Push, and Both modes.
+- Opens a searchable monthly Work History in your browser.
+- Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
+- Shows the signed-in Codex account's available rate-limit windows, reset countdowns, usage facts, credits, and banked resets.
+- Refreshes through one local background service and keeps the last successful snapshot available when that service is temporarily unavailable.
 
-The app is read-only and sends no telemetry. It does not ingest source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists. Commit subjects and canonical GitHub links are retained so the ledger remains useful. Local session counters remain separate from the Codex account limits reported by the official local app-server interface, and unavailable data stays visibly unavailable.
+Week includes today and the previous six local calendar days. Month includes today and the previous 29.
 
-## Use it
+## Build it yourself
 
-Requirements: macOS, Node.js 24 or newer, pnpm 11, an authenticated GitHub CLI (`gh auth login`), and a signed-in Codex CLI (`codex login`).
+This is a source-only project. There is no downloadable app release.
 
-For the intended daily experience, package and open the native app:
+Requirements:
+
+- macOS 14 or newer for the native app.
+- Xcode Command Line Tools with Swift 5.9 or newer (`xcode-select --install`).
+- Node.js 24 or newer and pnpm 11 (the repository pins pnpm 11.18.0).
+- GitHub CLI, authenticated with `gh auth login`.
+- Codex CLI, signed in with `codex login`, for Codex account usage. Local session collection also needs an existing Codex state index.
 
 ```sh
+git clone https://github.com/jimmytheghost/agent-dashboard.git
+cd agent-dashboard
+pnpm install --frozen-lockfile
+pnpm build
 apps/macos/scripts/package-app.sh
 open apps/macos/dist/Worklog.app
 ```
 
-The packaged app starts and reuses one background service at `http://127.0.0.1:4317`, refreshes automatically, and keeps the last successful snapshot available during a transient failure. Logs live at `~/.agent-dashboard/service.log`.
+The package script builds a native app for your machine and signs it ad hoc. It does not create a notarized, standalone distribution: the app remembers this checkout's location and needs the checkout and command-line tools to run. Repackage if you move the checkout. Intel and other machines have not been independently verified for this sharing pass.
 
-Double-click `launch.command` when you want the browser dashboard directly. On first launch it installs/builds what is needed; afterward it reuses the same service.
+The app starts or reuses the service at `http://127.0.0.1:4317`. It refreshes GitHub every 15 minutes and Codex every five minutes by default. Click Refresh to request an update sooner. GitHub's first import can take a while for accounts with many repositories.
 
-See [`apps/macos/README.md`](apps/macos/README.md) for native-shell details.
+Double-click `launch.command` to open the browser dashboard directly. It installs and builds missing dependencies on first launch. The native app's Settings include an option to start at login. See [the native app notes](apps/macos/README.md) for more detail.
 
-## Development
+To update, quit Worklog from its popover, pull the changes, and repeat the install, build, and package commands. Quitting the menu-bar app leaves the background service running. Stop the service process recorded in `~/.agent-dashboard/service.pid` before restarting if you need updated service code to take effect; check that the PID still belongs to Worklog first.
 
-Requirements: Node.js 24 or newer and pnpm 11.
+## Where it's at
+
+This is a personal work ledger with a few limits that affect what the numbers mean:
+
+- **GitHub coverage:** collection walks live branches in accessible owned, collaborator, and organization-member repositories, deduplicating commits by repository and SHA. It uses your existing CLI permissions, including access to private repositories. Push history is partial because GitHub's activity sources do not expose unlimited historical events. Commit and push counts stay separate.
+- **Codex coverage:** local session formats are unsupported and may change. The adapter labels its coverage experimental and partial. Observed session token counters are separate from account limits and are not billing-grade totals. Missing fields stay unavailable.
+- **Personal defaults:** reporting uses `America/Denver` unless you set `SERVICE_TIMEZONE` when starting the service. The menu-bar app expects port 4317. Configuration lives in [the service config](apps/service/src/config.ts); the launcher inherits environment variables and does not load a `.env` file.
+- **Local service:** the API binds to `127.0.0.1` by default and has no authentication. Keep it local. It exposes repository names, commit subjects, activity, and usage data to local clients.
+
+There is no telemetry. Worklog makes read-only requests to GitHub through `gh` and asks the local Codex app-server for account information using the existing Codex login. It also reads local Codex files to extract an explicit metadata allowlist. It does not retain source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists in its ledger. Commit subjects and canonical GitHub links are retained. Worklog does not store Codex credentials or the account email; it stores an account hash and the displayed usage snapshot.
+
+The database and service log live at `~/.agent-dashboard/agent-dashboard.sqlite` and `~/.agent-dashboard/service.log`. The native app also caches its last snapshot in your user Application Support directory. These can contain private project metadata, so review them before sharing logs or screenshots.
+
+## Make it yours
+
+Start with [AGENTS.md](AGENTS.md) and [the handoff](docs/handoff.md). The [product brief](docs/product-brief.md), [architecture](docs/architecture.md), [data contract](docs/data-contract.md), and [design notes](docs/design-direction.md) explain the existing choices.
+
+- [`apps/macos/Sources/AgentDashboardMenuBar`](apps/macos/Sources/AgentDashboardMenuBar): native popover, heatmap, settings, and cached API state.
+- [`apps/dashboard/src`](apps/dashboard/src): browser dashboard and monthly history.
+- [`apps/service/src`](apps/service/src): local routes, refresh coordination, and summaries.
+- [`packages/collector-github`](packages/collector-github) and [`packages/collector-codex`](packages/collector-codex): source adapters.
+- [`packages/domain`](packages/domain) and [`packages/storage`](packages/storage): event contracts and SQLite ledger.
+
+For browser development:
 
 ```sh
-pnpm install
 pnpm dev
 ```
 
-The development dashboard runs at `http://127.0.0.1:5173`; the API remains at `http://127.0.0.1:4317`.
-
-The first GitHub import uses the account already authenticated in `gh`:
+The dashboard runs at `http://127.0.0.1:5173`; the API remains at `http://127.0.0.1:4317`. To request an initial import during development:
 
 ```sh
 curl --request POST http://127.0.0.1:4317/api/sync/github
-```
-
-GitHub collection walks every live branch in accessible owned, collaborator, and organization-member repositories, deduplicates commits by repository and SHA, and reads push, force-push, branch-creation, and branch-deletion activity from GitHub. The local ledger defaults to `~/.agent-dashboard/agent-dashboard.sqlite` and is excluded from the repository. GitHub's Events API is a recent-activity source, so push coverage is explicitly labeled partial rather than presented as complete history.
-
-Import privacy-safe metadata from the local Codex installation:
-
-```sh
 curl --request POST http://127.0.0.1:4317/api/sync/codex
 ```
 
-Set `CODEX_SYNC_ON_START=1` to run that import when the service starts. The same refresh also asks Codex's official local app-server for account rate limits and usage facts using the existing Codex login. Worklog never receives or stores the credential or account email; it stores only an account hash and the displayed usage snapshot. The separate local-session adapter reads local Codex formats in place, marks its coverage experimental and partial, hashes workspace identities, and stores only an explicit metadata allowlist.
+Validation commands for code changes:
 
 ```sh
 pnpm test
 pnpm typecheck
 pnpm build
+swift test --package-path apps/macos
 ```
+
+See [the source-sharing review](docs/public-release-review.md) for the preparation checks and their scope.
+
+## License
+
+The code is available under the [MIT License](LICENSE), with permission to use, modify, and redistribute it under those terms. It's provided as-is, without warranty.
+
+CodexBar is credited as the inspiration. GitHub, OpenAI, and Codex names and marks belong to their respective owners; this project is independent of them. The license covers this project's code, not third-party service data or marks.
