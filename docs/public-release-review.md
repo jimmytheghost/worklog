@@ -17,7 +17,7 @@ Applied the Agentic Toolkit's public GitHub project-page process. This pass prep
 - Inspected tracked file inventory and all 13 reachable commits (258 unique blobs across all local refs before these changes).
 - Ran focused pattern checks for GitHub/OpenAI/AWS credential formats, private-key headers, credential assignments, and absolute home paths. No credential-pattern matches were found. Home-path matches were synthetic privacy-redaction fixtures in `apps/service/test/codex-integration.test.ts`.
 - Reviewed collector fixtures and runtime-file exclusions. Fixture GitHub identities refer to this project's owner; the fixtures use synthetic SHAs, example email addresses, and explicit test secret strings.
-- Inspected the tracked icon preview and its generation source. There is no interface screenshot in this checkout to publish. No generated app bundle is tracked or offered as a download.
+- Inspected the tracked icon preview and its generation source. Added Jimmy's supplied October 20 screenshot of the native app with his current activity and account usage, as requested. The image shows no repository names or credentials. No generated app bundle is tracked or offered as a download.
 - Read existing handoff and architecture notes for current limits. This pass did not run a new defect audit or claim the app is bug-free.
 
 Focused pattern inspection cannot establish the absence of every secret. This review covers reachable local Git history, not deleted/unreachable objects or GitHub-hosted caches.

@@ -6,6 +6,10 @@ This was inspired by [CodexBar](https://github.com/steipete/CodexBar), but I als
 
 I'm sharing it as-is in case anyone else wants it. If it's useful, take it. If you want something different, fork it and have your agents, or yourself, make it work the way you want. There's no promise of ongoing support or a release schedule. You don't need to wait on me to change your copy.
 
+<img src="docs/images/worklog-menu-bar.png" alt="Worklog menu-bar app showing current GitHub activity, the 90-day heatmap, and Codex account usage" width="360">
+
+Worklog with my current data, captured October 20, 2026.
+
 ## What it does today
 
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
