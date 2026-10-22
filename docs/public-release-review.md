@@ -2,7 +2,7 @@
 
 Reviewed October 20, 2026, starting from `72e9106`.
 
-Applied the Agentic Toolkit's public GitHub project-page process. This pass prepares source sharing; repository visibility remains private and no binary, tag, or GitHub Release was published.
+Applied the Agentic Toolkit's public GitHub project-page process. The initial pass prepared source sharing while the repository remained private. Public source publication was completed October 21, 2026, with Jimmy's authorization. No binary, tag, or GitHub Release was published.
 
 ## Changes
 
@@ -28,4 +28,13 @@ Documentation links, referenced source paths, fenced command blocks, and diff wh
 
 ## Publication boundary
 
-The repository was private with no releases when inspected. A later publication can make the source public using the prepared README and license. A downloadable release needs its own build, license inclusion, artifact inspection, platform validation, and clear signing/notarization notes. The current package script produces a locally tied, ad-hoc-signed app rather than a portable distribution.
+The repository was private with no releases when inspected. The source is now public with the prepared README, screenshot, and MIT license. A downloadable release needs its own build, license inclusion, artifact inspection, platform validation, and clear signing/notarization notes. The current package script produces a locally tied, ad-hoc-signed app rather than a portable distribution.
+
+## Publication verification, October 21, 2026
+
+- Refreshed the focused history scan across all 17 reachable commits and 280 unique blobs before publication. No credential-pattern matches were found; absolute home-path matches remained synthetic privacy-test fixtures.
+- `pnpm test`: 121 tests passed across the dashboard, domain, collectors, storage, and service.
+- `pnpm typecheck` and `pnpm build`: passed.
+- `swift test --package-path apps/macos`: exited successfully with a clean build; this toolchain printed no test execution counts, so native test execution is not claimed.
+- Changed GitHub visibility to public and updated the repository description. Verified anonymous access to the repository, README, license, and screenshot.
+- Left the unrelated untracked local `img/` directory out of the publication commit.
