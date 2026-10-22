@@ -35,8 +35,8 @@ Requirements:
 - Codex CLI, signed in with `codex login`, for Codex account usage. Local session collection also needs an existing Codex state index.
 
 ```sh
-git clone https://github.com/jimmytheghost/agent-dashboard.git
-cd agent-dashboard
+git clone https://github.com/jimmytheghost/worklog.git
+cd worklog
 pnpm install --frozen-lockfile
 pnpm build
 apps/macos/scripts/package-app.sh
