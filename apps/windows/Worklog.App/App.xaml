@@ -17,7 +17,7 @@
         </Border>
       </ControlTemplate></Setter.Value></Setter>
     </Style>
-    <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+    <Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style>
     <Style TargetType="ToolTip"><Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="{DynamicResource Muted}"/></Style>
     <Style TargetType="Button">
       <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="Background" Value="#363636"/>

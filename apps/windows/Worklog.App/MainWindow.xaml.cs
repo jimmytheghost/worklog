@@ -140,7 +140,7 @@ public partial class MainWindow : Window, IDisposable
         foreach (var value in new[] { "day", "week", "month", "year", "all" })
             ranges.Children.Add(Action(char.ToUpperInvariant(value[0]) + value[1..], () => { if (busy) return; period = value; summary = null; Render(); _ = RefreshAsync(false); }, period == value));
         ContentPanel.Children.Add(ranges);
-        var metrics = new System.Windows.Controls.Primitives.UniformGrid { Columns = 3, Margin = new Thickness(0, 0, 0, 10) };
+        var metrics = new System.Windows.Controls.Primitives.UniformGrid { Columns = 5, Rows = 1, Margin = new Thickness(0, 0, 0, 10) };
         var totals = summary?.Period == period && !cached ? summary.Metrics : null;
         Fact(metrics, "Local tokens", Display.Number(totals?.Tokens)); Fact(metrics, "Commits", Display.Number(totals?.Commits)); Fact(metrics, "Pushes", Display.Number(totals?.Pushes));
         Fact(metrics, "Active days", Display.Number(totals?.ActiveDays)); Fact(metrics, "Projects", Display.Number(totals?.Projects));
@@ -160,7 +160,9 @@ public partial class MainWindow : Window, IDisposable
     private void Fact(Panel grid, string label, string value)
     {
         var stack = new StackPanel { Margin = new Thickness(0, 3, 5, 6) };
-        stack.Children.Add(Text(value, 17)); stack.Children.Add(Text(label, 9, "Muted")); grid.Children.Add(stack);
+        var number = Text(value, 17); number.TextWrapping = TextWrapping.NoWrap;
+        var caption = Text(label, 9, "Muted"); caption.TextWrapping = TextWrapping.NoWrap;
+        stack.Children.Add(number); stack.Children.Add(caption); grid.Children.Add(stack);
     }
     private void RenderHeatmap()
     {
