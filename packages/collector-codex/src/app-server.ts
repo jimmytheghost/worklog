@@ -201,6 +201,7 @@ export class CodexAccountCollector {
       child = spawn(this.#executablePath, ["app-server", "--stdio"], {
         stdio: ["pipe", "pipe", "pipe"],
         env: process.env,
+        windowsHide: true,
       });
     } catch (cause) {
       throw new CodexAccountCollectorError("cli_missing", "Codex CLI is unavailable", { cause });

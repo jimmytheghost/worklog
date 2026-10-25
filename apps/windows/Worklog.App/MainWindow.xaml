@@ -1,0 +1,24 @@
+<Window x:Class="Worklog.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  Title="Worklog" Width="360" SizeToContent="Height" MaxHeight="760" WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+  AllowsTransparency="True" Background="Transparent" FontFamily="Segoe UI" FontSize="12" Foreground="{DynamicResource Text}">
+  <Border Background="{DynamicResource Surface}" BorderBrush="#626262" BorderThickness="1" CornerRadius="10">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Top">
+        <Grid Margin="14,12"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
+          <Border Background="#193B36" CornerRadius="8" Width="30" Height="30" HorizontalAlignment="Left"><Path Data="M 1,12 L 7,12 L 10,3 L 15,22 L 19,8 L 22,12 L 27,12" Stroke="{DynamicResource Mint}" StrokeThickness="2" Width="27" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+          <StackPanel Grid.Column="1"><TextBlock Text="Worklog" FontWeight="SemiBold" FontSize="14"/><TextBlock x:Name="Status" Text="Opening your ledger…" Foreground="{DynamicResource Muted}" FontSize="10"/></StackPanel>
+          <Button Grid.Column="2" Content="⚙" Background="Transparent" Padding="0" FontSize="17" ToolTip="Settings" AutomationProperties.Name="Settings" Click="Settings_Click"/>
+        </Grid>
+        <Border Height="1" Background="#363636"/>
+      </StackPanel>
+      <Grid DockPanel.Dock="Bottom" Margin="12"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
+        <Button x:Name="RefreshButton" Content="↻  Refresh" Click="Refresh_Click" FontSize="11"/>
+        <Button Grid.Column="1" Content="Open Work History ↗" Background="Transparent" Foreground="{DynamicResource Mint}" Click="History_Click" FontSize="11"/>
+        <Button Grid.Column="2" Content="⏻" Background="Transparent" ToolTip="Quit Worklog" AutomationProperties.Name="Quit Worklog" Click="Quit_Click"/>
+      </Grid>
+      <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="630">
+        <StackPanel Margin="14,12" x:Name="ContentPanel"/>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</Window>

@@ -1,6 +1,6 @@
 # Worklog
 
-A local macOS menu-bar app for keeping track of GitHub commits, pushes, and Codex usage.
+A local macOS menu-bar and Windows tray app for keeping track of GitHub commits, pushes, and Codex usage.
 
 This was inspired by [CodexBar](https://github.com/steipete/CodexBar), but I also wanted to keep track of my GitHub commits and pushes. Mostly, I wanted to try building my own menu-bar app. This is my first one, and it seemed like a good opportunity to learn.
 
@@ -23,6 +23,8 @@ Worklog with my current data, captured October 20, 2026.
 Week includes today and the previous six local calendar days. Month includes today and the previous 29.
 
 ## Build it yourself
+
+For Windows, see [the Windows tray app build and usage notes](apps/windows/README.md). It uses the same local service, with a native WPF flyout styled alongside Tipoff and the macOS Worklog app. The instructions below are for macOS.
 
 This is a source-only project. There is no downloadable app release.
 
@@ -69,6 +71,7 @@ The database and service log live at `~/.agent-dashboard/agent-dashboard.sqlite`
 Start with [AGENTS.md](AGENTS.md) and [the handoff](docs/handoff.md). The [product brief](docs/product-brief.md), [architecture](docs/architecture.md), [data contract](docs/data-contract.md), and [design notes](docs/design-direction.md) explain the existing choices.
 
 - [`apps/macos/Sources/AgentDashboardMenuBar`](apps/macos/Sources/AgentDashboardMenuBar): native popover, heatmap, settings, and cached API state.
+- [`apps/windows`](apps/windows): Windows WPF tray flyout, service launcher, snapshot cache, and startup settings.
 - [`apps/dashboard/src`](apps/dashboard/src): browser dashboard and monthly history.
 - [`apps/service/src`](apps/service/src): local routes, refresh coordination, and summaries.
 - [`packages/collector-github`](packages/collector-github) and [`packages/collector-codex`](packages/collector-codex): source adapters.

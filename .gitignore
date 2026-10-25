@@ -19,3 +19,5 @@ test-results/
 *.sqlite-wal
 *.sqlite3-shm
 *.sqlite3-wal
+**/bin/
+**/obj/

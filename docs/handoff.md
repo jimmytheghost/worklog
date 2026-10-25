@@ -24,6 +24,8 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 ## Code map
 
+Windows also has a native WPF tray app in `apps/windows/`, using this same service and ledger. See [Windows build and usage notes](../apps/windows/README.md). Its Core project decodes only display fields, App owns tray/service/cache/startup behavior, and Tests exercises missing/zero values, schema/range validation, cache privacy, and account windows. No macOS native source is changed by the Windows implementation.
+
 | Area | Main location |
 | --- | --- |
 | Native popover composition | `apps/macos/Sources/AgentDashboardMenuBar/DashboardMenuView.swift` |
