@@ -126,13 +126,13 @@ public partial class MainWindow : Window, IDisposable
                     account.Children.Add(new ProgressBar { Minimum = 0, Maximum = 100, Value = window.Remaining, Height = 4, Foreground = Brush("Mint"), Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 3) });
                     account.Children.Add(Text(window.ResetLabel(DateTimeOffset.UtcNow), 10, "Muted"));
                 }
-            var facts = new System.Windows.Controls.Primitives.UniformGrid { Columns = 3, Margin = new Thickness(0, 6, 0, 0) };
-            Fact(facts, "Lifetime tokens", Display.Number(usage.TokenUsage?.LifetimeTokens));
-            Fact(facts, "Peak day", Display.Number(usage.TokenUsage?.PeakDailyTokens));
-            Fact(facts, "Current streak", Display.Number(usage.TokenUsage?.CurrentStreakDays));
-            Fact(facts, "Best streak", Display.Number(usage.TokenUsage?.LongestStreakDays));
-            Fact(facts, "Banked resets", Display.Number(usage.BankedResetCount));
-            Fact(facts, "Credits", usage.Credits?.Unlimited == true ? "Unlimited" : usage.Credits?.Balance ?? "—");
+            var facts = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 6, 0, 0) };
+            AccountFact(facts, "Lifetime tokens", Display.Number(usage.TokenUsage?.LifetimeTokens));
+            AccountFact(facts, "Peak day", Display.Number(usage.TokenUsage?.PeakDailyTokens));
+            AccountFact(facts, "Current streak", Display.Number(usage.TokenUsage?.CurrentStreakDays));
+            AccountFact(facts, "Best streak", Display.Number(usage.TokenUsage?.LongestStreakDays));
+            AccountFact(facts, "Banked resets", Display.Number(usage.BankedResetCount));
+            AccountFact(facts, "Credits", usage.Credits?.Unlimited == true ? "Unlimited" : usage.Credits?.Balance ?? "—");
             account.Children.Add(facts);
         }
         else account.Children.Add(Text("Sign in with Codex, then refresh Worklog.", 11, "Muted"));
@@ -155,6 +155,23 @@ public partial class MainWindow : Window, IDisposable
             ContentPanel.Children.Add(Text(Display.Timestamp(item.OccurredAt, snapshot.Timezone), 9, "Muted"));
         }
         foreach (var source in snapshot.Sources) ContentPanel.Children.Add(Text(Display.SourceLabel(source), 9, "Muted"));
+    }
+    private void AccountFact(Panel grid, string label, string value)
+    {
+        var row = new DockPanel { Margin = new Thickness(0, 0, 10, 0) };
+        var number = Text(value, 10);
+        number.FontWeight = FontWeights.SemiBold;
+        number.TextWrapping = TextWrapping.NoWrap;
+        number.TextTrimming = TextTrimming.CharacterEllipsis;
+        number.MaxWidth = 60;
+        number.ToolTip = value;
+        DockPanel.SetDock(number, Dock.Right);
+        row.Children.Add(number);
+        var caption = Text(label, 10, "Muted");
+        caption.TextWrapping = TextWrapping.NoWrap;
+        caption.Margin = new Thickness(0, 2, 5, 2);
+        row.Children.Add(caption);
+        grid.Children.Add(row);
     }
     private void Fact(Panel grid, string label, string value)
     {
