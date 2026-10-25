@@ -8,12 +8,12 @@ I'm sharing it as-is in case anyone else wants it. If it's useful, take it. If y
 
 <img src="docs/images/worklog-menu-bar.png" alt="Worklog menu-bar app showing current GitHub activity, the 90-day heatmap, and Codex account usage" width="360">
 
-Worklog with my current data, captured October 20, 2026.
+The macOS menu-bar app with my current data, captured October 20, 2026.
 
 ## What it does today
 
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
-- Shows Day, rolling Week, rolling Month, Year, and All summaries in a native menu-bar popover, with no Dock icon.
+- Shows Day, rolling Week, rolling Month, Year, and All summaries in a native macOS menu-bar popover or Windows tray flyout.
 - Includes a clickable grayscale heatmap for the trailing 90 days, with Commit, Push, and Both modes.
 - Opens a searchable monthly Work History in your browser.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
@@ -24,9 +24,28 @@ Week includes today and the previous six local calendar days. Month includes tod
 
 ## Build it yourself
 
-For Windows, see [the Windows tray app build and usage notes](apps/windows/README.md). It uses the same local service, with a native WPF flyout styled alongside Tipoff and the macOS Worklog app. The instructions below are for macOS.
-
 This is a source-only project. There is no downloadable app release.
+
+### Windows
+
+Requires 64-bit Windows 10/11, the .NET 9 SDK (including the Desktop Runtime), Node.js 24+, pnpm 11, and GitHub CLI. Authenticate with `gh auth login`; sign in with `codex login` for Codex account usage. Local session collection needs an existing Codex state index.
+
+From PowerShell:
+
+```powershell
+git clone https://github.com/jimmytheghost/worklog.git
+Set-Location worklog
+pnpm install --frozen-lockfile
+pnpm build
+powershell -ExecutionPolicy Bypass -File apps/windows/scripts/package-app.ps1
+Start-Process apps/windows/dist/Worklog.exe
+```
+
+The native WPF app lives in the notification area. Left-click its icon to toggle the 360-unit flyout; right-click for Open, Refresh, Work History, Settings, or Quit. Its charcoal surfaces and mint accents follow [Tipoff](https://github.com/jimmytheghost/tipoff) and macOS Worklog. Account facts use compact inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a single row; selected range and heatmap buttons use dark text on mint. The gear opens startup settings and the explanation of local token counters and partial push coverage. Start with Windows is off by default.
+
+Packaging records the checkout and Node paths. Keep both available and repackage if they move. This is an unsigned source build with no standalone installer or automatic updater. To update, quit the tray app, pull changes, repeat the install/build/package commands, and relaunch. Quitting the tray leaves the shared service running; see [Windows build, service restart, cache, and validation notes](apps/windows/README.md) before updating service code.
+
+### macOS
 
 Requirements:
 
@@ -59,12 +78,12 @@ This is a personal work ledger with a few limits that affect what the numbers me
 
 - **GitHub coverage:** collection walks live branches in accessible owned, collaborator, and organization-member repositories, deduplicating commits by repository and SHA. It uses your existing CLI permissions, including access to private repositories. Push history is partial because GitHub's activity sources do not expose unlimited historical events. Commit and push counts stay separate.
 - **Codex coverage:** local session formats are unsupported and may change. The adapter labels its coverage experimental and partial. Observed session token counters are separate from account limits and are not billing-grade totals. Missing fields stay unavailable.
-- **Personal defaults:** reporting uses `America/Denver` unless you set `SERVICE_TIMEZONE` when starting the service. The menu-bar app expects port 4317. Configuration lives in [the service config](apps/service/src/config.ts); the launcher inherits environment variables and does not load a `.env` file.
+- **Personal defaults:** reporting uses `America/Denver` unless you set `SERVICE_TIMEZONE` when starting the service. Both native clients expect port 4317. Configuration lives in [the service config](apps/service/src/config.ts); launchers inherit environment variables and do not load a `.env` file.
 - **Local service:** the API binds to `127.0.0.1` by default and has no authentication. Keep it local. It exposes repository names, commit subjects, activity, and usage data to local clients.
 
 There is no telemetry. Worklog makes read-only requests to GitHub through `gh` and asks the local Codex app-server for account information using the existing Codex login. It also reads local Codex files to extract an explicit metadata allowlist. It does not retain source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists in its ledger. Commit subjects and canonical GitHub links are retained. Worklog does not store Codex credentials or the account email; it stores an account hash and the displayed usage snapshot.
 
-The database and service log live at `~/.agent-dashboard/agent-dashboard.sqlite` and `~/.agent-dashboard/service.log`. The native app also caches its last snapshot in your user Application Support directory. These can contain private project metadata, so review them before sharing logs or screenshots.
+The database lives at `~/.agent-dashboard/agent-dashboard.sqlite` on both platforms. The macOS launcher writes `~/.agent-dashboard/service.log`, and its native app caches its last snapshot in your user Application Support directory. The Windows app caches decoded display fields at `%LOCALAPPDATA%\Worklog\snapshot.json`; its launcher drains service output without saving it. These local files can contain private project metadata, so review them before sharing logs or screenshots.
 
 ## Make it yours
 
@@ -96,7 +115,13 @@ Validation commands for code changes:
 pnpm test
 pnpm typecheck
 pnpm build
-swift test --package-path apps/macos
+```
+
+For native macOS changes, also run `swift test --package-path apps/macos` on macOS. For Windows changes, run:
+
+```powershell
+dotnet run --project apps/windows/Worklog.Tests --configfile apps/windows/NuGet.Config
+dotnet build apps/windows/Worklog.App --configfile apps/windows/NuGet.Config
 ```
 
 See [the source-sharing review](docs/public-release-review.md) for the preparation checks and their scope.

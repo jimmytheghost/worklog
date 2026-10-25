@@ -10,11 +10,11 @@ Worklog is a private, local-first record of the software work one person actuall
 2. Which projects did I touch, including the ones I would otherwise forget?
 3. How much Codex usage remains, when does it reset, and how many tokens have been observed?
 
-The primary experience should feel like a task-bar utility: click the menu-bar icon, read the answer, and move on. The complete monthly archive is available one click away. The app must stay small enough for one person to run without babysitting it.
+The primary experience should feel like a task-bar utility: click the macOS menu-bar or Windows tray icon, read the answer, and move on. The complete monthly archive is available one click away. The app must stay small enough for one person to run without babysitting it.
 
 ## Current experience
 
-### Menu-bar Worklog
+### Native Worklog
 
 - Day, Week, Month, Year, and All range selector.
 - Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
@@ -23,6 +23,7 @@ The primary experience should feel like a task-bar utility: click the menu-bar i
 - Signed-in Codex rate-limit windows, reset times, token facts, credits, and available banked resets.
 - Recent work with commit subjects and repository/ref push descriptions.
 - Quiet refresh, cached-data, source-health, and shutdown behavior.
+- Windows has a 360-unit WPF tray flyout styled alongside Tipoff: compact account facts, five range metrics in one row, and dark text on mint-selected buttons. Settings holds the routine token/coverage explanation and opt-in startup registration; actual source health remains in the overview.
 
 ### Work History
 

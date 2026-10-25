@@ -25,10 +25,13 @@ The npm Codex launcher on Windows is a command shim; packaging resolves its nati
 - The first launch opens the flyout. Left-click the tray icon to toggle it; right-click for Open, Refresh, Work History, Settings, or Quit. Check the hidden-icons arrow if needed.
 - The flyout closes on focus loss or Escape. `Worklog.exe --inspect` keeps it open for inspection.
 - Day, Week, Month, Year, and All use the existing service summaries. Week is today plus six previous local dates; Month is today plus 29. Year is the calendar year. Reporting defaults to America/Denver; the service inherits `SERVICE_TIMEZONE` when started.
+- The account card keeps remaining-use gauges and reset countdowns above six compact facts: lifetime tokens, peak day, current streak, best streak, banked resets, and credits. Facts use small inline label/value pairs in two columns. Long values are trimmed with their full value available in a tooltip.
+- Local tokens, commits, pushes, active days, and projects fit in one row. Selected range and heatmap-mode buttons use dark text on mint. These layout choices keep more of the heatmap and recent work visible.
 - The heatmap shows up to the last 90 reported days in Commit, Push, and Both modes. Click a day for separate counts. Keyboard focus and accessible labels are provided for each cell.
 - Codex account limits and reset times appear separately from local session token counters. Unknown values display an em dash. Source status, freshness, and coverage remain visible; push history is partial.
 - Work History opens the existing complete searchable monthly browser history. It requires the service.
-- Settings offers Start with Windows, off by default. It registers this executable for the current user. Keep it at a stable path. Windows Startup Apps can separately disable it; there is no installer or automatic updater.
+- The gear opens Settings, including the explanation that local tokens are observed session counters separate from account limits and that push history is partial. This routine disclaimer is kept out of the overview; source status, freshness, and coverage remain visible there.
+- Settings also offers Start with Windows, off by default. It registers this executable for the current user. Keep it at a stable path. Windows Startup Apps can separately disable it; there is no installer or automatic updater.
 - Only one tray instance runs per Windows session. It reuses the healthy Worklog service on port 4317 or starts the built service without a console window. The UI polls every 30 seconds and on open, or every two seconds while collectors are running; collectors keep their existing 15-minute GitHub and five-minute Codex schedules. Refresh requests all collectors; results arrive on subsequent polls.
 - Quitting the tray leaves the service running, like macOS. Before updating running service code, stop the Worklog Node process after verifying its command line points to this checkout's `apps/service/dist/server.js`.
 
@@ -37,6 +40,10 @@ The npm Codex launcher on Windows is a command shim; packaging resolves its nati
 The ledger stays at `~/.agent-dashboard/agent-dashboard.sqlite`. The Windows flyout stores its last decoded snapshot at `%LOCALAPPDATA%\Worklog\snapshot.json`. Only known display fields are cached, never raw prompts, responses, tools, or credentials. This snapshot includes private project/usage metadata. Saved snapshots are labeled when the service is unavailable; selected-range totals remain unavailable until the service responds rather than reusing a different period.
 
 No additional collector, database, telemetry, or remote service is introduced. Service stdout/stderr is drained without retention by the Windows launcher.
+
+## Updating
+
+Quit Worklog from its tray menu before replacing the executable. Pull the latest source, run `pnpm install --frozen-lockfile` and `pnpm build`, repeat the packaging command, then launch `apps/windows/dist/Worklog.exe`. If service code changed, stop the existing Worklog Node process after verifying its command line points to this checkout's `apps/service/dist/server.js`; the next app launch starts the new service. The Windows launcher does not write the macOS launcher's `service.pid` file. Reuse the same output directory when Start with Windows is enabled, or enable it again from the new executable's Settings.
 
 ## Validation
 
