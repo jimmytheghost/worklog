@@ -21,15 +21,17 @@ final class SnapshotStore: ObservableObject {
     private let session: URLSession
     private let cacheURL: URL
     private var requestInFlight = false
-    private var serviceLaunchAttempted = false
+    private let serviceLauncher: (() throws -> Void)?
 
     init(
         baseURL: URL = URL(string: "http://127.0.0.1:4317")!,
         session: URLSession = .shared,
-        cacheURL: URL? = nil
+        cacheURL: URL? = nil,
+        serviceLauncher: (() throws -> Void)? = nil
     ) {
         self.baseURL = baseURL
         self.session = session
+        self.serviceLauncher = serviceLauncher
         self.cacheURL = cacheURL ?? Self.defaultCacheURL
         let cachedSnapshot = Self.readCache(from: self.cacheURL)
         let savedPeriod = UserDefaults.standard.string(forKey: "worklog.selectedPeriod")
@@ -86,12 +88,16 @@ final class SnapshotStore: ObservableObject {
         defer { requestInFlight = false }
 
         do {
-            var request = URLRequest(url: baseURL.appending(path: "api/sync"))
-            request.httpMethod = "POST"
-            request.setValue("respond-async", forHTTPHeaderField: "Prefer")
-            request.timeoutInterval = 15
-            let (_, response) = try await session.data(for: request)
-            try Self.requireSuccess(response)
+            do {
+                try await requestCollectorRefresh()
+            } catch {
+                guard Self.isConnectionFailure(error) else { throw error }
+                try startLocalService()
+                state = .startingService
+                try await waitForLocalService()
+                state = .refreshing
+                try await requestCollectorRefresh()
+            }
             try await fetchSnapshotWhileLocked()
             await fetchPeriodSummary()
             try await followRunningCollectors()
@@ -100,6 +106,15 @@ final class SnapshotStore: ObservableObject {
         } catch {
             state = .error(Self.calmMessage(for: error, cached: snapshot != nil))
         }
+    }
+
+    private func requestCollectorRefresh() async throws {
+        var request = URLRequest(url: baseURL.appending(path: "api/sync"))
+        request.httpMethod = "POST"
+        request.setValue("respond-async", forHTTPHeaderField: "Prefer")
+        request.timeoutInterval = 15
+        let (_, response) = try await session.data(for: request)
+        try Self.requireSuccess(response)
     }
 
     private func fetchSnapshot(showLoading: Bool) async {
@@ -114,8 +129,7 @@ final class SnapshotStore: ObservableObject {
         } catch is CancellationError {
             state = .ready
         } catch {
-            if Self.isConnectionFailure(error), !serviceLaunchAttempted {
-                serviceLaunchAttempted = true
+            if Self.isConnectionFailure(error) {
                 do {
                     try startLocalService()
                     state = .startingService
@@ -170,6 +184,10 @@ final class SnapshotStore: ObservableObject {
     }
 
     private func startLocalService() throws {
+        if let serviceLauncher {
+            try serviceLauncher()
+            return
+        }
         let environment = ProcessInfo.processInfo.environment
         let configuredRoot = Bundle.main.object(forInfoDictionaryKey: "AgentDashboardProjectRoot") as? String
         guard let projectRoot = configuredRoot ?? environment["AGENT_DASHBOARD_PROJECT_ROOT"],

@@ -143,7 +143,7 @@ fi
 
 if [[ ! -d node_modules ]]; then
   echo "Installing Agent Dashboard dependencies (first launch only)..."
-  pnpm install --frozen-lockfile || {
+  CI=true pnpm install --frozen-lockfile || {
     echo "Dependency installation failed."
     pause_before_close
     exit 1
@@ -152,7 +152,9 @@ fi
 
 if (( NEEDS_BUILD == 1 )); then
   echo "Preparing the production application..."
-  pnpm build || {
+  # Native launches have no terminal. Allow pnpm to refresh an incompatible
+  # modules directory without prompting, while keeping the lockfile frozen.
+  CI=true pnpm build || {
     echo "The production build failed."
     pause_before_close
     exit 1
