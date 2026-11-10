@@ -148,6 +148,34 @@ describe("GitHubCollector", () => {
     expect(visited.filter((value) => value.includes("/activity?"))).toHaveLength(9);
   });
 
+  it("matches linked authors by immutable ID without GitHub's username filter", async () => {
+    const original = commitsFixture[0]![0]!;
+    const runner = new FixtureRunner((_command, args) => {
+      const requested = endpoint(args);
+      if (requested === "user") return success(accountFixture);
+      if (requested.startsWith("user/repos")) return success([repositoriesFixture[0]]);
+      if (requested.includes("/branches?")) return success([[{ name: "main" }]]);
+      if (requested.includes("/commits?")) {
+        // Reproduce a linked noreply commit that GitHub's username query omits.
+        if (requested.includes("author=")) return success([[]]);
+        return success([[
+          { ...original, author: { id: "42", login: "renamed-account" } },
+          { ...original, sha: "d".repeat(40), author: { id: 99, login: accountFixture.login } },
+          { ...original, sha: "e".repeat(40), author: null },
+          { ...original, sha: "f".repeat(40), author: undefined },
+        ]]);
+      }
+      return success([[]]);
+    });
+    const result = await new GitHubCollector({ runner, now }).collect();
+    const commits = result.events.filter(({ eventType }) => eventType === "git.commit.discovered");
+    expect(commits.map(({ sourceRecordId }) => sourceRecordId)).toEqual([original.sha]);
+    expect(result.failures).toEqual([]);
+    expect(runner.calls.some(({ args }) => endpoint(args).includes("author="))).toBe(false);
+    expect(JSON.stringify(commits)).not.toContain("renamed-account");
+    expect(JSON.stringify(commits)).not.toContain("ignored@example.test");
+  });
+
   it("bounds incremental commit requests and locally filters repository activity", async () => {
     const runner = new FixtureRunner((_command, args) => {
       const requested = endpoint(args);

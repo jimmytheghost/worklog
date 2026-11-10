@@ -33,6 +33,7 @@ export interface GitHubRepositoryRecord {
 
 export interface GitHubCommitRecord {
   sha?: unknown;
+  author?: { id?: unknown; login?: unknown } | null;
   html_url?: unknown;
   commit?: {
     author?: { date?: unknown } | null;

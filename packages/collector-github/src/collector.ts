@@ -140,9 +140,13 @@ export class GitHubCollector {
       for (const branch of branches) {
         try {
           const name = branchName(branch);
-          const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&author=${encodeURIComponent(account.login)}&per_page=100${since === undefined ? "" : `&since=${encodeURIComponent(since)}`}`;
+          // GitHub's username author filter can omit commits made with a linked
+          // noreply address. Match the returned immutable account ID locally.
+          const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&per_page=100${since === undefined ? "" : `&since=${encodeURIComponent(since)}`}`;
           const records = await this.client.getPaginated<GitHubCommitRecord>(endpoint);
-          events.push(...records.map((record) => normalizeCommit(record, repository, account, observedAt)));
+          events.push(...records
+            .filter((record) => record.author?.id !== undefined && record.author.id !== null && String(record.author.id) === account.id)
+            .map((record) => normalizeCommit(record, repository, account, observedAt)));
         } catch (error) {
           failures.push(collectionFailure(error, "commits", repository.repositoryId));
         }
@@ -162,8 +166,8 @@ export class GitHubCollector {
           reason:
             failures.length === 0
               ? since === undefined
-                ? "Author-filtered commits reachable from every live repository branch; duplicate SHAs across branches are counted once"
-                : `Author-filtered commits since ${since} reachable from every live repository branch; duplicate SHAs across branches are counted once`
+                ? "Commits linked to the authenticated account ID from every live repository branch; duplicate SHAs across branches are counted once; unlinked authors are excluded"
+                : `Commits since ${since} linked to the authenticated account ID from every live repository branch; duplicate SHAs across branches are counted once; unlinked authors are excluded`
               : `All-branch commit import completed with ${failures.length} failed branch or repository request(s)`,
           ...dateRange(uniqueEvents),
         },

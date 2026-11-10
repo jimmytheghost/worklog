@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app.js";
 import { ServiceEventHub } from "../src/events.js";
-import { GITHUB_SOURCE_ID } from "../src/github-sync.js";
+import { GITHUB_SOURCE_ID, GitHubSyncCoordinator } from "../src/github-sync.js";
 
 const observedAt = "2026-08-31T12:00:00.000Z";
 const now = () => new Date(observedAt);
@@ -180,6 +180,28 @@ function integratedApp(store: Storage, collector: FixtureCollector, eventHub?: S
 }
 
 describe("GitHub service integration", () => {
+  it("backfills history after replacing username filtering, then resumes incremental sync", async () => {
+    const store = storage();
+    store.upsertSource({ id: GITHUB_SOURCE_ID, system: "github", immutableSourceId: "42" }, observedAt);
+    store.setSyncCursor({
+      sourceId: GITHUB_SOURCE_ID,
+      adapterName: "github-gh-api:vnext",
+      cursor: { since: observedAt },
+    }, observedAt);
+    const inputs: unknown[] = [];
+    const coordinator = new GitHubSyncCoordinator(store, {
+      collect: async (input) => {
+        inputs.push(input);
+        return result();
+      },
+    }, new ServiceEventHub(), now);
+
+    expect((await coordinator.sync()).status).toBe("succeeded");
+    expect((await coordinator.sync()).status).toBe("succeeded");
+    expect(inputs).toEqual([{}, { since: observedAt }]);
+    expect(store.countEvents()).toBe(3);
+  });
+
   it("starts listening while startup synchronization is still pending and publishes its terminal state", async () => {
     const store = storage();
     const eventHub = new ServiceEventHub();

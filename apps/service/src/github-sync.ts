@@ -12,7 +12,8 @@ import type { ServiceEventHub } from "./events.js";
 export const GITHUB_SOURCE_ID = "github:primary";
 const EXPECTED_SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 const STREAMS = ["repositories", "commits", "pushes"] as const;
-const CURSOR_ADAPTER = "github-gh-api:vnext";
+// Rewalk history once to recover commits omitted by the old username filter.
+const CURSOR_ADAPTER = "github-gh-api:account-id-v2";
 
 type StoragePort = Pick<
   Storage,
