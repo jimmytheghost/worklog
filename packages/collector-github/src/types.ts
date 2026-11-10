@@ -72,6 +72,12 @@ export interface GitHubCollectorOptions {
   runner?: CommandRunner;
   now?: () => Date;
   ghCommand?: string;
+  authorIdentities?: readonly GitHubAuthorIdentity[];
+}
+
+export interface GitHubAuthorIdentity {
+  accountId: string;
+  email: string;
 }
 
 export interface GitHubCollectionInput {

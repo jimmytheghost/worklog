@@ -7,9 +7,11 @@ import { openStorage } from "@agent-dashboard/storage";
 
 import { buildApp } from "./app.js";
 import { readConfig } from "./config.js";
+import { readGitHubAuthorIdentities } from "./github-identities.js";
 
 async function start(): Promise<void> {
   const config = readConfig();
+  const authorIdentities = readGitHubAuthorIdentities(config.githubIdentitiesPath);
   if (config.databasePath !== ":memory:") {
     mkdirSync(dirname(config.databasePath), { recursive: true, mode: 0o700 });
   }
@@ -22,7 +24,7 @@ async function start(): Promise<void> {
     dashboardPath: config.dashboardPath,
     sseHeartbeatMs: config.sseHeartbeatMs,
     storage,
-    githubCollector: new GitHubCollector(),
+    githubCollector: new GitHubCollector({ authorIdentities }),
     githubSyncOnStart: config.githubSyncOnStart,
     githubSyncIntervalMs: config.githubSyncIntervalMs,
     codexCollector: new CodexCollector(),

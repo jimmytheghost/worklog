@@ -202,6 +202,26 @@ describe("GitHub service integration", () => {
     expect(store.countEvents()).toBe(3);
   });
 
+  it("backfills once when configured author identities change without duplicating history", async () => {
+    const store = storage();
+    const inputs: unknown[] = [];
+    const collector = {
+      identityKey: "first-identities-fingerprint",
+      collect: async (input: unknown) => {
+        inputs.push(input);
+        return result();
+      },
+    };
+    const coordinator = new GitHubSyncCoordinator(store, collector, new ServiceEventHub(), now);
+    await coordinator.sync();
+    await coordinator.sync();
+    collector.identityKey = "updated-identities-fingerprint";
+    await coordinator.sync();
+    await coordinator.sync();
+    expect(inputs).toEqual([{}, { since: observedAt }, {}, { since: observedAt }]);
+    expect(store.countEvents()).toBe(3);
+  });
+
   it("starts listening while startup synchronization is still pending and publishes its terminal state", async () => {
     const store = storage();
     const eventHub = new ServiceEventHub();

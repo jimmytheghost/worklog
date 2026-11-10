@@ -76,7 +76,7 @@ To update, quit Worklog from its popover, pull the changes, and repeat the insta
 
 This is a personal work ledger with a few limits that affect what the numbers mean:
 
-- **GitHub coverage:** collection walks live branches in accessible owned, collaborator, and organization-member repositories, matching commit authors to your signed-in GitHub account ID and deduplicating commits by repository and SHA. Commits whose authors GitHub cannot link to your account are excluded. It uses your existing CLI permissions, including access to private repositories. Push history is partial because GitHub's activity sources do not expose unlimited historical events. Commit and push counts stay separate.
+- **GitHub coverage:** collection walks live branches in accessible owned, collaborator, and organization-member repositories, matching commit authors to your signed-in GitHub account ID or its configured author emails and deduplicating commits by repository and SHA. Unlinked authors need an explicit email match (see below). It uses your existing CLI permissions, including access to private repositories. Push history is partial because GitHub's activity sources do not expose unlimited historical events. Commit and push counts stay separate.
 - **Codex coverage:** local session formats are unsupported and may change. The adapter labels its coverage experimental and partial. Observed session token counters are separate from account limits and are not billing-grade totals. Missing fields stay unavailable.
 - **Personal defaults:** reporting uses `America/Denver` unless you set `SERVICE_TIMEZONE` when starting the service. Both native clients expect port 4317. Configuration lives in [the service config](apps/service/src/config.ts); launchers inherit environment variables and do not load a `.env` file.
 - **Local service:** the API binds to `127.0.0.1` by default and has no authentication. Keep it local. It exposes repository names, commit subjects, activity, and usage data to local clients.
@@ -84,6 +84,22 @@ This is a personal work ledger with a few limits that affect what the numbers me
 There is no telemetry. Worklog makes read-only requests to GitHub through `gh` and asks the local Codex app-server for account information using the existing Codex login. It also reads local Codex files to extract an explicit metadata allowlist. It does not retain source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists in its ledger. Commit subjects and canonical GitHub links are retained. Worklog does not store Codex credentials or the account email; it stores an account hash and the displayed usage snapshot.
 
 The database lives at `~/.agent-dashboard/agent-dashboard.sqlite` on both platforms. The macOS launcher writes `~/.agent-dashboard/service.log`, and its native app caches its last snapshot in your user Application Support directory. The Windows app caches decoded display fields at `%LOCALAPPDATA%\Worklog\snapshot.json`; its launcher drains service output without saving it. These local files can contain private project metadata, so review them before sharing logs or screenshots.
+
+### Counting commits with unlinked author emails
+
+GitHub may not link a commit to your account when Git used a machine-local address or another email absent from your GitHub account. To count those commits, create `~/.agent-dashboard/github-identities.json` with your numeric GitHub account ID (`gh api user --jq .id`) and the author addresses you have verified as yours:
+
+```json
+{
+  "schemaVersion": 1,
+  "identities": [
+    { "accountId": "123456", "email": "you@your-mac.local" },
+    { "accountId": "123456", "email": "you@example.com" }
+  ]
+}
+```
+
+The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local service after changing this file, using the service restart instructions above. A changed identity list triggers a historical import; existing repository/SHA pairs remain deduplicated. Email matching ignores case and surrounding whitespace and applies only to unlinked authors for the configured account. Historical addresses with accidental smart quotes can be listed exactly as recorded. It never overrides a different linked GitHub account or matches by display name, pusher, or repository owner. Author emails stay in this local configuration and are not copied into the ledger or API snapshots. Commits that have not reached an accessible live GitHub branch remain outside collection.
 
 ## Make it yours
 

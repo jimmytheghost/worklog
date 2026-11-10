@@ -9,6 +9,7 @@ export const DEFAULT_DATABASE_PATH = join(
   ".agent-dashboard",
   "agent-dashboard.sqlite",
 );
+export const DEFAULT_GITHUB_IDENTITIES_PATH = join(homedir(), ".agent-dashboard", "github-identities.json");
 
 export const DEFAULT_DASHBOARD_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -52,6 +53,7 @@ const configSchema = z.object({
   SERVICE_MIGRATIONS_PATH: z.string().trim().min(1).default(DEFAULT_MIGRATIONS_PATH),
   SERVICE_TIMEZONE: timeZone.default("America/Denver"),
   GITHUB_SYNC_ON_START: booleanFromEnvironment,
+  GITHUB_IDENTITIES_PATH: z.string().trim().min(1).default(DEFAULT_GITHUB_IDENTITIES_PATH),
   CODEX_SYNC_ON_START: booleanFromEnvironment,
   GITHUB_SYNC_INTERVAL_MS: refreshInterval.default(15 * 60 * 1_000),
   CODEX_SYNC_INTERVAL_MS: refreshInterval.default(5 * 60 * 1_000),
@@ -70,6 +72,7 @@ export type ServiceConfig = {
   migrationsPath: string;
   timeZone: string;
   githubSyncOnStart: boolean;
+  githubIdentitiesPath: string;
   codexSyncOnStart: boolean;
   githubSyncIntervalMs: number;
   codexSyncIntervalMs: number;
@@ -97,6 +100,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Servic
     migrationsPath: parsed.data.SERVICE_MIGRATIONS_PATH,
     timeZone: parsed.data.SERVICE_TIMEZONE,
     githubSyncOnStart: parsed.data.GITHUB_SYNC_ON_START,
+    githubIdentitiesPath: parsed.data.GITHUB_IDENTITIES_PATH,
     codexSyncOnStart: parsed.data.CODEX_SYNC_ON_START,
     githubSyncIntervalMs: parsed.data.GITHUB_SYNC_INTERVAL_MS,
     codexSyncIntervalMs: parsed.data.CODEX_SYNC_INTERVAL_MS,

@@ -176,6 +176,46 @@ describe("GitHubCollector", () => {
     expect(JSON.stringify(commits)).not.toContain("ignored@example.test");
   });
 
+  it("counts configured unlinked author emails only for their account, without retaining identities", async () => {
+    const original = commitsFixture[0]![0]!;
+    const ownEmail = "person@macbook.local";
+    const record = (sha: string, email: string, author: unknown = null) => ({
+      ...original, sha: sha.repeat(40), author,
+      commit: { ...original.commit, author: { date: original.commit.author.date, email } },
+    });
+    const runner = new FixtureRunner((_command, args) => {
+      const requested = endpoint(args);
+      if (requested === "user") return success(accountFixture);
+      if (requested.startsWith("user/repos")) return success([repositoriesFixture[0]]);
+      if (requested.includes("/branches?")) return success([[{ name: "main" }]]);
+      if (requested.includes("/commits?")) return success([[
+        record("a", " Person@MacBook.LOCAL "),
+        record("b", "stranger@example.test"),
+        record("c", ownEmail, { id: 99 }), // Never override another linked account.
+        record("d", "other-account@example.test"),
+        record("e", "“person@example.test”"),
+      ]]);
+      return success([[]]);
+    });
+    const authorIdentities = [
+      { accountId: "42", email: ownEmail },
+      { accountId: "99", email: "other-account@example.test" },
+      { accountId: "42", email: "“person@example.test”" },
+    ];
+    const collector = new GitHubCollector({ runner, now, authorIdentities });
+    const result = await collector.collect();
+    const commits = result.events.filter(({ eventType }) => eventType === "git.commit.discovered");
+    expect(commits.map(({ sourceRecordId }) => sourceRecordId)).toEqual(["a".repeat(40), "e".repeat(40)]);
+    expect(commits.every(isPrivacySafeGitHubEvent)).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(ownEmail);
+    expect(JSON.stringify(result)).not.toContain("other-account@example.test");
+    expect(JSON.stringify(result)).not.toContain("“person@example.test”");
+    expect(collector.identityKey).toBe(new GitHubCollector({
+      authorIdentities: [...authorIdentities].reverse().concat({ accountId: "42", email: " PERSON@MACBOOK.LOCAL " }),
+    }).identityKey);
+    expect(collector.identityKey).not.toBe(new GitHubCollector().identityKey);
+  });
+
   it("bounds incremental commit requests and locally filters repository activity", async () => {
     const runner = new FixtureRunner((_command, args) => {
       const requested = endpoint(args);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DASHBOARD_PATH,
   DEFAULT_DATABASE_PATH,
+  DEFAULT_GITHUB_IDENTITIES_PATH,
   DEFAULT_MIGRATIONS_PATH,
   readConfig,
 } from "../src/config.js";
@@ -18,6 +19,7 @@ describe("service configuration", () => {
       migrationsPath: DEFAULT_MIGRATIONS_PATH,
       timeZone: "America/Denver",
       githubSyncOnStart: false,
+      githubIdentitiesPath: DEFAULT_GITHUB_IDENTITIES_PATH,
       codexSyncOnStart: false,
       githubSyncIntervalMs: 15 * 60 * 1_000,
       codexSyncIntervalMs: 5 * 60 * 1_000,
@@ -37,6 +39,7 @@ describe("service configuration", () => {
         SERVICE_MIGRATIONS_PATH: "/tmp/storage-migrations",
         SERVICE_TIMEZONE: "UTC",
         GITHUB_SYNC_ON_START: "true",
+        GITHUB_IDENTITIES_PATH: "/tmp/identities.json",
         CODEX_SYNC_ON_START: "1",
         GITHUB_SYNC_INTERVAL_MS: "60000",
         CODEX_SYNC_INTERVAL_MS: "0",
@@ -52,6 +55,7 @@ describe("service configuration", () => {
       migrationsPath: "/tmp/storage-migrations",
       timeZone: "UTC",
       githubSyncOnStart: true,
+      githubIdentitiesPath: "/tmp/identities.json",
       codexSyncOnStart: true,
       githubSyncIntervalMs: 60_000,
       codexSyncIntervalMs: 0,

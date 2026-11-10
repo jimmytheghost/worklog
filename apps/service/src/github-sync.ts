@@ -26,7 +26,7 @@ type StoragePort = Pick<
   | "setSyncCursor"
 >;
 
-export type GitHubCollectorPort = Pick<GitHubCollector, "collect">;
+export type GitHubCollectorPort = Pick<GitHubCollector, "collect"> & Partial<Pick<GitHubCollector, "identityKey">>;
 
 export type GitHubSyncState = {
   status: "idle" | "running" | "succeeded" | "partial" | "failed";
@@ -87,10 +87,13 @@ export class GitHubSyncCoordinator {
   async #run(): Promise<GitHubSyncState> {
     const startedAt = this.now().toISOString();
     this.#setState({ status: "running", startedAt });
+    const cursorAdapter = this.collector.identityKey === undefined
+      ? CURSOR_ADAPTER
+      : `${CURSOR_ADAPTER}:${this.collector.identityKey}`;
 
     let result: GitHubCollectionResult;
     try {
-      const cursor = this.storage.getSyncCursor(GITHUB_SOURCE_ID, CURSOR_ADAPTER);
+      const cursor = this.storage.getSyncCursor(GITHUB_SOURCE_ID, cursorAdapter);
       const since = cursor !== null && typeof cursor === "object" && "since" in cursor && typeof cursor.since === "string"
         ? cursor.since
         : undefined;
@@ -143,7 +146,7 @@ export class GitHubSyncCoordinator {
         // Advance to the instant immediately before collection began. Events created during
         // the network walk remain eligible on the next refresh rather than falling in a gap.
         this.storage.setSyncCursor(
-          { sourceId: GITHUB_SOURCE_ID, adapterName: CURSOR_ADAPTER, cursor: { since: startedAt } },
+          { sourceId: GITHUB_SOURCE_ID, adapterName: cursorAdapter, cursor: { since: startedAt } },
           completedAt,
         );
       }

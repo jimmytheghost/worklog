@@ -36,7 +36,7 @@ export interface GitHubCommitRecord {
   author?: { id?: unknown; login?: unknown } | null;
   html_url?: unknown;
   commit?: {
-    author?: { date?: unknown } | null;
+    author?: { date?: unknown; email?: unknown } | null;
     committer?: { date?: unknown } | null;
     message?: unknown;
   };

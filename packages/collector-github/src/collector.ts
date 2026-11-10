@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { deduplicateEvents, type AnyNormalizedEvent } from "@agent-dashboard/domain";
 
 import { GhApiClient } from "./client.js";
@@ -64,10 +65,21 @@ async function forEachRepository<T>(items: readonly T[], visit: (item: T) => Pro
 export class GitHubCollector {
   private readonly client: GhApiClient;
   private readonly now: () => Date;
+  private readonly authorEmails = new Map<string, Set<string>>();
+  readonly identityKey: string;
 
   constructor(options: GitHubCollectorOptions = {}) {
     this.client = new GhApiClient(options.runner ?? new ExecFileCommandRunner(), options.ghCommand);
     this.now = options.now ?? (() => new Date());
+    for (const identity of options.authorIdentities ?? []) {
+      const emails = this.authorEmails.get(identity.accountId) ?? new Set<string>();
+      emails.add(identity.email.trim().toLowerCase());
+      this.authorEmails.set(identity.accountId, emails);
+    }
+    // Persist only a fingerprint in the cursor, so adding an alias backfills
+    // history once without retaining author email addresses in the ledger.
+    const identities = [...this.authorEmails].flatMap(([id, emails]) => [...emails].map((email) => [id, email])).sort();
+    this.identityKey = createHash("sha256").update(JSON.stringify(identities)).digest("hex");
   }
 
   async getAuthenticatedAccount(): Promise<GitHubAccount> {
@@ -145,7 +157,13 @@ export class GitHubCollector {
           const endpoint = `${repositoryEndpoint}/commits?sha=${encodeURIComponent(name)}&per_page=100${since === undefined ? "" : `&since=${encodeURIComponent(since)}`}`;
           const records = await this.client.getPaginated<GitHubCommitRecord>(endpoint);
           events.push(...records
-            .filter((record) => record.author?.id !== undefined && record.author.id !== null && String(record.author.id) === account.id)
+            .filter((record) => {
+              if (record.author?.id !== undefined && record.author.id !== null) {
+                return String(record.author.id) === account.id;
+              }
+              const email = record.commit?.author?.email;
+              return typeof email === "string" && this.authorEmails.get(account.id)?.has(email.trim().toLowerCase());
+            })
             .map((record) => normalizeCommit(record, repository, account, observedAt)));
         } catch (error) {
           failures.push(collectionFailure(error, "commits", repository.repositoryId));
@@ -166,8 +184,8 @@ export class GitHubCollector {
           reason:
             failures.length === 0
               ? since === undefined
-                ? "Commits linked to the authenticated account ID from every live repository branch; duplicate SHAs across branches are counted once; unlinked authors are excluded"
-                : `Commits since ${since} linked to the authenticated account ID from every live repository branch; duplicate SHAs across branches are counted once; unlinked authors are excluded`
+                ? "Commits matching the authenticated account ID or its configured author emails from every live repository branch; duplicate SHAs across branches are counted once; unmatched authors are excluded"
+                : `Commits since ${since} matching the authenticated account ID or its configured author emails from every live repository branch; duplicate SHAs across branches are counted once; unmatched authors are excluded`
               : `All-branch commit import completed with ${failures.length} failed branch or repository request(s)`,
           ...dateRange(uniqueEvents),
         },
