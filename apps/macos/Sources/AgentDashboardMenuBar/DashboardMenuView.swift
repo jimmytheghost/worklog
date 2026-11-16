@@ -122,7 +122,7 @@ struct DashboardMenuView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 14) {
-                    ActivityHeatmapView(days: snapshot.heatmapDays)
+                    ActivityHeatmapView(days: snapshot.displayedHeatmapDays)
                     codexAccountUsage(snapshot.codexAccount)
                 }
                 .background {

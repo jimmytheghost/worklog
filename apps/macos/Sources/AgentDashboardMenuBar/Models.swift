@@ -161,8 +161,10 @@ struct DashboardSnapshot: Codable, Equatable {
 
     struct DayActivity: Codable, Equatable, Identifiable {
         let date: String
-        let commits: Double
-        let pushes: Double
+        let commits: Double?
+        let pushes: Double?
+        let agents: Double?
+        let subagents: Double?
 
         var id: String { date }
     }
@@ -176,6 +178,7 @@ struct DashboardSnapshot: Codable, Equatable {
     let recentActivity: [Activity]
     let sources: [Source]
     let activityDays: [DayActivity]?
+    let heatmapDays: [DayActivity]?
 
     func metric(_ name: String) -> Double? {
         summary.first(where: { $0.metric == name })?.value
@@ -190,8 +193,8 @@ struct DashboardSnapshot: Codable, Equatable {
         Array(recentActivity.filter(\.isMeaningful).prefix(5))
     }
 
-    var heatmapDays: [DayActivity] {
-        Array((activityDays ?? []).suffix(90))
+    var displayedHeatmapDays: [DayActivity] {
+        heatmapDays ?? Array((activityDays ?? []).suffix(90))
     }
 
     var syncSummary: String {

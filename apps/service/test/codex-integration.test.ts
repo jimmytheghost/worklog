@@ -265,10 +265,11 @@ describe("Codex service integration", () => {
     expect(collector.calls).toBe(2);
   });
 
-  it("counts each role once per local date and exposes only daily totals to the website", async () => {
+  it("counts each role once per local date for the heatmap and website", async () => {
     const store = storage();
     const result = collection();
     for (const [id, agentRole, at] of [
+      ["child-id", "subagent", "2026-08-28T18:00:00.000Z"],
       ["main-id", "primary", "2026-08-31T05:58:00.000Z"],
       ["main-id", "primary", "2026-08-31T05:59:00.000Z"],
       ["main-id", "primary", "2026-08-31T06:00:00.000Z"],
@@ -284,10 +285,21 @@ describe("Codex service integration", () => {
     await app.inject({ method: "POST", url: "/api/sync/codex" });
     expect((await get("/api/summary?period=day")).metrics).toMatchObject({ agents: 1, subagents: 1 });
     const monthly = await get("/api/history?month=2026-08");
-    expect(monthly.summary).toMatchObject({ agents: 2, subagents: 1 });
+    expect(monthly.summary).toMatchObject({ agents: 2, subagents: 2 });
     expect(monthly.agentActivity).toEqual([
+      { localDate: "2026-08-28", agents: 0, subagents: 1 },
       { localDate: "2026-08-30", agents: 1, subagents: 0 },
       { localDate: "2026-08-31", agents: 1, subagents: 1 },
+    ]);
+    const snapshot = await get("/api/snapshot");
+    expect(snapshot.activityDays).toEqual([]);
+    expect(snapshot.heatmapDays).toHaveLength(90);
+    expect(snapshot.heatmapDays.slice(-5)).toEqual([
+      { date: "2026-08-27", commits: null, pushes: null, agents: null, subagents: null },
+      { date: "2026-08-28", commits: null, pushes: null, agents: 0, subagents: 1 },
+      { date: "2026-08-29", commits: null, pushes: null, agents: 0, subagents: 0 },
+      { date: "2026-08-30", commits: null, pushes: null, agents: 1, subagents: 0 },
+      { date: "2026-08-31", commits: null, pushes: null, agents: 1, subagents: 1 },
     ]);
     expect((await get("/api/history?month=2026-07")).summary.agents).toBeNull();
     const website = await get("/api/website");

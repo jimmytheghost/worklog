@@ -15,6 +15,7 @@ The macOS menu-bar app with my current data, captured October 20, 2026.
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
 - Shows Day, rolling Week, rolling Month, Year, and All summaries in a native macOS menu-bar popover or Windows tray flyout.
 - Includes a clickable grayscale heatmap for the trailing 90 days, with Commit, Push, and Both modes.
+- On macOS, the heatmap also has Agents and Subagents modes and shows all four daily counts for the selected date.
 - Opens a searchable monthly Work History in your browser.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
 - Counts top-level Codex sessions and spawned subagents once per active local day, with historical backfill from retained records.

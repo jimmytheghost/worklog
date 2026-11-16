@@ -26,6 +26,7 @@ type SnapshotStorage = Pick<
 >;
 
 const DAYS_IN_SNAPSHOT = 365;
+const DAYS_IN_HEATMAP = 90;
 
 function addLocalDays(localDate: string, amount: number): string {
   const [year, month, day] = localDate.split("-").map(Number) as [number, number, number];
@@ -107,6 +108,30 @@ export function buildStorageSnapshot(
     end: range.end,
   });
   const agentActivity = buildAgentActivity(storage, range, options.timeZone, now);
+  const gitDays = new Map(activity.slice(-DAYS_IN_HEATMAP).map((day) => [day.localDate, day]));
+  const agentDays = new Map(agentActivity.days.map((day) => [day.localDate, day]));
+  const firstAgentDay = agentActivity.coverage?.coverageStart === undefined
+    ? undefined
+    : localDateForInstant(agentActivity.coverage.coverageStart, options.timeZone);
+  const lastAgentDay = agentActivity.coverage?.coverageEnd === undefined
+    ? undefined
+    : localDateForInstant(agentActivity.coverage.coverageEnd, options.timeZone);
+  const hasHeatmapData = hasGitHubData || agentActivity.coverage !== undefined || agentDays.size > 0;
+  const heatmapStart = addLocalDays(endLocalDateExclusive, -DAYS_IN_HEATMAP);
+  const heatmapDays = Array.from({ length: hasHeatmapData ? DAYS_IN_HEATMAP : 0 }, (_, index) => {
+    const date = addLocalDays(heatmapStart, index);
+    const git = gitDays.get(date);
+    const agents = agentDays.get(date);
+    const hasAgentCoverage = firstAgentDay !== undefined && lastAgentDay !== undefined
+      && date >= firstAgentDay && date <= lastAgentDay;
+    return {
+      date,
+      commits: commitCoverage === undefined ? null : git?.commits ?? 0,
+      pushes: pushCoverage === undefined ? null : git?.pushes ?? 0,
+      agents: agents?.agents ?? (hasAgentCoverage ? 0 : null),
+      subagents: agents?.subagents ?? (hasAgentCoverage ? 0 : null),
+    };
+  });
 
   const metric = (
     name: string,
@@ -230,6 +255,7 @@ export function buildStorageSnapshot(
       pushes: day.pushes,
       codexAttributedCommits: 0,
     })),
+    heatmapDays,
     projects: projectRows,
     agents: codexSessions.map((session) => ({
       sessionId: session.id,

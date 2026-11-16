@@ -57,10 +57,29 @@ struct ModelsTests {
         #expect(snapshot.metric("commits") == 12)
         #expect(snapshot.activeProjects == 1)
         #expect(snapshot.meaningfulActivity.count == 5)
-        #expect(snapshot.heatmapDays.count == 2)
-        #expect(snapshot.heatmapDays.last?.pushes == 4)
+        #expect(snapshot.displayedHeatmapDays.count == 2)
+        #expect(snapshot.displayedHeatmapDays.last?.pushes == 4)
+        #expect(snapshot.displayedHeatmapDays.last?.agents == nil)
         #expect(!snapshot.meaningfulActivity.contains { $0.eventType == "repository.discovered" })
         #expect(snapshot.syncSummary == "Up to date")
+    }
+
+    @Test func decodesDailyAgentCountsWithoutGitHub() throws {
+        let json = """
+        {
+          "schemaVersion":1,"generatedAt":"2026-08-31T12:00:00Z","timezone":"America/Denver",
+          "summary":[],"projects":[],"recentActivity":[],"sources":[],"activityDays":[],
+          "heatmapDays":[
+            {"date":"2026-08-30","commits":null,"pushes":null,"agents":null,"subagents":null},
+            {"date":"2026-08-31","commits":null,"pushes":null,"agents":0,"subagents":3}
+          ]
+        }
+        """
+        let snapshot = try JSONDecoder().decode(DashboardSnapshot.self, from: Data(json.utf8))
+        #expect(snapshot.displayedHeatmapDays.first?.agents == nil)
+        #expect(snapshot.displayedHeatmapDays.last?.commits == nil)
+        #expect(snapshot.displayedHeatmapDays.last?.agents == 0)
+        #expect(snapshot.displayedHeatmapDays.last?.subagents == 3)
     }
 
     @Test func compactNumberFormatting() {

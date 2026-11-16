@@ -15,6 +15,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Windows account facts use compact inline pairs in two columns. The five range metrics share one row, and selected buttons use dark text on mint. The local-token/push-coverage disclaimer lives in Settings; source status and freshness stay in the overview.
 - Day, Week, Month, Year, and All summaries. Week is today plus the previous six local calendar days; Month is today plus the previous 29.
 - Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
+- The macOS heatmap also has Agents and Subagents modes with daily counts for the selected date.
 - Click-to-inspect heatmap days with separate commit and push counts.
 - Observed token, commit, push, active-day, and project totals.
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.

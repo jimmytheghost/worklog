@@ -349,6 +349,11 @@ describe("GitHub service integration", () => {
       ]),
     );
     expect(snapshot.activityDays).toHaveLength(365);
+    expect(snapshot.heatmapDays).toHaveLength(90);
+    expect(snapshot.heatmapDays.slice(-2)).toEqual([
+      { date: "2026-08-30", commits: 1, pushes: 1, agents: null, subagents: null },
+      { date: "2026-08-31", commits: 0, pushes: 0, agents: null, subagents: null },
+    ]);
     expect(snapshot.recentActivity[0]).toMatchObject({
       eventType: "github.push.observed",
       projectId: "github:1001",
@@ -369,6 +374,7 @@ describe("GitHub service integration", () => {
     const snapshot = response.json();
 
     expect(snapshot.activityDays).toEqual([]);
+    expect(snapshot.heatmapDays).toEqual([]);
     expect(snapshot.projects).toEqual([]);
     expect(snapshot.summary).toEqual(
       expect.arrayContaining([
