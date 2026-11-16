@@ -12,6 +12,12 @@ function isoInstant(value: unknown): string | undefined {
   return new Date(value).toISOString();
 }
 
+// Codex-era IANA time zones have minute-aligned offsets. One observation per
+// UTC minute preserves local day boundaries without storing each token event.
+export function activityMinute(instant: string): string {
+  return `${instant.slice(0, 16)}:00.000Z`;
+}
+
 function cumulativeSnapshot(
   lineNumber: number,
   timestamp: unknown,
@@ -81,6 +87,7 @@ export async function readRolloutMetadata(filename: string): Promise<RolloutMeta
   let terminalDurationMilliseconds: number | undefined;
   let malformedMetadataLines = 0;
   let missingCumulativeCounters = false;
+  const activityMinutes = new Set<string>();
 
   for await (const line of lines) {
     lineNumber += 1;
@@ -111,6 +118,11 @@ export async function readRolloutMetadata(filename: string): Promise<RolloutMeta
     }
     if (envelope.type !== "event_msg" || typeof metadata.type !== "string") continue;
 
+    if (["token_count", "task_started", "task_complete", "turn_aborted"].includes(metadata.type)) {
+      const instant = isoInstant(envelope.timestamp);
+      if (instant !== undefined) activityMinutes.add(activityMinute(instant));
+    }
+
     if (metadata.type === "token_count") {
       const selected = cumulativeSnapshot(lineNumber, envelope.timestamp, metadata.info);
       if (selected !== undefined) {
@@ -135,6 +147,7 @@ export async function readRolloutMetadata(filename: string): Promise<RolloutMeta
   }
 
   return {
+    activityMinutes: [...activityMinutes],
     ...(latestTokenObservation === undefined ? {} : { latestTokenObservation }),
     ...(parentSessionId === undefined ? {} : { parentSessionId }),
     ...(terminalStatus === undefined ? {} : { terminalStatus }),

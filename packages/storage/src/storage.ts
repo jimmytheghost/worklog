@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_TIME_ZONE,
   aggregateEventsByLocalDay,
+  localDateForInstant,
   parseNormalizedEvent,
   utcRangeForLocalDate,
   type AnyNormalizedEvent,
@@ -486,6 +487,39 @@ export class Storage {
   listRecentCodexTasks(limit: number): CodexTaskReadModel[] {
     assertCodexReadLimit(limit);
     return buildCodexReadModels(this.loadCodexEvents()).tasks.slice(0, limit);
+  }
+
+  queryDailyCodexAgentActivity(query: { start: string; end: string; timeZone: string }) {
+    assertUtcInstant(query.start, "start");
+    assertUtcInstant(query.end, "end");
+    if (Date.parse(query.end) <= Date.parse(query.start)) {
+      throw new RangeError("end must be after start for a half-open UTC interval");
+    }
+    const rows = this.db.select({
+      occurredAt: normalizedEvents.occurredAt,
+      payloadJson: normalizedEvents.payloadJson,
+    }).from(normalizedEvents).where(and(
+      eq(normalizedEvents.eventType, "codex.session.activity_observed"),
+      gte(normalizedEvents.occurredAt, query.start),
+      lt(normalizedEvents.occurredAt, query.end),
+    )).all();
+    const sessionsByDay = new Map<string, Map<string, "primary" | "subagent">>();
+    const dateByMinute = new Map<string, string>();
+    for (const row of rows) {
+      const date = dateByMinute.get(row.occurredAt) ?? localDateForInstant(row.occurredAt, query.timeZone);
+      dateByMinute.set(row.occurredAt, date);
+      const sessions = sessionsByDay.get(date) ?? new Map();
+      const payload = JSON.parse(row.payloadJson) as NormalizedEvent<"codex.session.activity_observed">["payload"];
+      // A later sync can discover a parent missing from an earlier observation.
+      if (sessions.get(payload.sourceSessionId) !== "subagent") {
+        sessions.set(payload.sourceSessionId, payload.agentRole);
+      }
+      sessionsByDay.set(date, sessions);
+    }
+    return Array.from(sessionsByDay, ([localDate, sessions]) => {
+      const subagents = Array.from(sessions.values()).filter((role) => role === "subagent").length;
+      return { localDate, agents: sessions.size - subagents, subagents };
+    }).sort((left, right) => left.localDate.localeCompare(right.localDate));
   }
 
   queryCodexObservedTokens(query: CodexObservedTokenQuery): CodexObservedTokenResult {

@@ -180,6 +180,28 @@ describe("CodexCollector", () => {
     expect(restored.events).toEqual(first.events);
   });
 
+  it("recovers an indexed spawned agent and keeps observed activity on later dates", async () => {
+    const fixture = await fixtureRoot();
+    const state = new BetterSqlite3(fixture.stateDatabase);
+    state.exec("ALTER TABLE threads ADD COLUMN source TEXT; DELETE FROM thread_spawn_edges;");
+    state.prepare("UPDATE threads SET source = ? WHERE id = ?")
+      .run('{"subagent":{"thread_spawn":{"parent_thread_id":"session-primary"}}}', "session-child");
+    state.prepare("UPDATE threads SET source = ? WHERE id = ?")
+      .run('{"subagent":{"other":"FORBIDDEN_FIXTURE_CONTENT"}}', "session-missing");
+    state.close();
+    unlinkSync(join(fixture.root, "sessions", "rollout-child.jsonl"));
+    appendFileSync(join(fixture.root, "sessions", "rollout-primary.jsonl"),
+      '\n{"timestamp":"2026-08-31T10:00:34Z","type":"event_msg","payload":{"type":"task_started","prompt":"FORBIDDEN_FIXTURE_CONTENT"}}\n');
+    const result = await new CodexCollector({ codexRoot: fixture.root, now: () => NOW }).collect();
+    const activity = result.events.filter((event) => event.eventType === "codex.session.activity_observed");
+    expect(activity).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sessionId: "session-child", payload: { sourceSessionId: "session-child", agentRole: "subagent" } }),
+      expect.objectContaining({ sessionId: "session-primary", occurredAt: "2026-08-31T10:00:00.000Z" }),
+    ]));
+    expect(activity.some((event) => event.sessionId === "session-missing")).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("FORBIDDEN_FIXTURE_CONTENT");
+  });
+
   it("selects only the latest cumulative token snapshot for a session", async () => {
     const fixture = await fixtureRoot();
     const result = await new CodexCollector({ codexRoot: fixture.root, now: () => NOW }).collect();

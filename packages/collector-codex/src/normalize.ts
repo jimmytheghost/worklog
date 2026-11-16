@@ -115,6 +115,25 @@ export function normalizeSpawned(
   };
 }
 
+export function normalizeSessionActivity(
+  sessionId: string,
+  role: "primary" | "subagent",
+  minute: string,
+  context: NormalizationContext,
+): NormalizedEvent<"codex.session.activity_observed"> {
+  return {
+    ...lifecycleBase(context, "session.activity_observed", sessionId, `${minute}:${role}`),
+    eventType: "codex.session.activity_observed",
+    entityType: "codex_session",
+    entityId: `codex-session:${sessionId}`,
+    occurredAt: minute,
+    occurredAtSource: "derived",
+    observedAt: context.observedAt,
+    sourceRecordId: `${sessionId}:activity:${minute}`,
+    payload: { sourceSessionId: sessionId, agentRole: role },
+  };
+}
+
 function completionOutcome(status: CodexSessionStatus) {
   return status === "completed" ||
     status === "failed" ||

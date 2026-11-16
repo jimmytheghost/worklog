@@ -22,7 +22,8 @@ export interface CodexThreadRecord {
   repositorySlug?: string;
   model?: string;
   reasoningEffort: ReasoningEffort;
-  indexedAgentRole?: string;
+  indexedParentSessionId?: string;
+  internalSubagent?: boolean;
 }
 
 export interface CodexTurnRecord {
@@ -42,6 +43,7 @@ export interface CodexSpawnEdgeRecord {
 export interface CodexIndexSnapshot {
   threads: CodexThreadRecord[];
   latestTurns: CodexTurnRecord[];
+  turnActivity: Map<string, string[]>;
   spawnEdges: CodexSpawnEdgeRecord[];
   stateSchema: SourceSchemaDescription;
   historySchema?: SourceSchemaDescription;
@@ -77,6 +79,7 @@ export type CumulativeTokenObservation =
 
 export interface RolloutMetadata {
   latestTokenObservation?: CumulativeTokenObservation;
+  activityMinutes?: string[];
   parentSessionId?: string;
   terminalStatus?: CodexSessionStatus;
   terminalAt?: string;

@@ -88,6 +88,8 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)(jsdom@30.0.1)(lightningcss@1.33.0)(tsx@4.23.13)
 
+  apps/website: {}
+
   packages/collector-codex:
     dependencies:
       '@agent-dashboard/domain':

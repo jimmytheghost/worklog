@@ -4,13 +4,14 @@ import {
   type EventPayloads,
 } from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
+import { buildAgentActivity } from "./agent-activity.js";
 
 export const PERIODS = ["day", "week", "month", "year", "all"] as const;
 export type SummaryPeriod = (typeof PERIODS)[number];
 
 type PeriodStorage = Pick<
   Storage,
-  "listGitActivityEvents" | "listProjects" | "queryCodexObservedTokens" | "queryDailyGitActivity"
+  "getCoverage" | "listGitActivityEvents" | "listProjects" | "queryCodexObservedTokens" | "queryDailyGitActivity" | "queryDailyCodexAgentActivity"
 >;
 
 function shiftLocalDate(localDate: string, days: number): string {
@@ -47,6 +48,7 @@ export function buildPeriodSummary(
   const events = storage.listGitActivityEvents(range);
   const projectNames = new Map(storage.listProjects().map((project) => [project.id, project.name]));
   const tokenUsage = storage.queryCodexObservedTokens(range);
+  const { agents, subagents } = buildAgentActivity(storage, range, options.timeZone, options.now);
   const activityDays = storage.queryDailyGitActivity({
     startLocalDate: bounds.startLocalDate,
     endLocalDateExclusive: bounds.endLocalDateExclusive,
@@ -60,6 +62,8 @@ export function buildPeriodSummary(
     range,
     metrics: {
       tokens: tokenUsage.knowledge === "unknown" ? null : tokenUsage.knownSubtotal,
+      agents,
+      subagents,
       commits: events.filter((event) => event.eventType === "git.commit.discovered").length,
       pushes: events.filter((event) => event.eventType === "github.push.observed").length,
       activeDays: activityDays.filter((day) => day.commits > 0 || day.pushes > 0).length,

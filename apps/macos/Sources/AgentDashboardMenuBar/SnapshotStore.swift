@@ -44,6 +44,8 @@ final class SnapshotStore: ObservableObject {
         if let metrics = periodSummary?.metrics {
             switch name {
             case "codex_observed_tokens": return metrics.tokens
+            case "codex_agents": return metrics.agents
+            case "codex_subagents": return metrics.subagents
             case "commits": return metrics.commits
             case "pushes": return metrics.pushes
             case "active_days": return metrics.activeDays

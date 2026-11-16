@@ -137,6 +137,10 @@ struct DashboardMenuView: View {
                     metric("Pushes", store.metric("pushes"), "arrow.up.circle")
                     metric("Active days", store.metric("active_days"), "calendar")
                     metric("Projects", store.metric("active_projects"), "folder")
+                    metric("Agents", store.metric("codex_agents"), "person.crop.circle")
+                        .help("Observed top-level Codex sessions, counted once per active day.")
+                    metric("Subagents", store.metric("codex_subagents"), "person.2")
+                        .help("Observed spawned Codex sessions, counted once per active day.")
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

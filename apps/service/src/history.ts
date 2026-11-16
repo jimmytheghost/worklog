@@ -1,14 +1,15 @@
 import { utcRangeForLocalDate, type EventPayloads } from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
+import { buildAgentActivity } from "./agent-activity.js";
 
 type HistoryStorage = Pick<
   Storage,
-  "listProjects" | "listGitActivityEvents" | "queryCodexObservedTokens"
+  "getCoverage" | "listProjects" | "listGitActivityEvents" | "queryCodexObservedTokens" | "queryDailyCodexAgentActivity"
 >;
 
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 
-function monthBounds(month: string, timeZone: string) {
+export function monthBounds(month: string, timeZone: string) {
   const match = MONTH_PATTERN.exec(month);
   if (match === null) throw new RangeError("month must use YYYY-MM");
   const year = Number(match[1]);
@@ -98,6 +99,7 @@ export function buildMonthlyHistory(
   );
 
   const tokenUsage = storage.queryCodexObservedTokens(range);
+  const { agents, subagents, days, coverage } = buildAgentActivity(storage, range, options.timeZone);
   return {
     schemaVersion: 1,
     month: options.month,
@@ -108,11 +110,15 @@ export function buildMonthlyHistory(
       commits: projectRows.reduce((sum, project) => sum + project.commits, 0),
       pushes: projectRows.reduce((sum, project) => sum + project.pushes, 0),
       tokens: tokenUsage.knowledge === "unknown" ? null : tokenUsage.knownSubtotal,
+      agents,
+      subagents,
     },
+    agentActivity: days,
     projects: projectRows,
     sources: [
       { source: "github", completeness: "partial" },
       { source: "codex_local", completeness: tokenUsage.knowledge },
+      { source: "codex_agent_activity", completeness: coverage?.completeness ?? "unavailable" },
     ],
   };
 }

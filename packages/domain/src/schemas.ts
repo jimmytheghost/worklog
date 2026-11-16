@@ -97,6 +97,10 @@ export const eventPayloadSchemas = {
     status: z.enum(["active", "completed", "failed", "cancelled", "interrupted", "unknown"]),
     durationMilliseconds: z.number().int().nonnegative().optional(),
   }),
+  "codex.session.activity_observed": z.strictObject({
+    sourceSessionId: nonEmptyString,
+    agentRole: z.enum(["primary", "subagent"]),
+  }),
   "codex.subagent.spawned": z.strictObject({
     parentSessionId: nonEmptyString,
     childSessionId: nonEmptyString,

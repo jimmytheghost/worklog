@@ -10,6 +10,8 @@ enum ActivityPeriod: String, CaseIterable, Codable, Identifiable {
 struct PeriodSummary: Codable, Equatable {
     struct Metrics: Codable, Equatable {
         let tokens: Double?
+        let agents: Double?
+        let subagents: Double?
         let commits: Double
         let pushes: Double
         let activeDays: Double

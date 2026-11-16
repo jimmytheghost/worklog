@@ -17,6 +17,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
 - Click-to-inspect heatmap days with separate commit and push counts.
 - Observed token, commit, push, active-day, and project totals.
+- Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
 - Complete searchable monthly Work History in the browser.
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
@@ -43,6 +44,7 @@ Windows also has a native WPF tray app in `apps/windows/`, using this same servi
 | GitHub synchronization | `apps/service/src/github-sync.ts` |
 | Codex synchronization | `apps/service/src/codex-sync.ts`, `apps/service/src/codex-account-sync.ts` |
 | Browser UI | `apps/dashboard/src` |
+| Public activity frontend and publisher | `apps/website`, `apps/service/src/public-activity.ts` |
 | Durable storage | `packages/storage` |
 | Event contracts | `packages/domain` |
 
@@ -54,6 +56,7 @@ Windows also has a native WPF tray app in `apps/windows/`, using this same servi
 | `GET /api/snapshot` | Current overview plus trailing 90-day activity |
 | `GET /api/summary?period=day\|week\|month\|year\|all` | Selected-range totals and recent work |
 | `GET /api/history?month=YYYY-MM` | Complete monthly work-history data |
+| `GET /api/website` | Public export of project names, commit subjects, and aggregate usage |
 | `GET /api/events` | Live server-sent refresh notifications |
 | `POST /api/sync` | Refresh all collectors |
 | `POST /api/sync/github` | Refresh GitHub only |

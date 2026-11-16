@@ -3,6 +3,7 @@ import { openStorage } from "@agent-dashboard/storage";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { buildMonthlyHistory } from "../src/history.js";
+import { buildPublicActivity } from "../src/public-activity.js";
 
 const stores: ReturnType<typeof openStorage>[] = [];
 
@@ -67,6 +68,18 @@ describe("monthly work history", () => {
 
   it("rejects invalid month input", () => {
     expect(() => buildMonthlyHistory(store(), { month: "August", timeZone: "UTC" })).toThrow(/YYYY-MM/);
+  });
+
+  it("exports repository names and subjects without GitHub account details, hashes, or URLs", () => {
+    const storage = store();
+    storage.insertEvents([commit("github:1", "1", "2026-08-02T02:00:00.000Z", "Build the dashboard")]);
+    const snapshot = buildPublicActivity(storage, "America/Denver", new Date("2026-08-10T12:00:00.000Z"));
+    expect(snapshot.months[0]?.projects).toEqual([{
+      name: "jimmy/alpha",
+      commits: 1,
+      pushes: 0,
+      activity: [{ date: "2026-08-01", kind: "commit", subject: "Build the dashboard" }],
+    }]);
   });
 });
 

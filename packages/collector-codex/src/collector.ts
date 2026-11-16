@@ -8,6 +8,7 @@ import { deduplicateEvents, type AnyNormalizedEvent } from "@agent-dashboard/dom
 import { sanitizedReadError } from "./errors.js";
 import {
   normalizeSessionCompleted,
+  normalizeSessionActivity,
   normalizeSessionStateObserved,
   normalizeSessionStarted,
   normalizeSpawned,
@@ -15,7 +16,7 @@ import {
   normalizeUsage,
 } from "./normalize.js";
 import { resolveCodexPaths, sourceInstanceId } from "./paths.js";
-import { readRolloutMetadata } from "./rollout.js";
+import { activityMinute, readRolloutMetadata } from "./rollout.js";
 import { readCodexIndex } from "./sqlite.js";
 import type {
   CodexCollectionResult,
@@ -250,12 +251,14 @@ export class CodexCollector {
     const rawEdgeMap = new Map(
       index.spawnEdges.map((edge) => [`${edge.parentSessionId}\u0000${edge.childSessionId}`, edge]),
     );
-    for (const [childSessionId, rollout] of rolloutBySession) {
-      if (rollout.parentSessionId === undefined) continue;
-      const edgeKey = `${rollout.parentSessionId}\u0000${childSessionId}`;
+    for (const thread of index.threads) {
+      const childSessionId = thread.id;
+      const parentSessionId = thread.indexedParentSessionId ?? rolloutBySession.get(childSessionId)?.parentSessionId;
+      if (parentSessionId === undefined) continue;
+      const edgeKey = `${parentSessionId}\u0000${childSessionId}`;
       if (!rawEdgeMap.has(edgeKey)) {
         rawEdgeMap.set(edgeKey, {
-          parentSessionId: rollout.parentSessionId,
+          parentSessionId,
           childSessionId,
           reportedStatus: "unknown",
         });
@@ -274,7 +277,7 @@ export class CodexCollector {
         status: terminal.status,
         ...(thread.model === undefined ? {} : { model: thread.model }),
         reasoningEffort: thread.reasoningEffort,
-        agentRole: parentSessionId === undefined ? "primary" : "subagent",
+        agentRole: parentSessionId !== undefined ? "subagent" : thread.internalSubagent ? "unknown" : "primary",
         ...(parentSessionId === undefined ? {} : { parentSessionId }),
         workspaceIdentityHash: thread.workspaceIdentityHash,
         ...(thread.repositorySlug === undefined ? {} : { repositorySlug: thread.repositorySlug }),
@@ -300,6 +303,16 @@ export class CodexCollector {
       }
       if (rollout.latestTokenObservation !== undefined) {
         events.push(normalizeUsage(session, rollout.latestTokenObservation, context));
+      }
+      if (session.agentRole !== "unknown") {
+        const minutes = new Set(rollout.activityMinutes);
+        for (const instant of index.turnActivity.get(session.sourceSessionId) ?? []) {
+          minutes.add(activityMinute(instant));
+        }
+        if (minutes.size === 0) minutes.add(activityMinute(session.startedAt));
+        for (const minute of minutes) {
+          events.push(normalizeSessionActivity(session.sourceSessionId, session.agentRole, minute, context));
+        }
       }
     }
 

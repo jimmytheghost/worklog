@@ -13,6 +13,7 @@ import { snapshotFixture } from "./fixtures/snapshot.js";
 import { GitHubSyncCoordinator } from "./github-sync.js";
 import { buildMonthlyHistory } from "./history.js";
 import { buildPeriodSummary, PERIODS, type SummaryPeriod } from "./period-summary.js";
+import { buildPublicActivity } from "./public-activity.js";
 import { buildStorageSnapshot } from "./snapshot.js";
 
 type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
@@ -116,6 +117,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       timeZone: options.timeZone ?? "America/Denver",
       now: now(),
     });
+  });
+
+  app.get("/api/website", async (_request, reply) => {
+    reply.header("cache-control", "no-store");
+    if (fixtureMode || options.storage === undefined) {
+      return reply.code(503).send({ error: "Website activity is unavailable" });
+    }
+    return buildPublicActivity(options.storage, options.timeZone ?? "America/Denver", now());
   });
 
   app.post("/api/sync/github", async (_request, reply) => {

@@ -11,6 +11,7 @@ import type { Storage } from "@agent-dashboard/storage";
 import { GITHUB_SOURCE_ID } from "./github-sync.js";
 import { CODEX_COVERAGE_KEY } from "./codex-sync.js";
 import { CODEX_ACCOUNT_COVERAGE_KEY } from "./codex-account-sync.js";
+import { buildAgentActivity } from "./agent-activity.js";
 
 type SnapshotStorage = Pick<
   Storage,
@@ -19,6 +20,7 @@ type SnapshotStorage = Pick<
   | "listGitActivityEvents"
   | "queryDailyGitActivity"
   | "queryCodexObservedTokens"
+  | "queryDailyCodexAgentActivity"
   | "listRecentCodexSessions"
   | "getCodexAccountUsage"
 >;
@@ -104,6 +106,7 @@ export function buildStorageSnapshot(
     start: range.start,
     end: range.end,
   });
+  const agentActivity = buildAgentActivity(storage, range, options.timeZone, now);
 
   const metric = (
     name: string,
@@ -218,6 +221,8 @@ export function buildStorageSnapshot(
         commitCoverage,
       ),
       codexTokenMetric,
+      metric("codex_agents", agentActivity.agents, ["codex_local"], agentActivity.coverage),
+      metric("codex_subagents", agentActivity.subagents, ["codex_local"], agentActivity.coverage),
     ],
     activityDays: activity.map((day) => ({
       date: day.localDate,

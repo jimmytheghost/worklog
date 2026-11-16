@@ -202,6 +202,8 @@ export function normalizeSnapshot(api: ApiSnapshot): DashboardSnapshot {
       { label: "Pushes", value: formatMetric(pushMetric?.value ?? null, "pushes"), delta: "Observed", context: pushMetric?.completeness ?? "unknown" },
       { label: "Active days", value: formatMetric(metricByName.get("active_days")?.value ?? null, "active_days"), delta: "Local", context: "selected range" },
       { label: "Observed tokens", value: formatMetric(metricByName.get("codex_observed_tokens")?.value ?? null, "tokens"), delta: "Local", context: metricByName.has("codex_observed_tokens") ? "Observed locally — not billing usage" : "No local token metadata yet" },
+      { label: "Agents", value: formatMetric(metricByName.get("codex_agents")?.value ?? null, "codex_agents"), delta: "Local", context: "Once per active day" },
+      { label: "Subagents", value: formatMetric(metricByName.get("codex_subagents")?.value ?? null, "codex_subagents"), delta: "Local", context: "Once per active day" },
     ],
     activityDays: activityCalendar(api.activityDays, range),
     projects: api.projects.map((project) => ({

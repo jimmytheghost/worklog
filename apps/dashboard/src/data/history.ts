@@ -7,7 +7,8 @@ export type WorkHistory = {
   month: string;
   timezone: string;
   range: { start: string; end: string };
-  summary: { projects: number; commits: number; pushes: number; tokens: number | null };
+  summary: { projects: number; commits: number; pushes: number; tokens: number | null; agents?: number | null; subagents?: number | null };
+  agentActivity?: { localDate: string; agents: number; subagents: number }[];
   projects: HistoryProject[];
   sources: Array<{ sourceSystem?: string; name?: string; status?: string; detail?: string }>;
 };

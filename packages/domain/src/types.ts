@@ -56,6 +56,7 @@ export const EVENT_TYPES = [
   "codex.task.started",
   "codex.session.started",
   "codex.session.state_observed",
+  "codex.session.activity_observed",
   "codex.subagent.spawned",
   "codex.session.completed",
   "codex.usage.recorded",
@@ -120,6 +121,10 @@ export interface EventPayloads {
     sourceSessionId: string;
     status: CodexSessionState;
     durationMilliseconds?: number | undefined;
+  };
+  "codex.session.activity_observed": {
+    sourceSessionId: string;
+    agentRole: Exclude<AgentRole, "unknown">;
   };
   "codex.subagent.spawned": {
     parentSessionId: string;

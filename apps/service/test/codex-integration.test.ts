@@ -265,6 +265,36 @@ describe("Codex service integration", () => {
     expect(collector.calls).toBe(2);
   });
 
+  it("counts each role once per local date and exposes only daily totals to the website", async () => {
+    const store = storage();
+    const result = collection();
+    for (const [id, agentRole, at] of [
+      ["main-id", "primary", "2026-08-31T05:58:00.000Z"],
+      ["main-id", "primary", "2026-08-31T05:59:00.000Z"],
+      ["main-id", "primary", "2026-08-31T06:00:00.000Z"],
+      ["child-id", "primary", "2026-08-31T06:01:00.000Z"],
+      ["child-id", "subagent", "2026-08-31T06:02:00.000Z"],
+    ] as const) {
+      result.events.push(event("codex.session.activity_observed", at, { sourceSessionId: id, agentRole }, { sessionId: id }));
+    }
+    const app = integratedApp(store, new FixtureCollector(result));
+    const get = async (url: string) => (await app.inject({ method: "GET", url })).json();
+    expect((await get("/api/summary?period=day")).metrics.agents).toBeNull();
+    await app.inject({ method: "POST", url: "/api/sync/codex" });
+    await app.inject({ method: "POST", url: "/api/sync/codex" });
+    expect((await get("/api/summary?period=day")).metrics).toMatchObject({ agents: 1, subagents: 1 });
+    const monthly = await get("/api/history?month=2026-08");
+    expect(monthly.summary).toMatchObject({ agents: 2, subagents: 1 });
+    expect(monthly.agentActivity).toEqual([
+      { localDate: "2026-08-30", agents: 1, subagents: 0 },
+      { localDate: "2026-08-31", agents: 1, subagents: 1 },
+    ]);
+    expect((await get("/api/history?month=2026-07")).summary.agents).toBeNull();
+    const website = await get("/api/website");
+    expect(website.months[0].agentDays).toEqual(monthly.agentActivity);
+    expect(JSON.stringify(website)).not.toMatch(/main-id|child-id|codexAccount|sessionId/);
+  });
+
   it("sanitizes unsupported schema failures", async () => {
     const store = storage();
     let calls = 0;

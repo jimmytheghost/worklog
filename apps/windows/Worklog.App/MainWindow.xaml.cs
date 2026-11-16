@@ -145,6 +145,11 @@ public partial class MainWindow : Window, IDisposable
         Fact(metrics, "Local tokens", Display.Number(totals?.Tokens)); Fact(metrics, "Commits", Display.Number(totals?.Commits)); Fact(metrics, "Pushes", Display.Number(totals?.Pushes));
         Fact(metrics, "Active days", Display.Number(totals?.ActiveDays)); Fact(metrics, "Projects", Display.Number(totals?.Projects));
         ContentPanel.Children.Add(metrics);
+        var agentMetrics = new System.Windows.Controls.Primitives.UniformGrid { Columns = 5, Rows = 1, Margin = new Thickness(0, 0, 0, 10) };
+        agentMetrics.ToolTip = "Observed Codex sessions, counted once per active day.";
+        Fact(agentMetrics, "Agents", Display.Number(totals?.Agents));
+        Fact(agentMetrics, "Subagents", Display.Number(totals?.Subagents));
+        ContentPanel.Children.Add(agentMetrics);
         RenderHeatmap();
         ContentPanel.Children.Add(Text("RECENT WORK", 10, "Muted"));
         if (totals is null) ContentPanel.Children.Add(Text("Selected range unavailable.", 11, "Muted"));
@@ -217,7 +222,7 @@ public partial class MainWindow : Window, IDisposable
             catch (Exception e) when (e is UnauthorizedAccessException or System.Security.SecurityException or IOException) { startup.IsChecked = false; Status.Text = "Could not update Windows startup"; }
         };
         ContentPanel.Children.Add(startup);
-        ContentPanel.Children.Add(Text("Local tokens are observed session counters, separate from account limits. Push history is partial.", 11, "Muted"));
+        ContentPanel.Children.Add(Text("Local tokens are observed session counters, separate from account limits. Push and agent history are partial.", 11, "Muted"));
         ContentPanel.Children.Add(Text("Worklog for Windows", 14));
         ContentPanel.Children.Add(Text("A local work ledger. Shared as-is.\n\nOne local service at 127.0.0.1:4317. Quitting the tray leaves the service running.\n\nGitHub: gh auth login\nCodex: codex login\n\nReporting timezone: " + (snapshot?.Timezone ?? "America/Denver") + "\nSet SERVICE_TIMEZONE before starting the service to change it.\n\nSnapshots: " + LocalService.DataDirectory + "\nLedger: ~/.agent-dashboard\n\nLocal metadata only. No telemetry.", 11, "Muted"));
     }

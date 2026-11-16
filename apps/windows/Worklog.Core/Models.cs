@@ -30,7 +30,7 @@ public sealed record Summary(int SchemaVersion, string Period, string Timezone, 
         return value;
     }
 }
-public sealed record Totals(double? Tokens, double Commits, double Pushes, double ActiveDays, double Projects);
+public sealed record Totals(double? Tokens, double Commits, double Pushes, double ActiveDays, double Projects, double? Agents = null, double? Subagents = null);
 public sealed record Activity(string EventId, string EventType, string OccurredAt, string Summary);
 public sealed record Account(string ObservedAt, string? PlanType, Limit[] RateLimits, double? BankedResetCount, Credits? Credits, TokenUsage? TokenUsage);
 public sealed record Limit(string LimitId, string? LimitName, UsageWindow? Primary, UsageWindow? Secondary);

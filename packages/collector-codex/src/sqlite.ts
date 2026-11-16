@@ -79,7 +79,8 @@ interface ThreadRow {
   cwd: unknown;
   model: unknown;
   reasoning_effort: unknown;
-  agent_role: unknown;
+  parent_thread_id: unknown;
+  internal_subagent: unknown;
   created_at_ms: unknown;
   updated_at_ms: unknown;
 }
@@ -93,10 +94,17 @@ function readThreads(database: BetterSqlite3.Database, schema: SourceSchemaDescr
       `Unsupported Codex thread index schema; missing ${missing.join(", ")}`,
     );
   }
+  const subagent = threadColumns.has("source")
+    ? "CASE WHEN json_valid(source) THEN json_type(source, '$.subagent') IS NOT NULL ELSE 0 END"
+    : "0";
+  const parent = threadColumns.has("source")
+    ? "CASE WHEN json_valid(source) THEN json_extract(source, '$.subagent.thread_spawn.parent_thread_id') END"
+    : "NULL";
   const sql = `SELECT id, rollout_path, created_at, updated_at, cwd,
     ${optionalColumn(threadColumns, "model")},
     ${optionalColumn(threadColumns, "reasoning_effort")},
-    ${optionalColumn(threadColumns, "agent_role")},
+    (${parent}) AS parent_thread_id,
+    (${subagent}) AS internal_subagent,
     ${optionalColumn(threadColumns, "created_at_ms")},
     ${optionalColumn(threadColumns, "updated_at_ms")}
     FROM threads ORDER BY created_at ASC, id ASC`;
@@ -126,9 +134,9 @@ function readThreads(database: BetterSqlite3.Database, schema: SourceSchemaDescr
         typeof row.reasoning_effort === "string"
           ? normalizeReasoningEffort(row.reasoning_effort)
           : "unknown",
-      ...(typeof row.agent_role === "string" && row.agent_role.length > 0
-        ? { indexedAgentRole: row.agent_role }
-        : {}),
+      ...(typeof row.parent_thread_id === "string" && row.parent_thread_id.length > 0
+        ? { indexedParentSessionId: row.parent_thread_id }
+        : row.internal_subagent === 1 ? { internalSubagent: true } : {}),
     };
   });
 }
@@ -170,14 +178,27 @@ function readEdges(
 
 function readLatestTurns(
   filename: string | undefined,
-): { turns: CodexTurnRecord[]; schema?: SourceSchemaDescription } {
-  if (filename === undefined) return { turns: [] };
+): { turns: CodexTurnRecord[]; activity: Map<string, string[]>; schema?: SourceSchemaDescription } {
+  const activity = new Map<string, string[]>();
+  if (filename === undefined) return { turns: [], activity };
   const database = openReadonly(filename);
   try {
     const schema = schemaDescription(database);
     const columns = new Set(schema.tables.thread_turns ?? []);
     if (!["thread_id", "status", "rollout_ordinal"].every((column) => columns.has(column))) {
-      return { turns: [], schema };
+      return { turns: [], activity, schema };
+    }
+    const timestamps = database.prepare(`SELECT thread_id, ${optionalColumn(columns, "started_at")},
+      ${optionalColumn(columns, "completed_at")} FROM thread_turns`);
+    for (const raw of timestamps.iterate()) {
+      const row = raw as Record<string, unknown>;
+      if (typeof row.thread_id !== "string") continue;
+      for (const value of [row.started_at, row.completed_at]) {
+        if (typeof value !== "number" || value <= 0) continue;
+        const instants = activity.get(row.thread_id) ?? [];
+        instants.push(instantFromEpoch(value));
+        activity.set(row.thread_id, instants);
+      }
     }
     const sql = `SELECT thread_id, status,
       ${optionalColumn(columns, "started_at")},
@@ -206,7 +227,7 @@ function readLatestTurns(
         },
       ];
     });
-    return { turns, schema };
+    return { turns, activity, schema };
   } finally {
     database.close();
   }
@@ -229,6 +250,7 @@ export function readCodexIndex(
       threads,
       spawnEdges,
       latestTurns: history.turns,
+      turnActivity: history.activity,
       stateSchema,
       ...(history.schema === undefined ? {} : { historySchema: history.schema }),
     };

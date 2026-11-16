@@ -11,6 +11,7 @@ import type { ServiceEventHub } from "./events.js";
 
 export const CODEX_SOURCE_ID = "codex:local";
 export const CODEX_COVERAGE_KEY = `${CODEX_SOURCE_ID}:observed`;
+export const CODEX_AGENT_COVERAGE_KEY = `${CODEX_SOURCE_ID}:agent-activity`;
 const EXPECTED_SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 
 type StoragePort = Pick<
@@ -114,6 +115,24 @@ export class CodexSyncCoordinator {
         return repositoryId === undefined ? event : { ...event, repositoryId } as AnyNormalizedEvent;
       });
       const inserted = this.storage.insertEvents(associatedEvents);
+      const previousAgents = this.storage.getCoverage(CODEX_AGENT_COVERAGE_KEY, this.now());
+      const firstActivity = associatedEvents.reduce(
+        (earliest, event) => event.eventType === "codex.session.activity_observed" && event.occurredAt < earliest
+          ? event.occurredAt : earliest,
+        previousAgents?.coverageStart ?? result.coverage.observedAt,
+      );
+      this.storage.upsertCoverage({
+        coverageKey: CODEX_AGENT_COVERAGE_KEY,
+        sourceId: CODEX_SOURCE_ID,
+        metric: "codex_agent_activity",
+        completeness: "partial",
+        coverageStart: firstActivity,
+        coverageEnd: result.coverage.observedAt,
+        coverageReason: "Daily activity observed in retained local Codex metadata",
+        lastAttemptedAt: completedAt,
+        lastSucceededAt: result.coverage.observedAt,
+        expectedSyncIntervalMs: EXPECTED_SYNC_INTERVAL_MS,
+      }, completedAt);
       this.storage.upsertCoverage(
         {
           coverageKey: CODEX_COVERAGE_KEY,
@@ -150,16 +169,15 @@ export class CodexSyncCoordinator {
 
   #recordFailureIfConfigured(message: string, completedAt: string): void {
     try {
-      const existing = this.storage.getCoverage(CODEX_COVERAGE_KEY, this.now());
-      if (existing === undefined) return;
-      this.storage.upsertCoverage(
-        {
+      for (const key of [CODEX_COVERAGE_KEY, CODEX_AGENT_COVERAGE_KEY]) {
+        const existing = this.storage.getCoverage(key, this.now());
+        if (existing === undefined) continue;
+        this.storage.upsertCoverage({
           ...existing,
           lastAttemptedAt: completedAt,
           latestError: message,
-        },
-        completedAt,
-      );
+        }, completedAt);
+      }
     } catch {
       // A secondary persistence failure must not leak storage details or replace the safe sync error.
     }

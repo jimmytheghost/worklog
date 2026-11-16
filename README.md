@@ -17,6 +17,7 @@ The macOS menu-bar app with my current data, captured October 20, 2026.
 - Includes a clickable grayscale heatmap for the trailing 90 days, with Commit, Push, and Both modes.
 - Opens a searchable monthly Work History in your browser.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
+- Counts top-level Codex sessions and spawned subagents once per active local day, with historical backfill from retained records.
 - Shows the signed-in Codex account's available rate-limit windows, reset countdowns, usage facts, credits, and banked resets.
 - Refreshes through one local background service and keeps the last successful snapshot available when that service is temporarily unavailable.
 
@@ -100,6 +101,10 @@ GitHub may not link a commit to your account when Git used a machine-local addre
 ```
 
 The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local service after changing this file, using the service restart instructions above. A changed identity list triggers a historical import; existing repository/SHA pairs remain deduplicated. Email matching ignores case and surrounding whitespace and applies only to unlinked authors for the configured account. Historical addresses with accidental smart quotes can be listed exactly as recorded. It never overrides a different linked GitHub account or matches by display name, pusher, or repository owner. Author emails stay in this local configuration and are not copied into the ledger or API snapshots. Commits that have not reached an accessible live GitHub branch remain outside collection.
+
+## Website
+
+The public frontend at [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/) has activity totals, a daily or monthly activity chart, and searchable project history. It reads a static export of the local ledger. The export includes repository names and commit subjects from collected activity, including private repositories, along with aggregate Codex usage. See the [website handoff](WEBSITE-HANDOFF.md) for the build and publishing workflow.
 
 ## Make it yours
 
