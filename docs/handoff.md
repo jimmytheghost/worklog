@@ -1,10 +1,10 @@
 # Worklog Handoff
 
-Checkpoint: 2026-10-25
+Checkpoint 2026-11-15
 
 ## Start here
 
-Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout backed by one local Fastify/SQLite service. Its job is to remember GitHub work across every accessible project and show Codex account limits separately from locally observed token totals. The daily loop is: click Worklog, inspect a range or heatmap day, optionally open the complete monthly Work History, then close it.
+Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout backed by one local Fastify/SQLite service. It records GitHub work across accessible projects and shows Codex account limits separately from local tokens and agent activity. Open Worklog to inspect a range or heatmap day and use the local browser for complete monthly Work History. The public website reads a static export. [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
 
@@ -12,15 +12,15 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 - Native macOS menu-bar popover with cached-first loading and no Dock icon.
 - Native Windows tray flyout with Tipoff-inspired charcoal/mint styling, one tray instance per session, snapshot caching, and optional Start with Windows (off by default).
-- Windows account facts use compact inline pairs in two columns. The five range metrics share one row, and selected buttons use dark text on mint. The local-token/push-coverage disclaimer lives in Settings; source status and freshness stay in the overview.
+- Windows account facts use compact inline pairs in two columns. Five range metrics share one row, with agent and subagent totals below. Settings explains local tokens and partial coverage. Source status and freshness stay in the overview.
 - Day, Week, Month, Year, and All summaries. Week is today plus the previous six local calendar days; Month is today plus the previous 29.
-- Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
-- The macOS heatmap also has Agents and Subagents modes with daily counts for the selected date.
-- Click-to-inspect heatmap days with separate commit and push counts.
+- macOS has five heatmap modes for the trailing 90 days. Select a date to see commits, pushes, agents, and subagents separately.
+- Windows currently has Commit, Push, and Both heatmap modes with separate selected-day Git counts.
 - Observed token, commit, push, active-day, and project totals.
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
-- Complete searchable monthly Work History in the browser.
+- Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
+- Static public dashboard with a 90-day heatmap for all four individual metrics, searchable project history, and clickable GitHub commit subjects. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
 - Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
@@ -28,7 +28,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 ## Code map
 
-Windows also has a native WPF tray app in `apps/windows/`, using this same service and ledger. See [Windows build and usage notes](../apps/windows/README.md). Its Core project decodes only display fields, App owns tray/service/cache/startup behavior, and Tests exercises missing/zero values, schema/range validation, cache privacy, and account windows. No macOS native source is changed by the Windows implementation.
+The Windows Core project decodes display fields, App owns tray, service, cache, and startup behavior, and Tests exercises missing and zero values, schema and range validation, cache privacy, and account windows. [Windows build and usage notes](../apps/windows/README.md)
 
 | Area | Main location |
 | --- | --- |
@@ -54,10 +54,10 @@ Windows also has a native WPF tray app in `apps/windows/`, using this same servi
 | Method and route | Meaning |
 | --- | --- |
 | `GET /health` | Service and collector health |
-| `GET /api/snapshot` | Current overview plus trailing 90-day activity |
+| `GET /api/snapshot` | Current overview, the 365-day Git calendar, and the separate 90-day `heatmapDays` projection |
 | `GET /api/summary?period=day\|week\|month\|year\|all` | Selected-range totals and recent work |
-| `GET /api/history?month=YYYY-MM` | Complete monthly work-history data |
-| `GET /api/website` | Public export of project names, commit subjects, and aggregate usage |
+| `GET /api/history?month=YYYY-MM` | Complete monthly work history and daily observed agent counts |
+| `GET /api/website` | Public export of project names, commit subjects and links, and aggregate usage |
 | `GET /api/events` | Live server-sent refresh notifications |
 | `POST /api/sync` | Refresh all collectors |
 | `POST /api/sync/github` | Refresh GitHub only |
@@ -108,7 +108,7 @@ powershell -ExecutionPolicy Bypass -File apps/windows/scripts/package-app.ps1
 Start-Process apps/windows/dist/Worklog.exe
 ```
 
-The October 25 Windows pass verified 121 workspace tests, type checking, production builds, Windows model checks, package generation, and live layout inspection. Swift checks were not run on the Windows host. See the Windows README for update/service restart instructions and the remaining manual interaction checks.
+The November 15 macOS heatmap change passed 131 workspace tests, type checking, the production build, and 18 Swift tests. The rebuilt app was relaunched and the heatmap rendered at menu-bar width with live data. Interactive popover inspection timed out. The last recorded live Windows package and layout verification was October 25. The later agent range totals passed Windows model checks and a cross-build from macOS.
 
 ## Data limits that must remain visible
 
@@ -121,13 +121,8 @@ The October 25 Windows pass verified 121 workspace tests, type checking, product
 
 ## Recommended next session
 
-1. Open the packaged app and collect the next visual/interaction tweaks from real use.
-2. Keep changes inside the compact popover or Work History unless a new surface is clearly necessary.
-3. Add a focused regression test whenever a tweak changes range boundaries, snapshot decoding, service lifecycle, or collector counts.
-4. Re-run the full verification and repackage before the next checkpoint.
-
-Likely future exploration includes clearer source-coverage detail and continued visual polish. Do not invent billing totals or add always-running agents to simulate unavailable data.
+Port the daily Agents and Subagents heatmap modes to the Windows flyout. The service contract is ready. The [Windows heatmap handoff](windows-heatmap-handoff.md) lists the files, compatibility rules, and checks to run on Windows.
 
 ## Product guardrail
 
-The best next version is the smallest version that answers the user's real daily questions more clearly. Preserve one service, local-only storage, read-only collectors, exhaustive history, and a popover that never needs babysitting.
+Keep one local service, one ledger, read-only collectors, and complete monthly history. Publish only the website projection.

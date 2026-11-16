@@ -4,11 +4,11 @@ Status: active product baseline
 
 ## Product intent
 
-Worklog is a private, local-first record of the software work one person actually did. It should answer three questions in a few seconds:
+Worklog is a local-first record of one person's software work, with a separate public activity view. It should answer three questions in a few seconds:
 
 1. What did I commit and push today, this week, this month, or this year?
 2. Which projects did I touch, including the ones I would otherwise forget?
-3. How much Codex usage remains, when does it reset, and how many tokens have been observed?
+3. How much Codex usage remains, when does it reset, and how many tokens, agents, and subagents were observed?
 
 The primary experience should feel like a task-bar utility: click the macOS menu-bar or Windows tray icon, read the answer, and move on. The complete monthly archive is available one click away. The app must stay small enough for one person to run without babysitting it.
 
@@ -17,19 +17,26 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 ### Native Worklog
 
 - Day, Week, Month, Year, and All range selector.
-- Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes.
-- Clickable days with exact commit and push totals in a compact detail strip.
-- Observed tokens, commits, pushes, active days, and project totals.
+- Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes on both platforms. macOS adds Agents and Subagents modes and shows all four counts when a day is selected. Windows currently shows the selected day's commit and push counts.
+- Observed tokens, commits, pushes, active days, projects, agents, and subagents across the selected range.
 - Signed-in Codex rate-limit windows, reset times, token facts, credits, and available banked resets.
 - Recent work with commit subjects and repository/ref push descriptions.
 - Quiet refresh, cached-data, source-health, and shutdown behavior.
-- Windows has a 360-unit WPF tray flyout styled alongside Tipoff: compact account facts, five range metrics in one row, and dark text on mint-selected buttons. Settings holds the routine token/coverage explanation and opt-in startup registration; actual source health remains in the overview.
+- Windows has a 360-unit WPF tray flyout styled alongside Tipoff, with compact account facts, the five original range metrics in one row, and agent and subagent totals below. Settings explains token and source coverage and includes opt-in startup. Source health remains in the overview.
 
 ### Work History
 
 - Complete month-by-month archive rather than a “top projects” ranking.
 - Searchable work rows with dates, repositories, commit subjects, push descriptions, and links where available.
+- Monthly agent and subagent totals, with a daily table for observed activity.
 - All projects represented when they have qualifying recorded work.
+
+### Public Worklog
+
+- Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, and searchable monthly project history with clickable GitHub commit subjects.
+- A static export supplies repository activity and aggregate usage. The heatmap ends on the latest published reporting date.
+
+[JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
 
 ## Range semantics
 
@@ -53,7 +60,7 @@ Reachable commit history can be reconstructed more completely than push history.
 
 ### Codex account limits and local counters stay distinct
 
-Usage remaining, reset timing, banked resets, credits, and lifetime facts come from the signed-in Codex account through Codex's official local app-server. Per-session observed token totals still come from local counters. Neither is presented as an invoice or an invented monetary estimate, and the two sources are never silently combined.
+Usage remaining, reset timing, banked resets, credits, and lifetime facts come from the signed-in Codex account through Codex's official local app-server. Observed tokens and agent activity come from local session metadata. Agent and subagent totals sum daily counts of distinct active sessions and depend on retained records.
 
 ### The archive must not forget projects
 
@@ -72,7 +79,7 @@ Worklog stores the metadata required to explain activity. It does not ingest pro
 - Launching, steering, approving, or terminating agents.
 - A live agent hierarchy or operations console.
 - Editing repositories, branches, issues, pull requests, or files.
-- Team analytics, employee monitoring, leaderboards, or public profiles.
+- Team analytics, employee monitoring, or leaderboards.
 - Perfect reconstruction of pushes that GitHub no longer exposes.
 - Billing-grade accounting or invented credit/cost estimates.
 - Semantic analysis of source code or conversations.
@@ -87,4 +94,4 @@ Any new feature must earn its place by improving that daily loop without adding 
 
 ## Next product phase
 
-Continue with visual and interaction refinements based on real daily use. Prefer small, testable improvements to the existing popover and Work History. Add new collectors or deeper analysis only after the core work ledger has proven a clear gap.
+Bring the daily agent and subagent heatmap modes to the Windows tray app using the shared snapshot contract. [Windows heatmap handoff](windows-heatmap-handoff.md)

@@ -4,7 +4,7 @@ Status: Accepted MVP contract
 
 Default local timezone: `America/Denver`
 
-Scope: private, local-first, read-only MVP
+Scope: local-first, read-only collection with an allowlisted public projection
 
 ## Purpose
 
@@ -47,15 +47,16 @@ All counts use raw event or entity counts unless the metric explicitly says othe
 - **Pushes:** count of distinct observed push or ref-changing operations. A push containing multiple commits counts as one push. A force push and a branch/tag creation or deletion each count as a push when the source records them as such.
 - **Pushed commits:** sum of distinct commit SHAs introduced by each observed push. This metric can exceed unique commits because the same commit may be pushed to multiple repositories or refs; the UI must label it explicitly.
 - **Active repositories:** distinct repositories with at least one qualifying commit, push, or associated Codex task during the interval.
-- **Activity heatmap value:** selected metric aggregated into calendar days in the configured timezone. The selector supports `commits`, `pushes`, and `both`. `Both` sums the two counts only for cell intensity; exact commit and push values remain separate everywhere else.
+- **Git heatmap value:** daily commits or pushes in the configured timezone. The native Both mode sums the two values for cell intensity and retains separate exact counts.
 
 Do not infer historical push counts from commit timestamps, reflogs, or current branch state. Such evidence may support a separately labeled estimate in a future version, but it is excluded from MVP push totals.
 
 ### Codex activity
 
 - **Tasks:** count of distinct top-level Codex tasks whose start instant falls in the interval.
-- **Agent sessions:** count of distinct Codex execution sessions, including top-level and sub-agent sessions.
-- **Sub-agent sessions:** sessions with a normalized parent session or parent task relationship.
+- **Agents:** distinct top-level Codex sessions observed active on a reporting date.
+- **Subagents:** distinct spawned Codex sessions observed active on a reporting date. When the ledger contains both classifications for a session on the same date, subagent classification takes precedence.
+- **Range totals for agents and subagents:** sum of the respective daily counts. A session active on several dates contributes once on each of those dates. Retained local records set the historical coverage.
 - **Active duration:** elapsed wall-clock time between recorded start and terminal instants. Open sessions use the reporting instant and are labeled active. Missing terminal records produce an unknown duration rather than an assumed value.
 - **Codex observed input/output/cached/reasoning tokens:** sums of the corresponding counters available in local Codex metadata. Missing counter classes are `unknown`, not zero.
 - **Task outcome:** normalized terminal state such as `completed`, `failed`, `cancelled`, `interrupted`, or `unknown`; it is not inferred from Git activity.
@@ -72,15 +73,15 @@ OpenAI API usage and local Codex observed usage are separate series. They must n
 
 ### Reporting ranges
 
-Summary ranges use local calendar boundaries and half-open intervals:
+The native summary ranges use local calendar boundaries and half-open intervals. Their end is the start of the next local day.
 
-- `day`: the start of today through now.
-- `week`: the start of today minus six calendar days through now.
-- `month`: the start of the current calendar month through now.
-- `year`: the start of the current calendar year through now.
-- `all`: the full recorded ledger.
+- `day`: today.
+- `week`: today and the preceding six local dates.
+- `month`: today and the preceding 29 local dates.
+- `year`: the current local calendar year through today.
+- `all`: all recorded dates through today.
 
-The activity heatmap is always the trailing 90 local calendar days including today. It is independent of the summary range selector.
+The native heatmap uses a trailing 90-day local window independent of the summary range. The public website's 90-day window ends on the latest published reporting date and stays fixed when visitors change the history month. Monthly Work History uses a calendar month.
 
 ## Provenance, confidence, completeness, and freshness
 
@@ -188,6 +189,7 @@ All instants are stored in UTC with sufficient precision to preserve the source 
 | `repository.metadata_changed` | Source metadata changed, such as name, visibility, default branch, or archival state. |
 | `codex.task.started` | A top-level task start was observed. |
 | `codex.session.started` | An agent execution session start was observed. |
+| `codex.session.activity_observed` | A session had allowlisted activity in a UTC minute. The payload contains only its source session ID and normalized agent role. |
 | `codex.subagent.spawned` | A parent/child agent relationship was observed or correlated. |
 | `codex.session.completed` | A session reached a terminal state. |
 | `codex.usage.recorded` | A local Codex usage counter/bucket was observed. |
@@ -251,6 +253,7 @@ The importer must be deterministic: the same ordered or unordered input set, ada
 - Git commit default day uses committer instant. Author day is an explicit alternate view.
 - Push day uses the source push event instant.
 - Codex task/session day uses its source lifecycle instant; if absent, a derived or observed instant is allowed but labeled via `occurredAtSource`.
+- Daily agent counts derive their dates from activity observations in the configured timezone. The collector retains activity minutes from turn and token metadata and falls back to the session start if it has no finer observation.
 - Usage data retains the provider's bucket boundaries. Re-bucketing is allowed only when allocation is unambiguous; otherwise the original bucket is displayed without fabricated daily precision.
 - Future-dated or severely skewed source timestamps are preserved, flagged, and excluded only by an explicit data-quality rule visible to the user.
 
@@ -277,6 +280,8 @@ Additional controls:
 - Hash local paths for telemetry/export when the literal path is not necessary; never transmit local paths without opt-in.
 - Exports clearly state whether they contain private repository names, identities, or local paths.
 - Deletion and retention policies operate per source account and can rebuild projections after removal.
+
+The website export includes repository names, commit subjects, and GitHub commit links, including rows for private repositories. It includes daily and monthly activity data and aggregate Codex usage. Session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
 
 ## GitHub, Codex, and OpenAI usage separation
 
@@ -331,6 +336,13 @@ type MetricResult = {
 
 `null` means unavailable or unknown. Zero means the relevant source was successfully observed with sufficient coverage and no qualifying records were found. The UI must not render `null` as `0`.
 
+### Daily activity in the snapshot
+
+- `GET /api/snapshot` uses schema version 1. The original `activityDays` contains Git counts for 365 dates when GitHub data is available and is empty otherwise. Existing clients can continue decoding it.
+- The additive `heatmapDays` contains 90 chronological local dates when GitHub or Codex activity is available and is empty when neither source has data. Each entry has `date` as `YYYY-MM-DD` and nullable counts for `commits`, `pushes`, `agents`, and `subagents`. A Codex-only snapshot can report agent counts with unavailable Git counts. Within recorded Codex coverage, dates with no qualifying activity show zero. Dates outside coverage remain unavailable unless the ledger has observations for that date. Source freshness is still reported separately.
+- macOS prefers `heatmapDays` and falls back to the last 90 entries in `activityDays` when reading an older snapshot that lacks the new array. Windows currently reads `activityDays`. Its planned migration is in the [Windows heatmap handoff](windows-heatmap-handoff.md).
+- `GET /api/summary` exposes agent and subagent totals in `metrics`. `GET /api/history` exposes monthly totals and observed `agentActivity` rows. `GET /api/website` exposes the public projection used to generate the site's `activity.json`.
+
 ## MVP assumptions and deferred decisions
 
 - Included scope covers accessible owned, collaborator, and organization-member repositories returned for the configured GitHub account. Archived repositories are retained when discovered; collector inclusion remains explicit and testable.
@@ -354,6 +366,6 @@ Fixtures or representative sanitized records must demonstrate:
 - Local Codex usage and OpenAI API usage remain separate in queries and charts.
 - Day assignment across Mountain Time daylight-saving transitions is correct.
 - Day, rolling seven-day week, month, year, and all-time summary boundaries are correct.
-- The trailing 90-day heatmap preserves separate commit and push counts in all three display modes.
+- The trailing 90-day heatmap preserves separate counts, zero, and unavailable data in Git-only, Codex-only, and mixed snapshots.
 - Partial pagination and stale sources surface their coverage/freshness state in aggregate results.
 - Logs, observations, database rows, and exports contain none of the prohibited content classes.

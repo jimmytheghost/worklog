@@ -1,6 +1,8 @@
 # Worklog website
 
-Canonical URL is [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/). The public frontend shows activity totals, a 90-day heatmap, monthly or daily charts, and searchable project history. The heatmap stays anchored to the latest published date while visitors browse individual months. Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals add those daily counts. Retained index and rollout metadata determine historical coverage.
+The public frontend shows activity totals, charts, and searchable project history. The 90-day heatmap switches between **Commits**, **Pushes**, **Agents**, and **Subagents**. Select a date to inspect all four counts. Hatching marks unavailable days for the selected metric. The heatmap stays anchored to the latest published date while visitors browse individual months. [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
+
+Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
 ## Build and publish
 

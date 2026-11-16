@@ -15,7 +15,7 @@ This is the primary daily surface. On macOS the current composition is header, h
 1. Worklog identity, status, and gear button.
 2. Codex account plan, observation time, remaining-use gauges, and reset countdowns.
 3. Six account facts in two columns of small inline label/value pairs: lifetime tokens, peak day, current/best streak, banked resets, and credits.
-4. Day/Week/Month/Year/All buttons, followed by local tokens, commits, pushes, active days, and projects in one row.
+4. Day/Week/Month/Year/All buttons, followed by local tokens, commits, pushes, active days, and projects in one row. Agent and subagent range totals appear below.
 5. A trailing 90-day grayscale heatmap, Commit/Push/Both controls, and selected-day counts.
 6. Recent work and source status, freshness, and coverage.
 7. Refresh, Open Work History, and quit controls, outside the scrolling content.
@@ -25,6 +25,10 @@ The popover should remain roughly task-bar sized. A vertical scroll area is acce
 ### 2. Work History
 
 The browser window is the complete archive. It can use more space for search, month navigation, project grouping, links, and detailed event rows. It should complement the popover rather than duplicate every control.
+
+### 3. Public website
+
+The website pairs a fixed daily heatmap and selected-day counts with a separate chart for the chosen period. Search and expandable project histories keep commit subjects and push entries accessible on desktop and mobile. Commit subjects open GitHub. [Public Worklog](https://www.jimmyweber.com/worklog/)
 
 ## Visual language
 
@@ -42,14 +46,14 @@ Color is never the only carrier of meaning. Icons, labels, selection shapes, and
 
 ## Heatmap behavior
 
-- Always covers the last 90 local calendar days, including today.
-- macOS uses compact week columns with local weekday rows. Windows uses 15 columns across six chronological rows, with date tooltips and separate selected-day counts.
+- The native heatmap covers the trailing 90 reporting dates when data is available. The public website uses the latest published date as its endpoint.
+- macOS and the public website use Monday-first week columns. Windows uses 15 columns across six chronological rows, with date tooltips and separate selected-day counts.
 - Commit mode scales from daily commit counts.
 - Push mode scales from daily push counts.
-- Both mode uses the sum only to choose cell intensity; selected-day details retain separate commit and push counts.
-- Clicking a day selects it and reveals separate commit and push counts within the heatmap section.
+- Both mode uses the sum for cell intensity. Selected-day details keep the commit and push counts separate.
+- On macOS and the public website, Agents and Subagents use daily counts of their respective session types. Selecting a date shows all four values.
 - The heatmap is independent of the main range picker.
-- A confirmed zero is visually distinct from a selected day. Unknown coverage must not be presented as a confident zero if that distinction becomes available in the API.
+- The four-metric heatmaps distinguish zero, unavailable, and selected cells. macOS uses a dashed border for unavailable cells and an em dash in the detail. The website hatches unavailable cells and labels them in the selected-day detail.
 
 ## Range control
 
@@ -74,8 +78,8 @@ Changing the range updates metric cards and recent work without changing the 90-
 - Do not hide historical projects to make the overview shorter; send exhaustive detail to Work History.
 - Avoid decorative charts, neon glow, glass effects, fake terminal chrome, and oversized numbers without context.
 - Prefer one useful row over a new panel, and one panel over a new screen.
-- Keep Windows account facts smaller than the main range totals. Place labels beside their values and keep all five range metrics on one row; neither labels nor abbreviated totals should wrap.
-- Keep the routine explanation of local token counters and partial push history in Windows Settings. Continue showing actual source-health, stale-data, and unavailable-data states in the overview.
+- Keep Windows account facts smaller than the main range totals. Place account labels beside their values. Keep the main five range metrics on one row and the two Codex counts below, with labels and values on single lines.
+- Keep the routine explanation of local counters and partial push and agent history in Windows Settings. Continue showing actual source-health, stale-data, and unavailable-data states in the overview.
 
 ## Definition of a good tweak
 

@@ -1,14 +1,15 @@
 # Worklog Architecture
 
-Status: implemented local-first desktop application
+Status: implemented local-first desktop application with a static public view
 
 ## Product shape
 
-Worklog is deliberately one small system with two native clients and a browser archive:
+Worklog uses one local service for two native clients and a browser archive. A separate static site presents part of the ledger publicly.
 
 - `apps/macos`: the primary daily surface, a native macOS menu-bar popover.
 - `apps/windows`: a native C# / WPF notification-area app using the same service, contracts, and ledger.
 - `apps/dashboard`: the fuller browser view used for monthly Work History and deeper inspection.
+- `apps/website`: the public activity frontend and publisher. The frontend reads an exported JSON file from the web host.
 - `apps/service`: one Fastify process that collects, stores, aggregates, and serves data on loopback.
 - `packages/domain`: source-neutral event contracts and aggregation rules.
 - `packages/storage`: the SQLite event ledger and read models.
@@ -38,9 +39,9 @@ GitHub + Codex app-server + local Codex metadata
               |
        append-only SQLite ledger
               |
-       summaries + monthly history
+              +-- loopback API --> macOS / Windows / local browser archive
               |
-  macOS popover / Windows tray / browser Work History
+              +-- website projection --> static JSON --> public Worklog
 ```
 
 Prompts, responses, terminal commands, tool output, diffs, repository contents, credentials, and commit bodies do not cross the privacy boundary. A commit's first-line subject and canonical GitHub link are allowed because they make the work ledger understandable.
@@ -52,9 +53,10 @@ The service owns configuration, migrations, collectors, scheduling, aggregation,
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /health` | Process and source health |
-| `GET /api/snapshot` | Current overview plus fixed trailing 90-day activity |
+| `GET /api/snapshot` | Current overview, the legacy Git calendar, and the 90-day `heatmapDays` projection with per-metric availability |
 | `GET /api/summary?period=…` | Day, rolling week, month, year, or all-time totals and recent work |
-| `GET /api/history?month=YYYY-MM` | Complete monthly work-history rows |
+| `GET /api/history?month=YYYY-MM` | Complete monthly work-history rows plus daily observed agent counts |
+| `GET /api/website` | Allowlisted public projection for the static site's activity feed |
 | `GET /api/events` | Live server-sent update stream |
 | `POST /api/sync` | Refresh all enabled collectors |
 | `POST /api/sync/github` | Refresh GitHub only |
@@ -80,20 +82,22 @@ Closing the service explicitly closes active event streams, so relaunches do not
 - Reads known local sources in place and stores only an explicit metadata allowlist.
 - Hashes workspace identities and resolves them to repositories when possible.
 - Stores lifecycle/model metadata and the latest cumulative observed token counters.
+- Records activity observations from allowlisted turn, token, and session metadata. The read model deduplicates each top-level session or spawned subagent per reporting date.
 - Treats missing counters as unknown and labels this unsupported local format experimental and partial.
 - Does not claim that locally observed tokens equal OpenAI billing or credit balances.
 
 ## Client responsibilities
 
-The native popover is intentionally compact: Codex usage remaining, reset timing and banked resets, range selection, a grayscale 90-day commit/push heatmap, five summary metrics, recent work, refresh, and a link to Work History. The range picker changes totals and recent work; it does not change the fixed 90-day heatmap.
+The macOS popover shows account usage, range totals, recent work, and a grayscale 90-day heatmap. Its five modes are Commit, Push, Both, Agents, and Subagents. The range picker changes totals and recent work independently of the heatmap.
 
-The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline label/value pairs in two columns; local tokens, commits, pushes, active days, and projects share one row. The gear page holds startup registration and the routine local-token/push-coverage explanation. Collector status, freshness, and partial coverage remain visible in the overview. Windows uses an opt-in current-user Run registry entry for startup and a session mutex for a single tray instance.
+The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its heatmap currently reads the Git calendar for Commit, Push, and Both. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
 
-The browser dashboard provides the complete monthly archive so projects are never hidden merely because they are not among the most active. None of the clients launches or controls agents.
+The local browser dashboard provides the complete monthly archive with search, GitHub commit links where available, and a daily Codex activity table. The public website uses its own static layout for activity totals, a four-metric heatmap, charts, and searchable project history. The public feed includes repository names, commit subjects and links, and aggregate usage. [Website handoff](../WEBSITE-HANDOFF.md)
 
 ## Reliability and security
 
-- Loopback-only HTTP; no telemetry or cloud database.
+- The local API binds to loopback by default. Publication copies the allowlisted JSON projection to the web host through the separate publisher.
+- The ledger and caches stay local. Worklog uses no telemetry or cloud database.
 - Read-only source adapters and idempotent synchronization.
 - Last successful data survives later collector failures.
 - Credentials stay with the authenticated source tooling.

@@ -4,6 +4,8 @@ A minimal native macOS 14+ app for the local Worklog service. It displays cached
 
 The popover includes Day, rolling seven-day Week, rolling 30-day Month, Year, and All summaries and a clickable trailing 90-day grayscale heatmap with Commit, Push, Both, Agents, and Subagents modes. Select a day to see all four counts. Unavailable values appear as dashes. The popover also includes recent work, refresh, Work History, and quit controls. Week and Month both include today as their last day.
 
+Heatmap dates follow the local service's reporting timezone and stay fixed when you change the summary range. Each top-level Codex session or spawned subagent counts once per active date. Earlier days depend on retained local records. The selected-day detail shows a dash for an unavailable count and zero for an observed day with no qualifying activity.
+
 Click the header gear to open Settings. **Start on computer startup** uses macOS Login Items to open Worklog when you sign in. The switch reflects the system setting; if macOS requires approval, Settings links to Login Items. Changing startup behavior requires the packaged app, rather than `swift run`.
 
 ## Develop
