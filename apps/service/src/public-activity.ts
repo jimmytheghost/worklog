@@ -10,7 +10,7 @@ interface PublicProject {
   name: string;
   commits: number;
   pushes: number;
-  activity: Array<{ date: string; kind: "commit" | "push"; subject: string }>;
+  activity: Array<{ date: string; kind: "commit" | "push"; subject: string; url?: string }>;
 }
 
 export function buildPublicActivity(storage: Storage, timeZone: string, now: Date) {
@@ -33,8 +33,14 @@ export function buildPublicActivity(storage: Storage, timeZone: string, now: Dat
     const project = monthProjects.get(name) ?? { name, commits: 0, pushes: 0, activity: [] };
     if (event.eventType === "git.commit.discovered") {
       const payload = event.payload as EventPayloads["git.commit.discovered"];
+      const url = /^[a-z0-9-]+\/[a-z0-9_.-]+$/i.test(name)
+        ? `https://github.com/${name}/commit/${payload.sha}`
+        : undefined;
       project.commits += 1;
-      project.activity.push({ date, kind: "commit", subject: payload.subject ?? "Commit" });
+      project.activity.push({
+        date, kind: "commit", subject: payload.subject ?? "Commit",
+        ...(url === undefined ? {} : { url }),
+      });
     } else {
       project.pushes += 1;
       project.activity.push({ date, kind: "push", subject: "Push observed" });

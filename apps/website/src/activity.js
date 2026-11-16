@@ -6,6 +6,9 @@ const period = document.querySelector("#period");
 const chartMetric = document.querySelector("#chart-metric");
 const chart = document.querySelector("#chart");
 const chartDetail = document.querySelector("#chart-detail");
+const heatmapGrid = document.querySelector("#heatmap-grid");
+const heatmapDetail = document.querySelector("#heatmap-detail");
+const heatmapMetrics = [...document.querySelectorAll(".heatmap-metrics button")];
 const search = document.querySelector("#search");
 const projectsContainer = document.querySelector("#projects");
 const projectCount = document.querySelector("#project-count");
@@ -14,7 +17,10 @@ const number = new Intl.NumberFormat("en-US");
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const monthFormat = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const dayFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const heatmapDateFormat = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const chartLabels = { commits: "Commits", pushes: "Pushes", agents: "Agents", subagents: "Subagents" };
+const githubCommitUrl = /^https:\/\/github\.com\/[a-z0-9-]+\/[a-z0-9_.-]+\/commit\/[0-9a-f]{40,64}$/i;
+const heatmapDayCount = 90;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -81,7 +87,10 @@ function renderProjects(projects) {
         const date = element("time", dayLabel(event.date));
         date.dateTime = event.date;
         date.title = event.date;
-        row.append(date, element("span", event.kind === "commit" ? "Commit" : "Push", "event-kind"), element("span", event.subject));
+        const linked = event.kind === "commit" && typeof event.url === "string" && githubCommitUrl.test(event.url);
+        const subject = element(linked ? "a" : "span", event.subject, "event-subject");
+        if (linked) subject.href = event.url;
+        row.append(date, element("span", event.kind === "commit" ? "Commit" : "Push", "event-kind"), subject);
         list.append(row);
       }
       item.append(list);
@@ -124,6 +133,109 @@ function makeMonthlySeries(month, coverage, through) {
 
 function totalsForSeries(series) {
   return Object.fromEntries(Object.keys(chartLabels).map((key) => [key, sumObserved(series.map((item) => item[key]))]));
+}
+
+function renderHeatmap(daySeries, latestDate) {
+  // Cached visits can briefly have the previous HTML while assets are deployed.
+  if (!heatmapGrid) return;
+  const byDate = new Map(daySeries.map((day) => [day.date, day]));
+  const cursor = new Date(`${latestDate}T00:00:00Z`);
+  cursor.setUTCDate(cursor.getUTCDate() - heatmapDayCount + 1);
+  const offset = (cursor.getUTCDay() + 6) % 7;
+  const weeks = Math.ceil((offset + heatmapDayCount) / 7);
+  const days = Array.from({ length: heatmapDayCount }, () => {
+    const date = cursor.toISOString().slice(0, 10);
+    const day = byDate.get(date) ?? { date, commits: null, pushes: null, agents: null, subagents: null };
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    return day;
+  });
+  heatmapGrid.style.setProperty("--weeks", weeks);
+  const labels = new Map();
+  const weekday = ["Mon", "", "Wed", "", "Fri", "", ""];
+  const weekdayLabels = weekday.map((name, index) => {
+    const label = element("span", name, "heatmap-weekday");
+    label.style.gridRow = index + 2;
+    label.setAttribute("aria-hidden", "true");
+    return label;
+  });
+  const dates = days.map(({ date }) => heatmapDateFormat.format(new Date(`${date}T00:00:00Z`)));
+  let selected = days.length - 1;
+  function select(index) {
+    buttons[selected].setAttribute("aria-pressed", "false");
+    buttons[selected].tabIndex = -1;
+    selected = index;
+    buttons[index].setAttribute("aria-pressed", "true");
+    buttons[index].tabIndex = 0;
+    const date = element("time", dates[index]);
+    date.dateTime = days[index].date;
+    const totals = element("dl");
+    for (const [key, label] of Object.entries(chartLabels)) {
+      const group = element("div");
+      const value = days[index][key];
+      group.append(element("dt", label), element("dd", value === null ? "Unavailable" : valueLabel(value)));
+      totals.append(group);
+    }
+    heatmapDetail.replaceChildren(date, totals);
+  }
+
+  const buttons = days.map((day, index) => {
+    const column = 2 + Math.floor((offset + index) / 7);
+    const row = (offset + index) % 7;
+    if (index === 0 || day.date.endsWith("-01")) {
+      labels.set(column, monthLabel(day.date.slice(0, 7)).slice(0, 3));
+    }
+    const button = element("button", undefined, "heatmap-day");
+    button.type = "button";
+    button.style.gridColumn = column;
+    button.style.gridRow = row + 2;
+    button.setAttribute("aria-pressed", "false");
+    button.tabIndex = -1;
+    button.addEventListener("click", () => select(index));
+    button.addEventListener("keydown", (event) => {
+      const next = {
+        ArrowLeft: index - 7,
+        ArrowRight: index + 7,
+        ArrowUp: index - (row > 0 ? 1 : 0),
+        ArrowDown: index + (row < 6 ? 1 : 0),
+        Home: 0,
+        End: days.length - 1,
+      }[event.key];
+      if (next === undefined) return;
+      event.preventDefault();
+      if (next < 0 || next >= days.length) return;
+      select(next);
+      buttons[next].focus();
+    });
+    return button;
+  });
+  const monthLabels = Array.from(labels, ([column, name]) => {
+    const label = element("span", name, "heatmap-month");
+    label.style.gridColumn = column;
+    label.setAttribute("aria-hidden", "true");
+    return label;
+  });
+  heatmapGrid.replaceChildren(...monthLabels, ...weekdayLabels, ...buttons);
+
+  function showMetric(key) {
+    const max = Math.max(1, ...days.map((day) => day[key] ?? 0));
+    heatmapMetrics.forEach((control) => control.setAttribute("aria-pressed", String(control.dataset.metric === key)));
+    buttons.forEach((button, index) => {
+      const value = days[index][key];
+      button.style.setProperty("--shade", value ? .16 + Math.sqrt(value / max) * .66 : .06);
+      button.classList.toggle("heatmap-missing", value === null);
+      const label = `${dates[index]} · ${chartLabels[key]} ${value === null ? "unavailable" : valueLabel(value)}`;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  heatmapMetrics.forEach((control) => {
+    control.addEventListener("click", () => showMetric(control.dataset.metric));
+  });
+  showMetric("commits");
+  select(selected);
+  const scroll = heatmapGrid.parentElement;
+  scroll.scrollLeft = scroll.scrollWidth;
 }
 
 function renderChart(series) {
@@ -253,6 +365,7 @@ async function showDashboard() {
   renderPeriod();
   status.hidden = true;
   dashboard.hidden = false;
+  renderHeatmap([...byMonth.values()].flatMap(({ days }) => days), through.today);
 }
 
 showDashboard().catch(() => {

@@ -70,7 +70,7 @@ describe("monthly work history", () => {
     expect(() => buildMonthlyHistory(store(), { month: "August", timeZone: "UTC" })).toThrow(/YYYY-MM/);
   });
 
-  it("exports repository names and subjects without GitHub account details, hashes, or URLs", () => {
+  it("exports repository names and subjects with a commit URL from the stored repository and SHA", () => {
     const storage = store();
     storage.insertEvents([commit("github:1", "1", "2026-08-02T02:00:00.000Z", "Build the dashboard")]);
     const snapshot = buildPublicActivity(storage, "America/Denver", new Date("2026-08-10T12:00:00.000Z"));
@@ -78,7 +78,10 @@ describe("monthly work history", () => {
       name: "jimmy/alpha",
       commits: 1,
       pushes: 0,
-      activity: [{ date: "2026-08-01", kind: "commit", subject: "Build the dashboard" }],
+      activity: [{
+        date: "2026-08-01", kind: "commit", subject: "Build the dashboard",
+        url: `https://github.com/jimmy/alpha/commit/${"1".padStart(40, "a")}`,
+      }],
     }]);
   });
 });

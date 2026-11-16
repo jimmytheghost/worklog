@@ -72,6 +72,78 @@ select, input {
 }
 .metrics div:nth-last-child(-n+2) dd { color: var(--accent); }
 .context { color: var(--muted); font-size: .82rem; margin-top: 10px; }
+.heatmap { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 18px; }
+.heatmap-caption { color: var(--muted); font-size: .82rem; margin-top: 3px; }
+.heatmap-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.heatmap-metrics button {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.heatmap-metrics button:hover { color: var(--text); }
+.heatmap-metrics button[aria-pressed="true"] { background: #444b40; color: var(--text); }
+.heatmap-body {
+  display: grid;
+  grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(18px, 4vw, 48px);
+}
+.heatmap-scroll { overflow-x: auto; padding: 4px 4px 6px; margin-inline: -4px; }
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 25px repeat(var(--weeks), minmax(20px, 1fr));
+  grid-template-rows: 18px repeat(7, auto);
+  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  font-size: .66rem;
+}
+.heatmap-weekday { grid-column: 1; }
+.heatmap-month { grid-row: 1; }
+.heatmap-day, .heatmap-legend i {
+  border: 0;
+  border-radius: 3px;
+  background: rgb(255 255 255 / var(--shade, .06));
+}
+.heatmap-day {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.heatmap-day:hover { box-shadow: inset 0 0 0 1px var(--muted); }
+.heatmap-day[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--text); }
+.heatmap-day:focus-visible { outline-offset: 1px; z-index: 1; }
+.heatmap-day.heatmap-missing, .heatmap-legend i.heatmap-missing {
+  background: repeating-linear-gradient(135deg, #3e443b 0 1px, transparent 1px 5px);
+}
+.heatmap-detail {
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  font-size: .86rem;
+}
+.heatmap-detail time { display: block; font-weight: 650; margin-bottom: 8px; }
+.heatmap-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.heatmap-detail dt { color: var(--muted); font-size: .78rem; }
+.heatmap-detail dd { font-variant-numeric: tabular-nums; }
+.heatmap-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0 29px; font-size: .72rem; color: var(--muted); }
+.heatmap-legend i { width: 12px; height: 12px; }
+.heatmap-legend .heatmap-missing { margin-left: 10px; }
 .activity { margin-top: 28px; border-block: 1px solid var(--border); padding-block: 18px; }
 .chart {
   min-height: 151px;
@@ -147,7 +219,9 @@ select, input {
   border-top: 1px solid var(--border);
   font-size: .88rem;
 }
-.project li span:last-child { overflow-wrap: anywhere; }
+.event-subject { overflow-wrap: anywhere; }
+a.event-subject { justify-self: start; text-decoration-color: #798771; }
+a.event-subject:hover { text-decoration-color: currentColor; }
 .project li time, .event-kind { font-size: .75rem; color: var(--muted); }
 .empty { color: var(--muted); margin-top: 16px; }
 footer { display: flex; justify-content: space-between; gap: 15px; padding-block: 20px; color: var(--muted); font-size: .8rem; }
@@ -158,9 +232,16 @@ footer { display: flex; justify-content: space-between; gap: 15px; padding-block
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .metrics div { padding: 12px; }
   .metrics dd { font-size: clamp(1.4rem, 5vw, 2rem); }
+  .heatmap .chart-header { align-items: start; flex-wrap: wrap; }
+  .heatmap-body { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .heatmap-detail dl { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .heatmap-legend { margin-left: 0; }
   .search input { width: min(49vw, 270px); }
   .chart { gap: 2px; }
   .project summary { grid-template-columns: 9px minmax(0, 1fr) auto auto; gap: 8px; }
   .project ol { margin-left: 16px; }
   .project li { grid-template-columns: 60px 43px minmax(0, 1fr); gap: 4px; }
+}
+@media (max-width: 420px) {
+  .heatmap-detail dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

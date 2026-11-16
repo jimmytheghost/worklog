@@ -21,8 +21,8 @@
   <meta name="twitter:description" content="Jimmy Weber’s GitHub activity, project history, and observed Codex usage.">
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
   <meta name="twitter:image:alt" content="Worklog logo and name over a blurred application preview">
-  <link rel="stylesheet" href="./styles.css">
-  <script type="module" src="./activity.js"></script>
+  <link rel="stylesheet" href="./styles.css?v=2">
+  <script type="module" src="./activity.js?v=2"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -48,6 +48,31 @@
       <dl class="metrics" id="metrics"></dl>
       <p class="context">Each Codex session counts once per day it was active. Pushes and Codex usage reflect available records.</p>
       <p class="context" id="source-updates"></p>
+
+      <section class="heatmap" aria-labelledby="heatmap-title">
+        <div class="chart-header">
+          <div>
+            <h2 id="heatmap-title">Activity heatmap</h2>
+            <p class="heatmap-caption">Last 90 days</p>
+          </div>
+          <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
+            <button type="button" data-metric="commits" aria-pressed="true">Commits</button>
+            <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
+            <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
+            <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
+          </div>
+        </div>
+        <div class="heatmap-body">
+          <div class="heatmap-scroll">
+            <div class="heatmap-grid" id="heatmap-grid" role="group" aria-label="Daily activity, Monday through Sunday"></div>
+          </div>
+          <div class="heatmap-detail" id="heatmap-detail" aria-live="polite" aria-atomic="true"></div>
+        </div>
+        <div class="heatmap-legend" aria-label="Heatmap shading from zero to highest activity, with hatching for unavailable data">
+          <span>0</span><i style="--shade: .06"></i><i style="--shade: .28"></i><i style="--shade: .53"></i><i style="--shade: .82"></i><span>Most</span>
+          <i class="heatmap-missing"></i><span>Unavailable</span>
+        </div>
+      </section>
 
       <section class="activity" aria-labelledby="chart-title">
         <div class="chart-header">

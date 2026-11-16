@@ -104,7 +104,7 @@ The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local serv
 
 ## Website
 
-The public frontend at [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/) has activity totals, a daily or monthly activity chart, and searchable project history. It reads a static export of the local ledger. The export includes repository names and commit subjects from collected activity, including private repositories, along with aggregate Codex usage. See the [website handoff](WEBSITE-HANDOFF.md) for the build and publishing workflow.
+The public frontend at [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/) has activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, and searchable project history with GitHub commit links. It reads a static export of the local ledger. The export includes repository names and commit subjects from collected activity, including private repositories, along with aggregate Codex usage. See the [website handoff](WEBSITE-HANDOFF.md) for the build and publishing workflow.
 
 ## Make it yours
 
