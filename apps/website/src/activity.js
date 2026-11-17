@@ -100,7 +100,7 @@ function renderProjects(projects) {
   if (!matches.length) projectsContainer.append(element("p", query ? "No matching activity." : "No GitHub activity in this period.", "empty"));
 }
 
-function makeMonthlySeries(month, coverage, through) {
+function makeMonthlySeries(month, agentCoverage, through) {
   const dates = new Map(month.agentDays.map((day) => [day.localDate, day]));
   const [year, numberOfMonth] = month.month.split("-").map(Number);
   const length = new Date(Date.UTC(year, numberOfMonth, 0)).getUTCDate();
@@ -108,7 +108,7 @@ function makeMonthlySeries(month, coverage, through) {
   for (let day = 1; day <= length; day += 1) {
     const date = `${month.month}-${String(day).padStart(2, "0")}`;
     if (date > through.today) break;
-    const hasAgents = coverage.agentsFrom && date >= coverage.agentsFrom && date <= through.agents;
+    const hasAgents = agentCoverage.some(({ from, to }) => from && date >= from && date <= to);
     series.push({
       date,
       label: dayLabel(date),
@@ -306,6 +306,47 @@ function dateInZone(value, timeZone) {
   return ["year", "month", "day"].map((type) => parts.find((part) => part.type === type).value).join("-");
 }
 
+async function loadDevices(timeZone) {
+  try {
+    const response = await fetch(new URL("./codex-devices.json", import.meta.url), {
+      cache: "no-cache", signal: AbortSignal.timeout(5000),
+    });
+    if (response.status === 404) return {};
+    if (!response.ok) throw new Error("Device activity request failed");
+    const feed = await response.json();
+    if (feed.schemaVersion !== 1 || feed.timeZone !== timeZone || !feed.devices) {
+      throw new Error("Unsupported device activity file");
+    }
+    return { devices: Object.entries(feed.devices) };
+  } catch {
+    return { unavailable: true };
+  }
+}
+
+function combineDeviceMonths(primaryMonths, devices) {
+  const months = new Map(primaryMonths.map((month) => [month.month, month]));
+  for (const [, device] of devices) {
+    for (const { month, tokens, agentDays } of device.months) {
+      const previous = months.get(month) ?? { month, tokens: null, agentDays: [], projects: [] };
+      const days = new Map(previous.agentDays.map((day) => [day.localDate, day]));
+      for (const day of agentDays) {
+        const before = days.get(day.localDate);
+        days.set(day.localDate, {
+          localDate: day.localDate,
+          agents: (before?.agents ?? 0) + day.agents,
+          subagents: (before?.subagents ?? 0) + day.subagents,
+        });
+      }
+      months.set(month, {
+        ...previous,
+        tokens: sumObserved([previous.tokens, tokens]),
+        agentDays: [...days.values()],
+      });
+    }
+  }
+  return [...months.values()].sort((a, b) => b.month.localeCompare(a.month));
+}
+
 async function showDashboard() {
   const response = await fetch(new URL("./activity.json", import.meta.url), { cache: "no-cache" });
   if (!response.ok) throw new Error("Activity request failed");
@@ -313,31 +354,42 @@ async function showDashboard() {
   if (data.schemaVersion !== 1 || !Array.isArray(data.months) || !data.months.length) {
     throw new Error("Unsupported activity file");
   }
+  const { devices = [], unavailable } = await loadDevices(data.timeZone);
+  const monthsWithActivity = combineDeviceMonths(data.months, devices);
+  const latest = [data.generatedAt, ...devices.map(([, device]) => device.syncedAt)]
+    .reduce((newest, instant) => Date.parse(instant) > Date.parse(newest) ? instant : newest);
   const through = {
-    today: dateInZone(data.generatedAt, data.timeZone),
+    today: dateInZone(latest, data.timeZone),
     commits: dateInZone(data.coverage.commitsAt, data.timeZone),
     pushes: dateInZone(data.coverage.pushesAt, data.timeZone),
-    agents: dateInZone(data.coverage.agentsAt, data.timeZone),
   };
+  const agentCoverage = [{ agentsFrom: data.coverage.agentsFrom, syncedAt: data.coverage.agentsAt },
+    ...devices.map(([, device]) => device)].map(({ agentsFrom, syncedAt }) => ({
+    from: agentsFrom, to: dateInZone(syncedAt, data.timeZone),
+  }));
   const updateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: data.timeZone });
-  const updateDate = updateFormat.format(new Date(data.generatedAt));
+  const updateDate = updateFormat.format(new Date(latest));
   updated.textContent = `Updated ${updateDate}`;
   updated.title = data.timeZone;
   updated.hidden = false;
   sourceUpdates.textContent = [
     ["GitHub commits", data.coverage.commitsAt],
     ["GitHub pushes", data.coverage.pushesAt],
-    ["Codex agents", data.coverage.agentsAt],
+    [devices.length ? "Codex (primary)" : "Codex agents", data.coverage.agentsAt],
+    ...devices.map(([name, device]) => [
+      `Codex (${name === "windows-pc" ? "Windows PC" : name.replaceAll("-", " ")})`, device.syncedAt,
+    ]),
+    ...(unavailable ? [["Additional Codex devices", null]] : []),
   ].map(([name, instant]) => instant ? `${name} through ${updateFormat.format(new Date(instant))}` : `${name} unavailable`).join(" · ");
-  period.append(new Option("All recorded", "all"), ...data.months.map((month) => new Option(monthLabel(month.month), month.month)));
+  period.append(new Option("All recorded", "all"), ...monthsWithActivity.map((month) => new Option(monthLabel(month.month), month.month)));
   const queryPeriod = new URLSearchParams(location.search).get("month");
-  if (data.months.some((month) => month.month === queryPeriod)) period.value = queryPeriod;
+  if (monthsWithActivity.some((month) => month.month === queryPeriod)) period.value = queryPeriod;
 
-  const byMonth = new Map(data.months.map((month) => {
-    const days = makeMonthlySeries(month, data.coverage, through);
+  const byMonth = new Map(monthsWithActivity.map((month) => {
+    const days = makeMonthlySeries(month, agentCoverage, through);
     return [month.month, { days, totals: totalsForSeries(days) }];
   }));
-  const overview = [...data.months].reverse().map(({ month }) => ({
+  const overview = [...monthsWithActivity].reverse().map(({ month }) => ({
     ...byMonth.get(month).totals,
     label: monthLabel(month),
     tick: monthLabel(month).slice(0, 3),
@@ -346,7 +398,7 @@ async function showDashboard() {
   let projects = [];
   let series = [];
   function renderPeriod() {
-    const months = period.value === "all" ? data.months : data.months.filter((month) => month.month === period.value);
+    const months = period.value === "all" ? monthsWithActivity : monthsWithActivity.filter((month) => month.month === period.value);
     projects = combineProjects(months);
     series = period.value === "all" ? overview : byMonth.get(period.value).days;
     renderMetrics(totalsForSeries(series), months, projects);

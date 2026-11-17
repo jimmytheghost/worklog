@@ -14,6 +14,23 @@ The data export carries repository names, commit subjects, and GitHub commit lin
 
 On Jimmy's Mac, `com.jimmyweber.worklog-service` starts the existing Worklog service at login. `com.jimmyweber.worklog-publish` sends a fresh export every 15 minutes while that service is reachable. If the service is unavailable, the website serves its last published export and displays the last source sync times. To restart the service after building, run `launchctl kickstart -k "gui/$(id -u)/com.jimmyweber.worklog-service"`. To stop automatic publishing, unload the publisher with `launchctl bootout "gui/$(id -u)/com.jimmyweber.worklog-publish"` and move its plist out of `~/Library/LaunchAgents/`.
 
+## Additional devices
+
+Keep one primary publisher for GitHub history and that machine’s Codex activity. Each additional device runs its own local Worklog service and calls the same publisher with `--device DEVICE-SLUG`. This updates that device’s entry in `codex-devices.json` alongside the primary feed. The public dashboard adds daily agents and subagents and monthly observed tokens across devices, and shows each device’s last Codex sync. Offline devices retain their last published data. The upload contains only counts, dates, reporting timezone, and the configured label. Keep the data feeds out of Git and out of static-code deployments.
+
+Use a unique, stable slug and the primary publisher’s reporting timezone for each device. Each session counts once per active day on the recording device. Keep Codex session stores local to each machine so copied records cannot count twice. The existing MacBook Pro publisher stays primary. To add a Mac mini, run a local service and configure its own recurring publisher with `--device mac-mini`. Work across toolkit projects is covered wherever it produces GitHub activity visible to the primary collector or local Codex metadata visible to an enrolled device.
+
+On Windows, enable **Start with Windows** from the tray settings, then run this from the checkout with Python 3.8+ and an existing noninteractive SSH alias with a verified host key:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File apps/windows/scripts/register-website-publisher.ps1 `
+  -SshAlias SSH_ALIAS -WebDirectory ABSOLUTE_WEB_DIRECTORY -Device windows-pc
+```
+
+Registration verifies an initial upload before adding the current-user Task Scheduler job. The task runs at sign-in and every five minutes while the user is signed in. Confirm the task’s last run result and check the Windows PC source timestamp on the website after the next automatic run.
+
+Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
+
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 
 ## Link preview
