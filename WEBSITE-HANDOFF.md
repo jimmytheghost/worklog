@@ -2,6 +2,8 @@
 
 The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. Select a date to see commits, pushes, agents, and subagents. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
+The header squares switch between green, neon blue, and grey. Green is the default, and the browser remembers the selected palette when storage is available. Each palette has a zero tone and four activity tones scaled to the highest observed day for the selected metric.
+
 Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
 ## Build and publish
@@ -54,6 +56,8 @@ Release `worklog-shared-github-20261116-01` added `github-history.js` and update
 Release `worklog-sync-status-20261116-02` installed the Sync status table. Browser checks verified live source timestamps, and fixture checks covered current, stale, and unavailable reports down to a 320-pixel viewport.
 
 Release `worklog-frontend-20261116-01` updated the dashboard layout, charts, and navigation. The charts sit side by side on wide screens and stack on narrow screens. The date controls scroll within each chart, and the heatmap keeps weekday labels visible while scrolling. History and Sync status are reachable from the top navigation. Local and live Chromium checks covered 320–1440 px, month URLs, metric changes, keyboard navigation, project search, commit links, and an unavailable feed. Release `worklog-frontend-20261116-02` corrected the social preview image description. Both releases deployed only static frontend files.
+
+Release `worklog-palettes-20261116-01` added the palette controls and five higher-contrast heatmap tones. Local and live browser checks verified palette changes, persistence, zero and unavailable days, and keyboard and touch controls at 320–1440 px. Git tag `worklog-frontend-green-20261116` identifies the previous frontend.
 
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 

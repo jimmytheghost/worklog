@@ -1,5 +1,8 @@
 :root {
   color-scheme: dark;
+  --green-swatch: #bcf776;
+  --blue-swatch: #55dbff;
+  --grey-swatch: #b4b4b4;
   --canvas: #101410;
   --surface: #151b15;
   --inset: #111711;
@@ -7,11 +10,61 @@
   --edge: #596b56;
   --text: #eff4eb;
   --muted: #a9b7a6;
-  --accent: #bcf776;
+  --accent: var(--green-swatch);
   --stale: #ffc68a;
+  --texture: #445541;
+  --raised: #202a1f;
+  --bar: #729664;
+  --hatch: #788674;
+  --heatmap-zero: #171e15;
+  --heatmap-low: #3a5428;
+  --heatmap-medium: #678a37;
+  --heatmap-high: #a1c956;
+  --heatmap-peak: #e2ffb5;
   --mono: "IBM Plex Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
   font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
   font-synthesis: none;
+}
+
+:root[data-palette="blue"] {
+  --canvas: #0a111c;
+  --surface: #101b29;
+  --inset: #0c1623;
+  --line: #273b53;
+  --edge: #587494;
+  --text: #ecf6ff;
+  --muted: #a6bbd0;
+  --accent: var(--blue-swatch);
+  --texture: #305979;
+  --raised: #172d44;
+  --bar: #3b91bf;
+  --hatch: #738fa8;
+  --heatmap-zero: #101c2c;
+  --heatmap-low: #174c72;
+  --heatmap-medium: #087daf;
+  --heatmap-high: #42b7eb;
+  --heatmap-peak: #b8f2ff;
+}
+
+:root[data-palette="grey"] {
+  --canvas: #101010;
+  --surface: #181818;
+  --inset: #121212;
+  --line: #323232;
+  --edge: #696969;
+  --text: #f4f4f4;
+  --muted: #b4b4b4;
+  --accent: #ffffff;
+  --stale: #d2d2d2;
+  --texture: #444444;
+  --raised: #252525;
+  --bar: #909090;
+  --hatch: #929292;
+  --heatmap-zero: #1d1d1d;
+  --heatmap-low: #4a4a4a;
+  --heatmap-medium: #7c7c7c;
+  --heatmap-high: #b5b5b5;
+  --heatmap-peak: #f2f2f2;
 }
 
 * { box-sizing: border-box; }
@@ -49,6 +102,41 @@ button, select, summary { cursor: pointer; }
 .topbar a { display: inline-flex; align-items: center; gap: .4em; min-height: 36px; text-decoration: none; }
 .topbar .home { color: var(--text); font-weight: 700; }
 .topbar .home:hover { color: var(--accent); }
+.palette-switcher { display: flex; gap: 2px; margin-inline-start: auto; }
+.palette-switcher button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+}
+.palette-switcher [data-palette-option="green"] { --swatch: var(--green-swatch); }
+.palette-switcher [data-palette-option="blue"] { --swatch: var(--blue-swatch); }
+.palette-switcher [data-palette-option="grey"] { --swatch: var(--grey-swatch); }
+.palette-switcher button::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--swatch);
+  forced-color-adjust: none;
+}
+.palette-switcher button:hover { border-color: var(--edge); }
+.palette-switcher button[aria-pressed="true"] { border-color: var(--text); }
+.palette-switcher button[aria-pressed="true"]::after {
+  content: "";
+  grid-area: 1 / 1;
+  width: 9px;
+  height: 5px;
+  border: solid #101010;
+  border-width: 0 0 2px 2px;
+  transform: translateY(-1px) rotate(-45deg);
+  forced-color-adjust: none;
+}
 
 .intro {
   display: flex;
@@ -59,7 +147,7 @@ button, select, summary { cursor: pointer; }
   margin-bottom: 22px;
   padding: 26px 0 20px;
   border-bottom: 1px solid var(--line);
-  background-image: radial-gradient(circle closest-side, #445541 1px, transparent 1px);
+  background-image: radial-gradient(circle closest-side, var(--texture) 1px, transparent 1px);
   background-size: 14px 14px;
   background-repeat: repeat;
 }
@@ -199,17 +287,21 @@ input::placeholder { color: var(--muted); opacity: 1; }
   box-shadow: 3px 0 var(--surface);
 }
 .heatmap-month { grid-row: 1; }
+.heatmap [data-level="1"] { --heatmap-fill: var(--heatmap-low); }
+.heatmap [data-level="2"] { --heatmap-fill: var(--heatmap-medium); }
+.heatmap [data-level="3"] { --heatmap-fill: var(--heatmap-high); }
+.heatmap [data-level="4"] { --heatmap-fill: var(--heatmap-peak); }
 .heatmap-day, .heatmap-legend i {
-  border: 1px solid #3e513a;
+  border: 1px solid color-mix(in srgb, var(--edge), transparent 25%);
   border-radius: 2px;
-  background: color-mix(in srgb, var(--accent) calc(var(--shade, 0) * 100%), #202c1f);
+  background: var(--heatmap-fill, var(--heatmap-zero));
 }
 .heatmap-day { width: 100%; height: 24px; padding: 0; }
 .heatmap-day:hover { border-color: var(--accent); }
-.heatmap-day[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--text); border-color: var(--text); }
+.heatmap-day[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--canvas); border-color: var(--text); }
 .heatmap-day:focus-visible { z-index: 1; outline-offset: 1px; }
 .heatmap-day.heatmap-missing, .heatmap-legend i.heatmap-missing {
-  background: repeating-linear-gradient(135deg, #52604f 0 1px, var(--inset) 1px 5px);
+  background: repeating-linear-gradient(135deg, var(--hatch) 0 1px, var(--inset) 1px 5px);
 }
 .heatmap-legend {
   display: flex;
@@ -252,11 +344,11 @@ input::placeholder { color: var(--muted); opacity: 1; }
   height: var(--height);
   margin-inline: auto;
   border-radius: 2px 2px 0 0;
-  background-color: #729664;
+  background-color: var(--bar);
 }
 .chart button[data-missing] .bar {
   min-height: 7px;
-  background: repeating-linear-gradient(135deg, #788674 0 1px, transparent 1px 4px);
+  background: repeating-linear-gradient(135deg, var(--hatch) 0 1px, transparent 1px 4px);
 }
 .chart button:hover .bar, .chart button[aria-pressed="true"] .bar { background-color: var(--accent); }
 .chart button[data-missing]:is(:hover, [aria-pressed="true"]) .bar { background-color: transparent; outline: 1px solid var(--accent); }
@@ -292,7 +384,7 @@ input::placeholder { color: var(--muted); opacity: 1; }
   font: .84rem/1.4 var(--mono);
 }
 .project summary::-webkit-details-marker { display: none; }
-.project summary:hover, .project[open] summary { background: #202a1f; }
+.project summary:hover, .project[open] summary { background: var(--raised); }
 .project summary:focus-visible { outline-offset: -2px; }
 .project summary::before {
   content: "";
@@ -347,7 +439,7 @@ footer { margin-top: 24px; padding-block: 16px 24px; }
 @media (max-width: 640px) {
   .shell { width: calc(100% - 32px); }
   .intro { flex-direction: column; align-items: start; min-height: 0; padding: 25px 0 18px; }
-  .topbar nav { gap: 0 14px; }
+  .topbar nav { flex-basis: 100%; gap: 0 14px; }
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .metrics div { padding: 10px; }
   .metrics div:nth-child(4) { border-inline-start: 0; }

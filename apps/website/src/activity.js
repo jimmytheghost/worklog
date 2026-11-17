@@ -27,6 +27,41 @@ const githubCommitUrl = /^https:\/\/github\.com\/[a-z0-9-]+\/[a-z0-9_.-]+\/commi
 const heatmapDayCount = 90;
 const staleAfterMinutes = 35;
 
+function initializePalette() {
+  const switcher = document.querySelector(".palette-switcher");
+  if (!switcher) return;
+
+  const buttons = [...switcher.querySelectorAll("[data-palette-option]")];
+  const root = document.documentElement;
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  const storageKey = "worklog.palette";
+  function selectPalette(name) {
+    root.dataset.palette = name;
+    buttons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.paletteOption === name)));
+    themeColor.content = getComputedStyle(root).getPropertyValue("--canvas").trim();
+  }
+
+  let saved;
+  try {
+    saved = localStorage.getItem(storageKey);
+  } catch {
+    // Palette changes still work when browser storage is restricted.
+  }
+  if (buttons.some((button) => button.dataset.paletteOption === saved)) selectPalette(saved);
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const name = button.dataset.paletteOption;
+      selectPalette(name);
+      try {
+        localStorage.setItem(storageKey, name);
+      } catch {
+        // Keep the current page's selection if storage is restricted.
+      }
+    });
+  }
+  switcher.hidden = false;
+}
+
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -229,7 +264,7 @@ function renderHeatmap(daySeries, latestDate) {
     heatmapMetrics.forEach((control) => control.setAttribute("aria-pressed", String(control.dataset.metric === key)));
     buttons.forEach((button, index) => {
       const value = days[index][key];
-      button.style.setProperty("--shade", value ? .16 + Math.sqrt(value / max) * .66 : 0);
+      button.dataset.level = value > 0 ? Math.ceil(4 * Math.sqrt(value / max)) : 0;
       button.classList.toggle("heatmap-missing", value === null);
       const label = `${dates[index]} · ${chartLabels[key]} ${value === null ? "unavailable" : valueLabel(value)}`;
       button.title = label;
@@ -485,6 +520,7 @@ async function showDashboard() {
   }
 }
 
+initializePalette();
 showDashboard().catch(() => {
   dashboard.hidden = true;
   status.textContent = "Work history is temporarily unavailable.";
