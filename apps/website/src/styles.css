@@ -100,8 +100,18 @@ button, select, summary { cursor: pointer; }
 .topbar { min-height: 60px; padding-block: 8px; border-bottom: 1px solid var(--line); }
 .topbar nav { display: flex; flex-wrap: wrap; gap: 0 24px; }
 .topbar a { display: inline-flex; align-items: center; gap: .4em; min-height: 36px; text-decoration: none; }
-.topbar .home { color: var(--text); font-weight: 700; }
+.topbar .home { gap: .65rem; color: var(--text); font-weight: 700; }
 .topbar .home:hover { color: var(--accent); }
+.home-mark {
+  flex: none;
+  width: 25px;
+  height: 32px;
+  background: var(--accent);
+  mask: url("./jimmyweber-skull.svg") center / contain no-repeat;
+}
+@media (forced-colors: active) {
+  .home-mark { background: LinkText; forced-color-adjust: none; }
+}
 .palette-switcher { display: flex; gap: 2px; margin-inline-start: auto; }
 .palette-switcher button {
   display: grid;

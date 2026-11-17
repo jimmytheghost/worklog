@@ -8,7 +8,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
@@ -58,6 +58,8 @@ Release `worklog-sync-status-20261116-02` installed the Sync status table. Brows
 Release `worklog-frontend-20261116-01` updated the dashboard layout, charts, and navigation. The charts sit side by side on wide screens and stack on narrow screens. The date controls scroll within each chart, and the heatmap keeps weekday labels visible while scrolling. History and Sync status are reachable from the top navigation. Local and live Chromium checks covered 320–1440 px, month URLs, metric changes, keyboard navigation, project search, commit links, and an unavailable feed. Release `worklog-frontend-20261116-02` corrected the social preview image description. Both releases deployed only static frontend files.
 
 Release `worklog-palettes-20261116-01` added the palette controls and five higher-contrast heatmap tones. Local and live browser checks verified palette changes, persistence, zero and unavailable days, and keyboard and touch controls at 320–1440 px. Git tag `worklog-frontend-green-20261116` identifies the previous frontend.
+
+Release `worklog-header-mark-20261116-01` added the JimmyWeber.com skull-and-crossbones to the Worklog home link. The build packages the site's [canonical skull artwork](https://www.jimmyweber.com/assets/img/brands/JimmyTheGhost-Skull.svg), which matches the shape used by Tipoff's home link. Local and live browser checks verified the mark in all three palettes at 320–1440 px.
 
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 
