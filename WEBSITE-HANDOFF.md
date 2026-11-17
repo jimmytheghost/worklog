@@ -18,6 +18,8 @@ On Jimmy's Mac, `com.jimmyweber.worklog-service` starts the existing Worklog ser
 
 Keep one primary publisher for `activity.json`. Each additional device runs its own local Worklog service and calls the same publisher with `--device DEVICE-SLUG`. This updates that device’s entry in `codex-devices.json` alongside the primary feed. The dashboard adds daily agents and subagents and monthly observed tokens across devices, and shows each device’s last Codex sync. Offline devices retain their last published data. Both feeds use the same public GitHub fields and opaque deduplication keys, alongside aggregate Codex counts. Keep the data feeds out of Git and out of static-code deployments.
 
+The Sync status table shows each machine’s last successful GitHub commit, GitHub push, and Codex reports in the reporting timezone. Each source becomes stale at 35 minutes, allowing time for the regular collection and publishing intervals. Sources without a usable timestamp show Unavailable. The site evaluates freshness each time the dashboard loads.
+
 GitHub history combines the published ledgers. Commits count once per repository and SHA. Identified pushes count once per GitHub repository activity ID, preserving distinct pushes on the same day. The publisher hashes repository and push IDs from the existing local monthly history API before upload. For older push records without a matching ID, the dashboard preserves the largest reported count per repository and day as a lower bound. GitHub push history remains partial.
 
 Use a unique, stable slug and the primary publisher’s reporting timezone for each device. Each session counts once per active day on the recording device. Keep Codex session stores local to each machine so copied records cannot count twice. The existing MacBook Pro publisher stays primary. To add a Mac mini, run a local service and configure its own recurring publisher with `--device mac-mini`. Work across toolkit projects is covered wherever GitHub activity or local Codex metadata is visible to an enrolled device.
@@ -34,6 +36,8 @@ Registration verifies an initial upload before adding the current-user Task Sche
 Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
 
 Release `worklog-shared-github-20261116-01` added `github-history.js` and updated `activity.js` and `index.html`. Desktop and mobile checks verified the merged commit links and push totals, including the Windows ledger’s nine November 10–11 commits that were missing from the MacBook Pro feed.
+
+Release `worklog-sync-status-20261116-02` installed the Sync status table. Browser checks verified live source timestamps, and fixture checks covered current, stale, and unavailable reports down to a 320-pixel viewport.
 
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 

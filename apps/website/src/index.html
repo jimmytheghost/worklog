@@ -21,8 +21,8 @@
   <meta name="twitter:description" content="Jimmy Weber’s GitHub activity, project history, and observed Codex usage.">
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
   <meta name="twitter:image:alt" content="Worklog logo and name over a blurred application preview">
-  <link rel="stylesheet" href="./styles.css?v=2">
-  <script type="module" src="./activity.js?v=4"></script>
+  <link rel="stylesheet" href="./styles.css?v=3">
+  <script type="module" src="./activity.js?v=5"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -47,7 +47,22 @@
       </div>
       <dl class="metrics" id="metrics"></dl>
       <p class="context">Each Codex session counts once per active day on its recording device. Pushes and Codex usage reflect available records.</p>
-      <p class="context" id="source-updates"></p>
+
+      <section class="sync-status" aria-labelledby="sync-title">
+        <h2 id="sync-title">Sync status</h2>
+        <table class="sync-table">
+          <caption id="sync-caption"></caption>
+          <thead>
+            <tr>
+              <th scope="col">Device</th>
+              <th scope="col">GitHub commits</th>
+              <th scope="col">GitHub pushes</th>
+              <th scope="col">Codex</th>
+            </tr>
+          </thead>
+          <tbody id="sync-devices"></tbody>
+        </table>
+      </section>
 
       <section class="heatmap" aria-labelledby="heatmap-title">
         <div class="chart-header">

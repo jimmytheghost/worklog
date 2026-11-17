@@ -3,7 +3,8 @@ import { mergeGitHubHistory } from "./github-history.js?v=1";
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
 const updated = document.querySelector("#updated");
-const sourceUpdates = document.querySelector("#source-updates");
+const syncDevices = document.querySelector("#sync-devices");
+const syncCaption = document.querySelector("#sync-caption");
 const period = document.querySelector("#period");
 const chartMetric = document.querySelector("#chart-metric");
 const chart = document.querySelector("#chart");
@@ -23,6 +24,7 @@ const heatmapDateFormat = new Intl.DateTimeFormat("en-US", { weekday: "short", m
 const chartLabels = { commits: "Commits", pushes: "Pushes", agents: "Agents", subagents: "Subagents" };
 const githubCommitUrl = /^https:\/\/github\.com\/[a-z0-9-]+\/[a-z0-9_.-]+\/commit\/[0-9a-f]{40,64}$/i;
 const heatmapDayCount = 90;
+const staleAfterMinutes = 35;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -313,16 +315,59 @@ async function loadDevices(timeZone) {
     const response = await fetch(new URL("./codex-devices.json", import.meta.url), {
       cache: "no-cache", signal: AbortSignal.timeout(5000),
     });
-    if (response.status === 404) return {};
+    if (response.status === 404) return [];
     if (!response.ok) throw new Error("Device activity request failed");
     const feed = await response.json();
     if (feed.schemaVersion !== 1 || feed.timeZone !== timeZone || !feed.devices) {
       throw new Error("Unsupported device activity file");
     }
-    return { devices: Object.entries(feed.devices) };
+    return Object.entries(feed.devices);
   } catch {
-    return { unavailable: true };
+    return [];
   }
+}
+
+function renderSyncStatus(primary, devices, timeZone) {
+  if (!syncDevices || !syncCaption) return;
+  const now = Date.now();
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  const zone = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" })
+    .formatToParts(now).find(({ type }) => type === "timeZoneName")?.value ?? timeZone;
+  syncCaption.textContent = `Last successful reports in ${zone}. Stale after ${staleAfterMinutes} minutes.`;
+
+  const labels = new Map([["windows-pc", "Windows PC"], ["mac-mini", "Mac mini"]]);
+  const additional = new Map([["windows-pc", null], ...devices]);
+  const rows = [
+    ["MacBook Pro", primary.commitsAt, primary.pushesAt, primary.agentsAt],
+    ...Array.from(additional, ([key, device]) => [
+      labels.get(key) ?? key.replaceAll("-", " "), device?.git?.commitsAt, device?.git?.pushesAt, device?.syncedAt,
+    ]),
+  ];
+  syncDevices.replaceChildren(...rows.map(([name, ...instants]) => {
+    const row = element("tr");
+    const device = element("th", name);
+    device.scope = "row";
+    row.append(device);
+    for (const instant of instants) {
+      const timestamp = Date.parse(instant);
+      const cell = element("td");
+      const state = !Number.isFinite(timestamp) ? "Unavailable"
+        : now - timestamp >= staleAfterMinutes * 60_000 ? "Stale" : "Current";
+      const label = element("span", state, "sync-state");
+      label.dataset.state = state.toLowerCase();
+      cell.append(label);
+      if (Number.isFinite(timestamp)) {
+        const time = element("time", format.format(timestamp), "sync-time");
+        time.dateTime = instant;
+        time.title = new Date(timestamp).toISOString();
+        cell.append(time);
+      }
+      row.append(cell);
+    }
+    return row;
+  }));
 }
 
 function combineDeviceMonths(primaryMonths, devices) {
@@ -360,7 +405,7 @@ async function showDashboard() {
   if (data.schemaVersion !== 1 || !Array.isArray(data.months) || !data.months.length) {
     throw new Error("Unsupported activity file");
   }
-  const { devices = [], unavailable } = await loadDevices(data.timeZone);
+  const devices = await loadDevices(data.timeZone);
   const monthsWithActivity = combineDeviceMonths(data.months, devices);
   const newest = (instants) => instants.reduce((latest, instant) =>
     instant && (!latest || Date.parse(instant) > Date.parse(latest)) ? instant : latest, null);
@@ -382,15 +427,7 @@ async function showDashboard() {
   updated.textContent = `Updated ${updateDate}`;
   updated.title = data.timeZone;
   updated.hidden = false;
-  sourceUpdates.textContent = [
-    ["GitHub commits", commitsAt],
-    ["GitHub pushes", pushesAt],
-    [devices.length ? "Codex (primary)" : "Codex agents", data.coverage.agentsAt],
-    ...devices.map(([name, device]) => [
-      `Codex (${name === "windows-pc" ? "Windows PC" : name.replaceAll("-", " ")})`, device.syncedAt,
-    ]),
-    ...(unavailable ? [["Additional Codex devices", null]] : []),
-  ].map(([name, instant]) => instant ? `${name} through ${updateFormat.format(new Date(instant))}` : `${name} unavailable`).join(" · ");
+  renderSyncStatus(data.coverage, devices, data.timeZone);
   period.append(new Option("All recorded", "all"), ...monthsWithActivity.map((month) => new Option(monthLabel(month.month), month.month)));
   const queryPeriod = new URLSearchParams(location.search).get("month");
   if (monthsWithActivity.some((month) => month.month === queryPeriod)) period.value = queryPeriod;

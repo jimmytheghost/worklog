@@ -72,6 +72,16 @@ select, input {
 }
 .metrics div:nth-last-child(-n+2) dd { color: var(--accent); }
 .context { color: var(--muted); font-size: .82rem; margin-top: 10px; }
+.sync-status { margin-top: 24px; }
+.sync-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 4px; font-size: .82rem; }
+.sync-table caption { color: var(--muted); text-align: left; margin-bottom: 8px; }
+.sync-table th, .sync-table td { border-bottom: 1px solid var(--border); padding: 7px 8px; text-align: left; vertical-align: top; }
+.sync-table thead th { color: var(--muted); font-weight: 500; }
+.sync-table th:first-child { padding-left: 0; }
+.sync-time { display: block; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sync-state[data-state="current"] { color: var(--accent); }
+.sync-state[data-state="stale"] { color: #ffca83; }
+.sync-state[data-state="unavailable"] { color: var(--muted); }
 .heatmap { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 18px; }
 .heatmap-caption { color: var(--muted); font-size: .82rem; margin-top: 3px; }
 .heatmap-metrics {
@@ -243,5 +253,7 @@ footer { display: flex; justify-content: space-between; gap: 15px; padding-block
   .project li { grid-template-columns: 60px 43px minmax(0, 1fr); gap: 4px; }
 }
 @media (max-width: 420px) {
+  .sync-table { font-size: .75rem; }
+  .sync-table th, .sync-table td { padding-inline: 4px; overflow-wrap: anywhere; }
   .heatmap-detail dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
