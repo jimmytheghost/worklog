@@ -15,20 +15,25 @@
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Worklog logo and name over a blurred application preview">
+  <meta property="og:image:alt" content="Worklog app icon and wordmark">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Worklog | Jimmy Weber">
   <meta name="twitter:description" content="Jimmy Weber’s GitHub activity, project history, and observed Codex usage.">
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
-  <meta name="twitter:image:alt" content="Worklog logo and name over a blurred application preview">
-  <link rel="stylesheet" href="./styles.css?v=3">
-  <script type="module" src="./activity.js?v=5"></script>
+  <meta name="twitter:image:alt" content="Worklog app icon and wordmark">
+  <meta name="theme-color" content="#101410">
+  <link rel="stylesheet" href="./styles.css?v=4">
+  <script type="module" src="./activity.js?v=6"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
   <header class="shell topbar">
     <a class="home" href="https://www.jimmyweber.com/home/">Jimmy Weber</a>
-    <a href="https://www.jimmyweber.com/pages/projects/worklog/">About Worklog <span aria-hidden="true">↗</span></a>
+    <nav aria-label="Worklog">
+      <a href="#history-title" data-dashboard-link hidden>History</a>
+      <a href="#sync-title" data-dashboard-link hidden>Sync status</a>
+      <a href="https://www.jimmyweber.com/pages/projects/worklog/">About Worklog <span aria-hidden="true">↗</span></a>
+    </nav>
   </header>
   <main class="shell" id="main">
     <div class="intro">
@@ -41,15 +46,74 @@
     <p id="status" role="status">Loading work history…</p>
     <noscript><p>Enable JavaScript to browse the work history.</p></noscript>
     <div id="dashboard" hidden>
-      <div class="summary-heading">
-        <h2>Activity totals</h2>
-        <label class="field">Period <select id="period"></select></label>
+      <section aria-labelledby="summary-title">
+        <div class="section-header">
+          <h2 id="summary-title">Activity totals</h2>
+          <label class="field">Period <select id="period"></select></label>
+        </div>
+        <dl class="metrics" id="metrics"></dl>
+        <p class="context">Each Codex session counts once per active day on its recording device. Pushes and Codex usage reflect available records.</p>
+      </section>
+
+      <div class="charts">
+        <section class="panel heatmap" aria-labelledby="heatmap-title">
+          <div class="section-header">
+            <div>
+              <h2 id="heatmap-title">Activity heatmap</h2>
+              <p class="caption">Last 90 days</p>
+            </div>
+            <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
+              <button type="button" data-metric="commits" aria-pressed="true">Commits</button>
+              <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
+              <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
+              <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
+            </div>
+          </div>
+          <div class="plot-scroll">
+            <div class="heatmap-grid" id="heatmap-grid" role="group" aria-label="Daily activity, Monday through Sunday"></div>
+          </div>
+          <div class="heatmap-legend" aria-label="Heatmap shading from zero to highest activity, with hatching for unavailable data">
+            <span>0</span><i style="--shade: 0"></i><i style="--shade: .28"></i><i style="--shade: .53"></i><i style="--shade: .82"></i><span>Most</span>
+            <i class="heatmap-missing"></i><span>Unavailable</span>
+          </div>
+          <div class="heatmap-detail" id="heatmap-detail" aria-live="polite" aria-atomic="true"></div>
+        </section>
+
+        <section class="panel activity" aria-labelledby="chart-title">
+          <div class="section-header">
+            <div>
+              <h2 id="chart-title">Activity over time</h2>
+              <p class="caption" id="chart-period"></p>
+            </div>
+            <label class="field">Metric
+              <select id="chart-metric">
+                <option value="commits">Commits</option>
+                <option value="pushes">Pushes</option>
+                <option value="agents">Agents</option>
+                <option value="subagents">Subagents</option>
+              </select>
+            </label>
+          </div>
+          <div class="plot-scroll">
+            <div class="chart" id="chart" role="group" aria-label="Choose a date to inspect"></div>
+          </div>
+          <div class="chart-detail" id="chart-detail" aria-live="polite" aria-atomic="true"></div>
+        </section>
       </div>
-      <dl class="metrics" id="metrics"></dl>
-      <p class="context">Each Codex session counts once per active day on its recording device. Pushes and Codex usage reflect available records.</p>
+
+      <section class="history" aria-labelledby="history-title">
+        <div class="section-header">
+          <div>
+            <h2 id="history-title" tabindex="-1">Project history</h2>
+            <p class="caption" id="project-count" aria-live="polite"></p>
+          </div>
+          <label class="field search">Search <input id="search" type="search" placeholder="Projects or commit subjects"></label>
+        </div>
+        <div id="projects"></div>
+      </section>
 
       <section class="sync-status" aria-labelledby="sync-title">
-        <h2 id="sync-title">Sync status</h2>
+        <h2 id="sync-title" tabindex="-1">Sync status</h2>
         <table class="sync-table">
           <caption id="sync-caption"></caption>
           <thead>
@@ -62,58 +126,6 @@
           </thead>
           <tbody id="sync-devices"></tbody>
         </table>
-      </section>
-
-      <section class="heatmap" aria-labelledby="heatmap-title">
-        <div class="chart-header">
-          <div>
-            <h2 id="heatmap-title">Activity heatmap</h2>
-            <p class="heatmap-caption">Last 90 days</p>
-          </div>
-          <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
-            <button type="button" data-metric="commits" aria-pressed="true">Commits</button>
-            <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
-            <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
-            <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
-          </div>
-        </div>
-        <div class="heatmap-body">
-          <div class="heatmap-scroll">
-            <div class="heatmap-grid" id="heatmap-grid" role="group" aria-label="Daily activity, Monday through Sunday"></div>
-          </div>
-          <div class="heatmap-detail" id="heatmap-detail" aria-live="polite" aria-atomic="true"></div>
-        </div>
-        <div class="heatmap-legend" aria-label="Heatmap shading from zero to highest activity, with hatching for unavailable data">
-          <span>0</span><i style="--shade: .06"></i><i style="--shade: .28"></i><i style="--shade: .53"></i><i style="--shade: .82"></i><span>Most</span>
-          <i class="heatmap-missing"></i><span>Unavailable</span>
-        </div>
-      </section>
-
-      <section class="activity" aria-labelledby="chart-title">
-        <div class="chart-header">
-          <h2 id="chart-title">Activity over time</h2>
-          <label class="field">Metric
-            <select id="chart-metric">
-              <option value="commits">Commits</option>
-              <option value="pushes">Pushes</option>
-              <option value="agents">Agents</option>
-              <option value="subagents">Subagents</option>
-            </select>
-          </label>
-        </div>
-        <div class="chart" id="chart" role="group" aria-label="Choose a date to inspect"></div>
-        <div class="chart-detail" id="chart-detail" aria-live="polite"></div>
-      </section>
-
-      <section class="history" aria-labelledby="history-title">
-        <div class="history-header">
-          <div>
-            <h2 id="history-title">Project history</h2>
-            <p id="project-count" aria-live="polite"></p>
-          </div>
-          <label class="field search">Search <input id="search" type="search" placeholder="Projects or commit subjects"></label>
-        </div>
-        <div id="projects"></div>
       </section>
     </div>
   </main>

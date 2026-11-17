@@ -39,8 +39,10 @@ Release `worklog-shared-github-20261116-01` added `github-history.js` and update
 
 Release `worklog-sync-status-20261116-02` installed the Sync status table. Browser checks verified live source timestamps, and fixture checks covered current, stale, and unavailable reports down to a 320-pixel viewport.
 
+Release `worklog-frontend-20261116-01` updated the dashboard layout, charts, and navigation. The charts sit side by side on wide screens and stack on narrow screens. The date controls scroll within each chart, and the heatmap keeps weekday labels visible while scrolling. History and Sync status are reachable from the top navigation. Local and live Chromium checks covered 320–1440 px, month URLs, metric changes, keyboard navigation, project search, commit links, and an unavailable feed. Release `worklog-frontend-20261116-02` corrected the social preview image description. Both releases deployed only static frontend files.
+
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 
 ## Link preview
 
-`preview.png` is the existing portfolio Worklog banner center-cropped and resized with Lanczos to 1200 × 630. The initial HTML supplies the canonical URL and Open Graph and Twitter image metadata. The live image and checksum were verified with browser and Facebook crawler user agents. Messages rendering was outside these checks.
+`preview.png` is the existing portfolio Worklog banner center-cropped and resized with Lanczos to 1200 × 630. The initial HTML supplies the canonical URL and Open Graph and Twitter image metadata. Browser and Facebook crawler checks verified `/worklog` and `/worklog/`, the preview image MIME type and dimensions, and the release check verified its checksum. Messages rendering was outside these checks.

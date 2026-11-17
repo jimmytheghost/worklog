@@ -7,6 +7,7 @@ const syncDevices = document.querySelector("#sync-devices");
 const syncCaption = document.querySelector("#sync-caption");
 const period = document.querySelector("#period");
 const chartMetric = document.querySelector("#chart-metric");
+const chartPeriod = document.querySelector("#chart-period");
 const chart = document.querySelector("#chart");
 const chartDetail = document.querySelector("#chart-detail");
 const heatmapGrid = document.querySelector("#heatmap-grid");
@@ -139,6 +140,16 @@ function totalsForSeries(series) {
   return Object.fromEntries(Object.keys(chartLabels).map((key) => [key, sumObserved(series.map((item) => item[key]))]));
 }
 
+function renderDayDetails(container, heading, item) {
+  const totals = element("dl");
+  for (const [key, label] of Object.entries(chartLabels)) {
+    const group = element("div");
+    group.append(element("dt", label), element("dd", item[key] === null ? "Unavailable" : valueLabel(item[key])));
+    totals.append(group);
+  }
+  container.replaceChildren(heading, totals);
+}
+
 function renderHeatmap(daySeries, latestDate) {
   // Cached visits can briefly have the previous HTML while assets are deployed.
   if (!heatmapGrid) return;
@@ -172,14 +183,7 @@ function renderHeatmap(daySeries, latestDate) {
     buttons[index].tabIndex = 0;
     const date = element("time", dates[index]);
     date.dateTime = days[index].date;
-    const totals = element("dl");
-    for (const [key, label] of Object.entries(chartLabels)) {
-      const group = element("div");
-      const value = days[index][key];
-      group.append(element("dt", label), element("dd", value === null ? "Unavailable" : valueLabel(value)));
-      totals.append(group);
-    }
-    heatmapDetail.replaceChildren(date, totals);
+    renderDayDetails(heatmapDetail, date, days[index]);
   }
 
   const buttons = days.map((day, index) => {
@@ -225,7 +229,7 @@ function renderHeatmap(daySeries, latestDate) {
     heatmapMetrics.forEach((control) => control.setAttribute("aria-pressed", String(control.dataset.metric === key)));
     buttons.forEach((button, index) => {
       const value = days[index][key];
-      button.style.setProperty("--shade", value ? .16 + Math.sqrt(value / max) * .66 : .06);
+      button.style.setProperty("--shade", value ? .16 + Math.sqrt(value / max) * .66 : 0);
       button.classList.toggle("heatmap-missing", value === null);
       const label = `${dates[index]} · ${chartLabels[key]} ${value === null ? "unavailable" : valueLabel(value)}`;
       button.title = label;
@@ -253,15 +257,14 @@ function renderChart(series) {
       button.setAttribute("aria-pressed", String(position === index));
       button.tabIndex = position === index ? 0 : -1;
     });
-    chartDetail.replaceChildren(
-      element("strong", item.label),
-      ...Object.keys(chartLabels).map((metric) => element("span", `${valueLabel(item[metric])} ${chartLabels[metric].toLowerCase()}`)),
-    );
+    renderDayDetails(chartDetail, element("strong", item.label), item);
   };
   for (const [index, item] of series.entries()) {
     const button = element("button");
     button.type = "button";
-    button.setAttribute("aria-label", `${item.label}, ${item[key] === null ? `${label.toLowerCase()} unavailable` : `${valueLabel(item[key])} ${label.toLowerCase()}`}`);
+    const description = `${item.label}, ${item[key] === null ? `${label.toLowerCase()} unavailable` : `${valueLabel(item[key])} ${label.toLowerCase()}`}`;
+    button.setAttribute("aria-label", description);
+    button.title = description;
     if (item[key] === null) button.dataset.missing = "";
     const bar = element("span", undefined, "bar");
     bar.style.setProperty("--height", `${100 * (item[key] ?? 0) / largest}%`);
@@ -279,9 +282,15 @@ function renderChart(series) {
     });
     buttons.push(button);
   }
+  chart.style.setProperty("--points", Math.max(1, buttons.length));
   chart.replaceChildren(...buttons);
-  if (buttons.length) select(buttons.length - 1);
-  else chartDetail.replaceChildren();
+  if (buttons.length) {
+    select(buttons.length - 1);
+    const scroll = chart.parentElement;
+    scroll.scrollLeft = scroll.scrollWidth;
+  } else {
+    chartDetail.textContent = "No activity dates in this period.";
+  }
 }
 
 function renderMetrics(totals, months, projects) {
@@ -297,6 +306,7 @@ function renderMetrics(totals, months, projects) {
     const group = element("div");
     const amount = element("dd", value !== null && value >= 100_000 ? compact.format(value) : valueLabel(value));
     amount.title = value === null ? "Data unavailable" : valueLabel(value);
+    amount.toggleAttribute("data-unavailable", value === null);
     group.append(element("dt", label), amount);
     return group;
   }));
@@ -423,8 +433,9 @@ async function showDashboard() {
     from: agentsFrom, to: dateInZone(syncedAt, data.timeZone),
   }));
   const updateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: data.timeZone });
-  const updateDate = updateFormat.format(new Date(latest));
-  updated.textContent = `Updated ${updateDate}`;
+  const updateDate = element("time", updateFormat.format(new Date(latest)));
+  updateDate.dateTime = latest;
+  updated.replaceChildren("Updated ", updateDate);
   updated.title = data.timeZone;
   updated.hidden = false;
   renderSyncStatus(data.coverage, devices, data.timeZone);
@@ -448,6 +459,9 @@ async function showDashboard() {
     const months = period.value === "all" ? monthsWithActivity : monthsWithActivity.filter((month) => month.month === period.value);
     projects = combineProjects(months);
     series = period.value === "all" ? overview : byMonth.get(period.value).days;
+    if (chartPeriod) {
+      chartPeriod.textContent = period.value === "all" ? "Monthly totals · All recorded" : `Daily totals · ${monthLabel(period.value)}`;
+    }
     renderMetrics(totalsForSeries(series), months, projects);
     renderChart(series);
     renderProjects(projects);
@@ -461,12 +475,17 @@ async function showDashboard() {
   });
   chartMetric.addEventListener("change", () => renderChart(series));
   search.addEventListener("input", () => renderProjects(projects));
-  renderPeriod();
-  status.hidden = true;
   dashboard.hidden = false;
+  renderPeriod();
   renderHeatmap([...byMonth.values()].flatMap(({ days }) => days), through.today);
+  status.hidden = true;
+  document.querySelectorAll("[data-dashboard-link]").forEach((link) => { link.hidden = false; });
+  if (location.hash === "#history-title" || location.hash === "#sync-title") {
+    document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }
 }
 
 showDashboard().catch(() => {
+  dashboard.hidden = true;
   status.textContent = "Work history is temporarily unavailable.";
 });
