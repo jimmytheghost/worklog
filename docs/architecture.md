@@ -9,7 +9,7 @@ Worklog uses one local service per machine for the native client and browser arc
 - `apps/macos`: the primary daily surface, a native macOS menu-bar popover.
 - `apps/windows`: a native C# / WPF notification-area app using the shared service and contracts with a local ledger.
 - `apps/dashboard`: the fuller browser view used for monthly Work History and deeper inspection.
-- `apps/website`: the public activity frontend and publisher. The frontend reads the primary `activity.json` and additional-device `codex-devices.json` feeds from the static web host.
+- `apps/website`: the public activity frontend and SSH publisher. The static build packages HTML, CSS, JavaScript, the header skull, and the link-preview image. The frontend reads the independently published `activity.json` and `codex-devices.json` feeds from the static web host.
 - `apps/service`: one Fastify process that collects, stores, aggregates, and serves data on loopback.
 - `packages/domain`: source-neutral event contracts and aggregation rules.
 - `packages/storage`: the SQLite event ledger and read models.
@@ -93,6 +93,8 @@ The macOS popover shows account usage, range totals, recent work, and a grayscal
 The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its heatmap currently reads the Git calendar for Commit, Push, and Both. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
 
 The local browser dashboard provides the complete monthly archive for its ledger, with search, GitHub commit links where available, and a daily Codex activity table. The public frontend merges the published GitHub events before calculating totals, heatmaps, and project history. It adds Codex aggregates across recording devices and displays the timestamp of each machine's last reported commit, push, and Codex collection. The public feeds carry repository names, commit subjects and links, opaque GitHub deduplication keys, and aggregate Codex usage. [Website handoff](../WEBSITE-HANDOFF.md)
+
+The public palette switch runs in the browser and stores only the palette name under `worklog.palette` in local storage. Selection works for the current page when storage is unavailable. The palette and heatmap intensity are display settings with no effect on the activity feeds or totals.
 
 ## Reliability and security
 

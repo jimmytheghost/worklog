@@ -33,9 +33,10 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 
 ### Public Worklog
 
-- Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, and searchable monthly project history with clickable GitHub commit subjects.
+- Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, a period chart, and searchable project history with clickable GitHub commit subjects. The period menu offers all recorded activity and individual months.
 - Static feeds from enrolled machines supply repository history and aggregate Codex usage. Shared commits and identified pushes count once. The heatmap ends on the latest published reporting date.
 - Sync status shows the last reported GitHub commit, GitHub push, and Codex collection per machine, with distinct current, stale, and unavailable states.
+- The header offers green, neon blue, and grey palettes. The browser remembers the selection, and each palette distinguishes zero and four activity levels in the heatmap.
 
 [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
 

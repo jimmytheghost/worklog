@@ -28,7 +28,7 @@ Documentation links, referenced source paths, fenced command blocks, and diff wh
 
 ## Publication boundary
 
-The repository was private with no releases when inspected. The source is now public with the prepared README, screenshot, and MIT license. A downloadable release needs its own build, license inclusion, artifact inspection, platform validation, and clear signing/notarization notes. The current package script produces a locally tied, ad-hoc-signed app rather than a portable distribution.
+The repository was private with no releases when inspected. The source is now public with the prepared README, screenshot, and MIT license. Worklog remains source-only. The November 16 `worklog-frontend-green-20261116` tag is a source rollback checkpoint for the website. A downloadable release needs its own build, license inclusion, artifact inspection, platform validation, and clear signing/notarization notes. The macOS package script produces a locally tied, ad-hoc-signed app. Windows packaging produces an unsigned executable linked to the local checkout. [Website rollback notes](../WEBSITE-HANDOFF.md#rollback)
 
 ## Publication verification, October 21, 2026
 

@@ -1,6 +1,6 @@
 # Worklog Handoff
 
-Checkpoint 2026-11-16
+Checkpoint 2026-11-16 · Website frontend `37a3bbc` · Release `worklog-header-mark-20261116-01`
 
 ## Start here
 
@@ -20,7 +20,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
 - Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
-- Static public dashboard with activity totals, a four-metric 90-day heatmap, a period chart, searchable project history, and per-device Sync status. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
+- Static public dashboard with activity totals, a four-metric 90-day heatmap, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
 - Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
@@ -46,6 +46,7 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | Codex synchronization | `apps/service/src/codex-sync.ts`, `apps/service/src/codex-account-sync.ts` |
 | Browser UI | `apps/dashboard/src` |
 | Public activity frontend and publisher | `apps/website`, `apps/service/src/public-activity.ts` |
+| Website header, palettes, and heatmap | `apps/website/src/index.html`, `apps/website/src/styles.css`, `apps/website/src/activity.js` |
 | Cross-device GitHub merge and Windows scheduled publisher | `apps/website/src/github-history.js`, `apps/website/publish-activity.py`, `apps/windows/scripts/register-website-publisher.ps1` |
 | Durable storage | `packages/storage` |
 | Event contracts | `packages/domain` |
@@ -113,7 +114,7 @@ The November 15 macOS heatmap change passed 131 workspace tests, type checking, 
 
 On November 16 the Windows package was rebuilt and relaunched. The local service, collector output, startup registration, and scheduled publishing were verified. Windows model checks and the WPF build passed. The last recorded interactive Windows tray layout review was October 25.
 
-The November 16 website releases passed 133 workspace tests, type checking, and production builds. Scheduled MacBook Pro and Windows exports were verified on the live site. The merged archive restored nine Windows-ledger commits from November 10–11 without duplicates. Live Chromium checks covered the latest website frontend and the device status table at desktop and mobile widths. [Release and verification notes](../WEBSITE-HANDOFF.md)
+The November 16 website releases passed 133 workspace tests, type checking, and production builds. Chromium verified the latest header in all three palettes at 320–1440 px, along with the earlier palette, heatmap, history, and Sync status changes. Both production feeds showed current commit, push, and Codex reports at the evening checkpoint. The Windows publisher's last run returned `0`, and the live device feed listed Windows PC as the only secondary publisher. [Release and verification notes](../WEBSITE-HANDOFF.md)
 
 ## Data limits that must remain visible
 

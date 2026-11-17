@@ -1,6 +1,6 @@
 # Worklog for Windows
 
-A native WPF notification-area app using the same local service and ledger as the macOS app. The 360-unit flyout follows Tipoff's charcoal, gray, white, and mint design and Worklog's account card, period summaries, and grayscale heatmap.
+A native WPF notification-area app using the shared Worklog service and a ledger on the Windows machine. The 360-unit flyout follows Tipoff's charcoal, gray, white, and mint design and Worklog's account card, period summaries, and grayscale heatmap.
 
 ## Build and run
 
@@ -43,7 +43,7 @@ Service stdout/stderr is drained without retention by the Windows launcher. The 
 
 ## Website publishing
 
-Start with Windows launches the tray and its local collector at sign-in. The separate [website publisher registration](../../WEBSITE-HANDOFF.md#windows-publisher-registration) sets up the current-user scheduled upload of GitHub history and aggregate Codex activity. The public **Sync status** table reports when the device last supplied each source.
+Start with Windows launches the tray and its local collector at sign-in. The separate publisher task sends GitHub history and aggregate Codex activity at sign-in and every five minutes while signed in. Verify the task's last result before checking its timestamps in the public **Sync status** table. [Publisher registration and verification](../../WEBSITE-HANDOFF.md#windows-publisher-registration)
 
 ## Updating
 

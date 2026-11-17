@@ -1,6 +1,6 @@
-# Agent Dashboard Data Contract
+# Worklog Data Contract
 
-Status: Accepted MVP contract
+Status: Current data contract, with deferred design notes
 
 Default local timezone: `America/Denver`
 
@@ -8,14 +8,14 @@ Scope: local-first, read-only collection with an allowlisted public projection
 
 ## Purpose
 
-This contract defines how the dashboard collects, stores, qualifies, and reports activity from GitHub, local Git repositories, Codex, and the OpenAI Usage API. Its purpose is to ensure that every displayed number can answer four questions:
+Worklog reports GitHub activity, observed local Codex activity and token counters, and signed-in Codex account usage facts. Local Git event collection and OpenAI organization Usage/Costs collection are deferred designs. The TypeScript domain model retains names and types for some deferred sources. A displayed number should answer four questions:
 
 1. What does it count?
 2. Which source produced it?
 3. How complete is the underlying observation window?
 4. How recently was it synchronized?
 
-The normalized event ledger is the durable analytical source of truth. Source payloads may be retained as metadata for audit and replay, subject to the privacy constraints below, but UI metrics must be derived from normalized entities and events rather than directly from source-specific responses.
+The SQLite ledger stores typed, allowlisted events and source coverage. The latest Codex account usage snapshot has its own table. Use the [domain schemas](../packages/domain/src/schemas.ts) and [SQLite schema](../packages/storage/src/schema.ts) for exact fields.
 
 ## Source-of-truth policy
 
@@ -23,18 +23,17 @@ Authority is assigned per fact, not per screen.
 
 | Fact | Primary authority | Secondary evidence | Notes |
 | --- | --- | --- | --- |
-| Commit identity, parents, author time, committer time | Git object database | GitHub commit API | The commit SHA is the canonical identifier. Local and remote observations of the same SHA are one commit. |
-| Repository identity | GitHub repository ID | Local remote URL | Repository renames must not create a new repository. Local-only repositories receive a namespaced local identity. |
-| Push occurrence and contents | GitHub push event or future webhook | Local observation/correlation | A commit is not a push. Historical pushes may be unavailable and must never be reconstructed and labeled as observed facts. |
+| Commit identity, parents, author time, committer time | GitHub commit API | None | The repository ID and commit SHA identify the commit. |
+| Repository identity | GitHub repository ID | Local GitHub remote for Codex workspace attribution | The immutable repository ID preserves identity across renames. |
+| Push occurrence | GitHub repository Activity | Signed-in user's GitHub push events where collected | Coverage is partial. Worklog counts observed operations separately from commits. |
 | Branch/ref state | Latest successful source observation | None | Ref state is mutable and should be represented as a snapshot, not permanent history. |
-| Codex task/session identity and hierarchy | Local Codex metadata | Temporal correlation | Prompt or response content is not required or ingested. |
+| Codex task/session identity and hierarchy | Local Codex metadata | None | Identity and parent relationships come from observed session metadata. |
 | Codex locally observed tokens | Local Codex metadata | None | This is not interchangeable with organization API usage. |
 | Codex account limits, reset times, credits, and lifetime facts | Official local Codex app-server for the signed-in account | None | Latest snapshot only; account identity is hashed and credentials/email are not stored. |
-| OpenAI API usage and cost | Official OpenAI organization Usage/Costs APIs | None | Reported separately from local Codex observations. |
-| Project-to-Codex association | Explicit workspace/repository identifier | Path match, then time-based correlation | Inferred associations carry a confidence classification. |
+| Codex session repository association | Workspace's resolved GitHub remote | None | A session stays unattributed when the remote cannot be resolved to a known repository. |
 | Calendar day | Event occurrence instant converted to configured timezone | None | The original UTC instant is always preserved. |
 
-Conflicts are not resolved by overwriting the original observation. The canonical entity stores the selected value and authority, while observations preserve their source, collection time, and adapter version so the selection can be audited or recomputed.
+Normalized events preserve the source, observation time, and adapter version. Project metadata, source coverage, and the current account usage snapshot can be refreshed independently.
 
 ## Metric definitions
 
@@ -42,29 +41,25 @@ All counts use raw event or entity counts unless the metric explicitly says othe
 
 ### Git activity
 
-- **Commits:** count of distinct Git commit SHAs attributed to an included repository and whose selected occurrence time falls in the interval. The default occurrence time is committer time; author time remains available for inspection. A merge commit counts as one commit. A commit visible on multiple branches or received in multiple pushes counts once.
-- **Authored commits:** distinct commits whose normalized author identity matches a configured user identity. This is separate from commits merely present in an owned repository.
-- **Pushes:** count of distinct observed push or ref-changing operations. A push containing multiple commits counts as one push. A force push and a branch/tag creation or deletion each count as a push when the source records them as such.
-- **Pushed commits:** sum of distinct commit SHAs introduced by each observed push. This metric can exceed unique commits because the same commit may be pushed to multiple repositories or refs; the UI must label it explicitly.
-- **Active repositories:** distinct repositories with at least one qualifying commit, push, or associated Codex task during the interval.
+- **Commits:** distinct repository and SHA pairs whose commit author matches the signed-in GitHub account or a configured unlinked author email. Reporting uses committer time. The event payload retains author time when supplied by GitHub. A merge commit counts once, including when multiple live branches contain it.
+- **Pushes:** distinct observed pushes, force pushes, branch creations, and branch deletions attributed to the configured account. A push containing several commits counts as one push.
+- **Active projects and active days:** distinct repositories and local dates, respectively, with at least one recorded Git commit or push in the interval. The native summary derives these metrics from Git events.
 - **Git heatmap value:** daily commits or pushes in the configured timezone. The native Both mode sums the two values for cell intensity and retains separate exact counts.
 
-Do not infer historical push counts from commit timestamps, reflogs, or current branch state. Such evidence may support a separately labeled estimate in a future version, but it is excluded from MVP push totals.
+Push totals use observations from GitHub. Historical reconstruction from commit dates, reflogs, or branch state remains outside the contract.
 
 ### Codex activity
 
-- **Tasks:** count of distinct top-level Codex tasks whose start instant falls in the interval.
 - **Agents:** distinct top-level Codex sessions observed active on a reporting date.
 - **Subagents:** distinct spawned Codex sessions observed active on a reporting date. When the ledger contains both classifications for a session on the same date, subagent classification takes precedence.
 - **Range totals for agents and subagents:** sum of the respective daily counts. A session active on several dates contributes once on each of those dates. Retained local records set the historical coverage.
-- **Active duration:** elapsed wall-clock time between recorded start and terminal instants. Open sessions use the reporting instant and are labeled active. Missing terminal records produce an unknown duration rather than an assumed value.
-- **Codex observed input/output/cached/reasoning tokens:** sums of the corresponding counters available in local Codex metadata. Missing counter classes are `unknown`, not zero.
-- **Task outcome:** normalized terminal state such as `completed`, `failed`, `cancelled`, `interrupted`, or `unknown`; it is not inferred from Git activity.
+- **Observed tokens:** available local session counters contribute to the observed subtotal. Cumulative counters use revisions and window deltas in the storage read model. Missing counters leave coverage partial or unknown. [Token read model](../packages/storage/src/storage.ts)
+- The ledger can retain allowlisted task starts, session lifecycle states, and observed activity. The current overview reports daily session counts and range totals for agents and subagents.
 - **Codex usage remaining:** `100 - usedPercent` for each rate-limit window returned by the signed-in account, clamped to 0–100 and paired with its source reset time.
 - **Banked resets and credits:** values returned by the Codex account source. Missing is unknown, never zero.
 - **Lifetime usage facts:** lifetime and peak daily tokens, streaks, and longest-running turn as returned by the Codex account source. These facts are not summed with local session counters.
 
-### OpenAI API usage
+### Deferred OpenAI API usage design
 
 - **API tokens:** usage returned by official organization usage endpoints, grouped by the dimensions present in the response (for example model, project, user, or API key).
 - **API cost:** currency amount returned by the official costs endpoint, preserving currency and bucket interval.
@@ -127,7 +122,7 @@ Completeness describes observation coverage for a source, metric, entity, and in
 - `unavailable`: the source cannot provide this metric for the interval.
 - `unknown`: coverage cannot yet be established.
 
-Each aggregate returns `coverage_start`, optional `coverage_end`, `completeness`, and any `coverage_reason`. Aggregating inputs with different coverage must produce the least complete defensible status and must not imply account-wide completeness from a subset of repositories.
+Coverage records can carry a start, end, completeness, and reason. Some views return numeric summaries and expose coverage separately in the snapshot or source status. Claims about completeness should reflect the least complete contributing source and the observed repository set.
 
 Examples:
 
@@ -151,7 +146,7 @@ The conceptual envelope is source-neutral and append-only:
 
 ```ts
 type NormalizedEvent = {
-  eventId: string;                 // UUID/ULID generated by the dashboard
+  eventId: string;                 // Stable event identifier from the adapter
   eventType: EventType;            // namespaced, version-stable semantic type
   schemaVersion: number;           // normalized payload schema version
   entityType: string;
@@ -167,6 +162,7 @@ type NormalizedEvent = {
   sourceRecordId: string;
   adapterName: string;
   adapterVersion: string;
+  sourceFormatVersion?: string;
   idempotencyKey: string;
   attribution: "codex" | "human" | "unknown";
   confidence: "confirmed" | "correlated" | "unknown";
@@ -178,7 +174,9 @@ type NormalizedEvent = {
 
 All instants are stored in UTC with sufficient precision to preserve the source value. If the source has only a date or time bucket, payload metadata records that precision and the dashboard must not imply a more precise instant.
 
-### Initial event types
+### Domain event types
+
+The domain accepts the following event types. The active collectors emit GitHub and local Codex events. OpenAI organization and other association types remain available to the domain for deferred work.
 
 | Event type | Canonical meaning |
 | --- | --- |
@@ -189,6 +187,7 @@ All instants are stored in UTC with sufficient precision to preserve the source 
 | `repository.metadata_changed` | Source metadata changed, such as name, visibility, default branch, or archival state. |
 | `codex.task.started` | A top-level task start was observed. |
 | `codex.session.started` | An agent execution session start was observed. |
+| `codex.session.state_observed` | An allowlisted session state was observed. |
 | `codex.session.activity_observed` | A session had allowlisted activity in a UTC minute. The payload contains only its source session ID and normalized agent role. |
 | `codex.subagent.spawned` | A parent/child agent relationship was observed or correlated. |
 | `codex.session.completed` | A session reached a terminal state. |
@@ -202,7 +201,7 @@ Events are immutable. Corrections append a superseding event or update a canonic
 
 ## Conceptual entity and table model
 
-Physical names may change during implementation, but the responsibilities remain:
+The implemented schema stores `sources`, `projects`, `normalized_events`, `sync_cursors`, `source_coverage`, and `codex_account_state`. This design reference describes logical responsibilities, including projections and deferred concepts. [Implemented SQLite schema](../packages/storage/src/schema.ts)
 
 - **source_accounts:** configured GitHub/OpenAI/local sources, non-secret identity, enabled state, and sync policy.
 - **repositories:** canonical repository identity, GitHub ID or local namespace, current metadata, and ownership/inclusion state.
@@ -226,10 +225,10 @@ Secrets and access tokens are not stored in these tables. Use the operating syst
 
 Every adapter computes a stable `idempotencyKey` before insertion. Reprocessing identical source data must not add a second semantic event or inflate any aggregate.
 
-Preferred keys:
+Logical key components are below. The implementation length-prefixes components. See the [key helpers](../packages/domain/src/idempotency.ts) and [GitHub normalizer](../packages/collector-github/src/normalize.ts) for byte-for-byte formats.
 
 - Commit: `git.commit:{repository_id}:{sha}`.
-- GitHub push: `github.push:{source_account_id}:{source_namespace}:{native_activity_id}`. Equivalent observations from different GitHub endpoints are semantically deduplicated by repository, ref, and available before/after SHAs. If no native ID exists, use a documented hash of repository ID, actor ID, ref, before SHA, after SHA, and source occurrence time; mark collision risk in the adapter.
+- GitHub push: account ID plus the normalized source record ID. The repository Activity endpoint uses `activity:<id>`. Collector overlap checks also consider repository, ref, and SHAs when those facts are available. The domain's synthetic key helper is available for sources without native IDs.
 - Codex task/session lifecycle: `codex.{event_kind}:{source_instance_id}:{task_or_session_id}:{source_sequence_or_state}`.
 - Codex usage: `codex.usage:{source_instance_id}:{session_id}:{bucket_or_counter_revision}`.
 - OpenAI usage/cost: source account plus endpoint, bucket start/end, grouping dimensions, and source result identifier or deterministic result hash.
@@ -250,16 +249,16 @@ The importer must be deterministic: the same ordered or unordered input set, ada
 - Default display and aggregation timezone is the IANA zone `America/Denver`, not a fixed UTC offset. This preserves daylight-saving transitions.
 - Convert `occurredAt` to the configured timezone when deriving `local_date`; intervals are half-open: `[local day start, next local day start)`.
 - A user timezone change rebuilds calendar aggregates; it does not alter source events.
-- Git commit default day uses committer instant. Author day is an explicit alternate view.
+- Git commit day uses committer time. Author time remains available in the normalized event payload.
 - Push day uses the source push event instant.
 - Codex task/session day uses its source lifecycle instant; if absent, a derived or observed instant is allowed but labeled via `occurredAtSource`.
 - Daily agent counts derive their dates from activity observations in the configured timezone. The collector retains activity minutes from turn and token metadata and falls back to the session start if it has no finer observation.
 - Usage data retains the provider's bucket boundaries. Re-bucketing is allowed only when allocation is unambiguous; otherwise the original bucket is displayed without fabricated daily precision.
-- Future-dated or severely skewed source timestamps are preserved, flagged, and excluded only by an explicit data-quality rule visible to the user.
+- Range totals include events within the selected reporting bounds. Source timestamps remain available for diagnosis.
 
 ## Privacy and security constraints
 
-The MVP collects metadata needed for analytics and no more.
+The active collectors persist allowlisted metadata.
 
 Must not ingest or persist:
 
@@ -277,20 +276,19 @@ Additional controls:
 - Bind the local service to `127.0.0.1` by default.
 - Store the SQLite database and exports with user-only filesystem permissions where supported.
 - Redact credentials and sensitive query parameters from logs and errors.
-- Hash local paths for telemetry/export when the literal path is not necessary; never transmit local paths without opt-in.
+- Hash workspace identifiers where the literal local path is unnecessary. Public exports omit local paths.
 - Exports clearly state whether they contain private repository names, identities, or local paths.
-- Deletion and retention policies operate per source account and can rebuild projections after removal.
 
 The website feeds include repository names, commit subjects, and GitHub commit links, including rows for private repositories. They include daily and monthly activity and aggregate Codex usage. The publisher hashes repository and identified push IDs for public deduplication. Codex session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
 
-## GitHub, Codex, and OpenAI usage separation
+## GitHub, local Codex, and account usage
 
 The UI and query layer preserve explicit source namespaces:
 
-- GitHub/local Git describe software activity.
+- GitHub describes recorded commit and push activity.
 - Codex local metadata describes observed agent activity and counters on this machine/profile.
 - Codex account state describes current limits and account-level usage facts for the Codex CLI's signed-in profile.
-- OpenAI organization APIs describe billable/administrative API usage available to the connected organization.
+- Any future OpenAI organization Usage/Costs integration should expose its own billable or administrative usage series.
 
 Shared timestamps and repository associations enable correlation, not equivalence. A push temporally near a Codex session is not automatically an AI push. An API token bucket is not automatically a Codex token bucket. Cross-source charts must identify each series and its coverage independently.
 
@@ -315,7 +313,7 @@ The local Codex adapter is explicitly treated as unstable because its input is n
 
 ## Aggregate response contract
 
-Every user-visible metric response should include, conceptually:
+The domain `MetricResult` describes a single qualified metric. Native range summaries and website feeds have their own response shapes. See the [local API routes](../apps/service/src/app.ts) and [public projection](../apps/service/src/public-activity.ts) for those contracts.
 
 ```ts
 type MetricResult = {
@@ -345,32 +343,33 @@ type MetricResult = {
 
 ### Public activity feeds
 
-- `activity.json` contains the primary machine's `generatedAt`, `timeZone`, `coverage`, and `months`. Source freshness is reported as `coverage.commitsAt`, `coverage.pushesAt`, and `coverage.agentsAt`. The publisher adds opaque GitHub keys by matching the public rows to the local monthly history projection.
+- `activity.json` contains the primary machine's `schemaVersion`, `generatedAt`, `timeZone`, `coverage`, and `months`. Coverage includes `commitsAt`, `pushesAt`, `agentsAt`, and `agentsFrom`. The publisher adds opaque GitHub keys by matching public rows to the local monthly history projection.
 - `codex-devices.json` contains `schemaVersion`, `timeZone`, and a `devices` object indexed by stable slug. Each entry carries `generatedAt`, `syncedAt` for Codex, `agentsFrom`, Codex `months`, and `git` with `commitsAt`, `pushesAt`, and GitHub `months`. Older entries can omit `git`.
 - Public commits deduplicate by repository and SHA. Identified pushes use a hashed GitHub repository activity ID. For legacy push rows with missing IDs, the merged count preserves at least the largest observation count per repository and date without summing unknown overlaps. Codex counts and observed tokens add across recording devices, with daily session deduplication performed inside each local ledger.
 - Sync status compares each source timestamp with the time the page loads. A timestamp at least 35 minutes old is stale. Missing or invalid timestamps show unavailable. Report freshness and historical coverage are independent.
+- Heatmap colors reflect the highest observed value within the selected metric's 90-day window. Zero, four positive levels, and unavailable hatching have distinct treatments. Select any date for its exact available counts.
 
-## MVP assumptions and deferred decisions
+## Scope and deferred decisions
 
 - Included scope covers accessible owned, collaborator, and organization-member repositories returned for the configured GitHub account. Archived repositories are retained when discovered; collector inclusion remains explicit and testable.
 - The configured personal identity may include multiple verified Git names/emails and GitHub identities.
 - Polling repository Activity is the initial collection mechanism. Webhooks may improve prospective push completeness beyond the available Activity history without changing the normalized event semantics.
 - One local user/profile is supported initially, while source and entity IDs remain namespaced for future multi-profile support.
 - Heatmap intensity thresholds are presentation logic and not part of metric semantics.
-- Cost estimation for non-API Codex usage, agent launching/control, source-code analysis, and reconstructed historical pushes are outside the MVP contract.
+- Cost estimation for non-API Codex usage, agent launching/control, source-code analysis, and reconstructed historical pushes are outside the current contract.
 
 ## Validation requirements
 
 Fixtures or representative sanitized records must demonstrate:
 
-- One commit observed locally and through GitHub is counted once.
+- One commit observed on multiple GitHub branches or published by multiple enrolled machines is counted once per repository.
 - One push containing multiple commits increments pushes by one and commits by the correct distinct count.
 - Replaying a page or entire sync does not change totals.
 - A repository rename preserves history under the immutable repository identity.
 - A force push and ref deletion do not corrupt commit identity or fabricate removals.
 - Parent and sub-agent sessions preserve hierarchy without storing message content.
 - Missing token counter classes remain unknown rather than zero.
-- Local Codex usage and OpenAI API usage remain separate in queries and charts.
+- Locally observed Codex counters and signed-in account limits remain separate in queries and the UI.
 - Day assignment across Mountain Time daylight-saving transitions is correct.
 - Day, rolling seven-day week, month, year, and all-time summary boundaries are correct.
 - The trailing 90-day heatmap preserves separate counts, zero, and unavailable data in Git-only, Codex-only, and mixed snapshots.

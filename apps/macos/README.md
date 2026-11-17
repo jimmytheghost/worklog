@@ -10,7 +10,7 @@ Click the header gear to open Settings. **Start on computer startup** uses macOS
 
 ## Website publishing
 
-The app starts or reuses the local collector. A separate scheduled publisher sends the allowlisted activity projection to the public dashboard. See the [primary MacBook Pro setup and Mac mini enrollment](../../WEBSITE-HANDOFF.md#current-publishers).
+The app starts or reuses the local collector. Website publishing uses a separate schedule and the service's allowlisted projection. See the [current MacBook Pro publisher](../../WEBSITE-HANDOFF.md#current-publishers) and [Mac mini enrollment](../../WEBSITE-HANDOFF.md#mac-mini-enrollment).
 
 ## Develop
 

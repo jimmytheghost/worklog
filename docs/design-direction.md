@@ -28,14 +28,16 @@ The browser window is the complete archive. It can use more space for search, mo
 
 ### 3. Public website
 
-The fixed daily heatmap and period chart sit side by side on wide screens and stack on narrow screens. Date controls scroll within their charts, and weekday labels stay visible while the heatmap scrolls. Search and expandable project rows expose the merged history with direct GitHub commit links. The top navigation links to History and Sync status. The status table labels each device's source timestamps with Current, Stale, or Unavailable. [Public Worklog](https://www.jimmyweber.com/worklog/)
+The fixed daily heatmap and period chart sit side by side on wide screens and stack on narrow screens. Date controls scroll within their charts, and weekday labels stay visible while the heatmap scrolls. Search and expandable project rows expose the merged history with direct GitHub commit links. The top navigation links to History and Sync status. The status table labels each device's source timestamps with Current, Stale, or Unavailable.
+
+The public site uses a monospace masthead and dark surfaces. The top-left home link uses the same skull artwork as Tipoff's home link. Three labelled square buttons select green, neon blue, or grey and show the active palette with a check mark. The home mark follows the accent and appears white in the grey palette. Green is the default. [Public Worklog](https://www.jimmyweber.com/worklog/)
 
 ## Visual language
 
 - Near-black canvas with subtle graphite surfaces and separators.
 - White primary text and quiet gray secondary labels.
 - On Windows, selected range and heatmap-mode buttons use dark text on mint. Button labels inherit their control's foreground so a global text style cannot override selected-state contrast.
-- Grayscale heatmap intensity so the overview remains calm.
+- Native heatmaps use grayscale intensity. The website uses five tones from the selected palette.
 - Cyan/teal reserved for the Worklog identity and commit/action confirmation.
 - Blue reserved for observed push events.
 - Rounded native controls and panels, but no floating-card collage or heavy shadows.
@@ -53,7 +55,7 @@ Color is never the only carrier of meaning. Icons, labels, selection shapes, and
 - Both mode uses the sum for cell intensity. Selected-day details keep the commit and push counts separate.
 - On macOS and the public website, Agents and Subagents use daily counts of their respective session types. Selecting a date shows all four values.
 - The heatmap is independent of the main range picker.
-- The four-metric heatmaps distinguish zero, unavailable, and selected cells. macOS uses a dashed border for unavailable cells and an em dash in the detail. The website hatches unavailable cells and labels them in the selected-day detail.
+- The four-metric heatmaps distinguish zero, unavailable, and selected cells. macOS uses a dashed border for unavailable cells and an em dash in the detail. The website uses a dark solid tone for zero and four progressively brighter tones for positive values, relative to the highest day for the selected metric. It hatches unavailable cells and labels them in the selected-day detail.
 
 ## Range control
 

@@ -14,12 +14,16 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 Use the site's existing explicit-file release workflow and retain the production backup. Give changed CSS and JavaScript asset references a new cache version. Verify the deployed assets and browser behavior at desktop and mobile widths. The live JSON feeds are owned by the machine publishers. Keep both out of static releases and Git.
 
+For a local preview, copy the supported build files to a `worklog/` subdirectory in a temporary preview root. Put a schema-version-1 `activity.json` fixture next to `index.html`, with an optional `codex-devices.json` fixture for additional devices. Run `python -m http.server 4177 --bind 127.0.0.1 --directory PREVIEW_ROOT` and open `http://127.0.0.1:4177/worklog/`. Keep preview fixtures outside the static release file list.
+
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
 ## Current publishers
 
 - **MacBook Pro, primary.** `com.jimmyweber.worklog-service` starts the service at login. `com.jimmyweber.worklog-publish` writes `activity.json` every 15 minutes while the service is reachable. To restart the service after building, run `launchctl kickstart -k "gui/$(id -u)/com.jimmyweber.worklog-service"`. To stop publishing, unload `com.jimmyweber.worklog-publish` with `launchctl bootout` and move its plist out of `~/Library/LaunchAgents/`.
 - **Windows PC, `windows-pc`.** Worklog starts at Windows sign-in. The current-user Task Scheduler job `Worklog Website Publisher (windows-pc)` runs at sign-in and every five minutes while signed in. It writes that device's entry in `codex-devices.json`. To confirm the scheduler run, use `Get-ScheduledTaskInfo -TaskName 'Worklog Website Publisher (windows-pc)'` and check `LastTaskResult` is `0`. Then confirm the corresponding source times on the site after the local collectors and publisher have both run.
+
+At the November 16 evening checkpoint, both machines had current GitHub commit, GitHub push, and Codex reports. Windows was the only additional device in the live feed. Refer to the table for current operating status. [Live Sync status](https://www.jimmyweber.com/worklog/#sync-title)
 
 Keep one primary publisher for `activity.json`. Give each additional machine a unique, stable slug and the same reporting timezone (`America/Denver` for this site). Offline machines retain their last published data. The dashboard adds daily agents and subagents and monthly observed tokens across recording devices. Keep Codex session stores and SQLite ledgers local to each machine so copied records cannot count twice.
 
@@ -62,6 +66,10 @@ Release `worklog-palettes-20261116-01` added the palette controls and five highe
 Release `worklog-header-mark-20261116-01` added the JimmyWeber.com skull-and-crossbones to the Worklog home link. The build packages the site's [canonical skull artwork](https://www.jimmyweber.com/assets/img/brands/JimmyTheGhost-Skull.svg), which matches the shape used by Tipoff's home link. Local and live browser checks verified the mark in all three palettes at 320–1440 px.
 
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
+
+## Rollback
+
+The current production frontend is release `worklog-header-mark-20261116-01`, built from source commit `37a3bbc`. To restore the palette release without the header skull, roll back `worklog-header-mark-20261116-01` through the website's guarded release runner. To restore the original single-green design, roll back the header release first, then `worklog-palettes-20261116-01`. The website workspace's `PROJECTS-OPERATIONS.md` records the frozen plans, server backups, and commands. The Git tag is the source checkpoint for the single-green design. [Green frontend tag](https://github.com/jimmytheghost/worklog/tree/worklog-frontend-green-20261116)
 
 ## Link preview
 

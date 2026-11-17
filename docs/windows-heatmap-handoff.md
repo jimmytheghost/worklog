@@ -1,6 +1,6 @@
 # Windows heatmap handoff
 
-Status on 2026-11-16 · Native Windows parity is pending. The live website and macOS app already provide the agent heatmap modes.
+Status on 2026-11-16 · Native Windows parity is pending. The Windows PC already publishes daily agent and subagent counts to the public heatmap. The macOS app is the native reference for the two additional modes.
 
 ## Native Windows scope
 

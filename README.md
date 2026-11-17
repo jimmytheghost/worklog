@@ -82,7 +82,7 @@ This is a personal work ledger with a few limits that affect what the numbers me
 - **Personal defaults:** reporting uses `America/Denver` unless you set `SERVICE_TIMEZONE` when starting the service. Both native clients expect port 4317. Configuration lives in [the service config](apps/service/src/config.ts); launchers inherit environment variables and do not load a `.env` file.
 - **Local service:** the API binds to `127.0.0.1` by default and has no authentication. Keep it local. It exposes repository names, commit subjects, activity, and usage data to local clients.
 
-There is no telemetry. Worklog makes read-only requests to GitHub through `gh` and asks the local Codex app-server for account information using the existing Codex login. It also reads local Codex files to extract an explicit metadata allowlist. It does not retain source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists in its ledger. Commit subjects and canonical GitHub links are retained. Worklog does not store Codex credentials or the account email; it stores an account hash and the displayed usage snapshot.
+The local Worklog app sends no telemetry. It makes read-only requests to GitHub through `gh` and asks the local Codex app-server for account information using the existing Codex login. It also reads local Codex files to extract an explicit metadata allowlist. It does not retain source code, prompts, responses, commands, tool output, commit bodies, diffs, or file lists in its ledger. Commit subjects and canonical GitHub links are retained. Worklog does not store Codex credentials or the account email; it stores an account hash and the displayed usage snapshot.
 
 The database lives at `~/.agent-dashboard/agent-dashboard.sqlite` on both platforms. The macOS launcher writes `~/.agent-dashboard/service.log`, and its native app caches its last snapshot in your user Application Support directory. The Windows app caches decoded display fields at `%LOCALAPPDATA%\Worklog\snapshot.json`; its launcher drains service output without saving it. These local files can contain private project metadata, so review them before sharing logs or screenshots.
 
@@ -104,7 +104,9 @@ The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local serv
 
 ## Website
 
-The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date, and the period chart and searchable project history follow the selected month. Use **Sync status** in the top navigation to see the last GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
+The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date. The period chart and searchable project history follow the **Period** menu, which offers **All recorded** and individual months. Use **Sync status** in the header to see the latest GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
+
+The header squares switch between green, neon blue, and grey. The browser remembers your choice. The heatmap uses five tones from zero to highest activity, and hatching marks unavailable days.
 
 The published feeds include repository names and commit subjects, including those from private repositories, and aggregate Codex counts. GitHub applies repository access rules when visitors follow a commit link. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations and Mac mini setup](WEBSITE-HANDOFF.md)
 
@@ -116,7 +118,8 @@ The [Windows heatmap handoff](docs/windows-heatmap-handoff.md) covers the pendin
 
 - [`apps/macos/Sources/AgentDashboardMenuBar`](apps/macos/Sources/AgentDashboardMenuBar): native popover, heatmap, settings, and cached API state.
 - [`apps/windows`](apps/windows): Windows WPF tray flyout, service launcher, snapshot cache, and startup settings.
-- [`apps/dashboard/src`](apps/dashboard/src): browser dashboard and monthly history.
+- [`apps/dashboard/src`](apps/dashboard/src): local browser dashboard and monthly history.
+- [`apps/website`](apps/website): public dashboard, static build, and SSH publisher.
 - [`apps/service/src`](apps/service/src): local routes, refresh coordination, and summaries.
 - [`packages/collector-github`](packages/collector-github) and [`packages/collector-codex`](packages/collector-codex): source adapters.
 - [`packages/domain`](packages/domain) and [`packages/storage`](packages/storage): event contracts and SQLite ledger.
