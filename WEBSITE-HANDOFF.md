@@ -6,7 +6,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. Run `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY` using the site's existing SSH setup. The script replaces only `activity.json` after export and validation succeed. Serve that file alongside `index.html`.
 
@@ -16,9 +16,11 @@ On Jimmy's Mac, `com.jimmyweber.worklog-service` starts the existing Worklog ser
 
 ## Additional devices
 
-Keep one primary publisher for GitHub history and that machine’s Codex activity. Each additional device runs its own local Worklog service and calls the same publisher with `--device DEVICE-SLUG`. This updates that device’s entry in `codex-devices.json` alongside the primary feed. The public dashboard adds daily agents and subagents and monthly observed tokens across devices, and shows each device’s last Codex sync. Offline devices retain their last published data. The upload contains only counts, dates, reporting timezone, and the configured label. Keep the data feeds out of Git and out of static-code deployments.
+Keep one primary publisher for `activity.json`. Each additional device runs its own local Worklog service and calls the same publisher with `--device DEVICE-SLUG`. This updates that device’s entry in `codex-devices.json` alongside the primary feed. The dashboard adds daily agents and subagents and monthly observed tokens across devices, and shows each device’s last Codex sync. Offline devices retain their last published data. Both feeds use the same public GitHub fields and opaque deduplication keys, alongside aggregate Codex counts. Keep the data feeds out of Git and out of static-code deployments.
 
-Use a unique, stable slug and the primary publisher’s reporting timezone for each device. Each session counts once per active day on the recording device. Keep Codex session stores local to each machine so copied records cannot count twice. The existing MacBook Pro publisher stays primary. To add a Mac mini, run a local service and configure its own recurring publisher with `--device mac-mini`. Work across toolkit projects is covered wherever it produces GitHub activity visible to the primary collector or local Codex metadata visible to an enrolled device.
+GitHub history combines the published ledgers. Commits count once per repository and SHA. Identified pushes count once per GitHub repository activity ID, preserving distinct pushes on the same day. The publisher hashes repository and push IDs from the existing local monthly history API before upload. For older push records without a matching ID, the dashboard preserves the largest reported count per repository and day as a lower bound. GitHub push history remains partial.
+
+Use a unique, stable slug and the primary publisher’s reporting timezone for each device. Each session counts once per active day on the recording device. Keep Codex session stores local to each machine so copied records cannot count twice. The existing MacBook Pro publisher stays primary. To add a Mac mini, run a local service and configure its own recurring publisher with `--device mac-mini`. Work across toolkit projects is covered wherever GitHub activity or local Codex metadata is visible to an enrolled device.
 
 On Windows, enable **Start with Windows** from the tray settings, then run this from the checkout with Python 3.8+ and an existing noninteractive SSH alias with a verified host key:
 
@@ -30,6 +32,8 @@ powershell -ExecutionPolicy Bypass -File apps/windows/scripts/register-website-p
 Registration verifies an initial upload before adding the current-user Task Scheduler job. The task runs at sign-in and every five minutes while the user is signed in. Confirm the task’s last run result and check the Windows PC source timestamp on the website after the next automatic run.
 
 Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
+
+Release `worklog-shared-github-20261116-01` added `github-history.js` and updated `activity.js` and `index.html`. Desktop and mobile checks verified the merged commit links and push totals, including the Windows ledger’s nine November 10–11 commits that were missing from the MacBook Pro feed.
 
 The site was first published in release `worklog-dashboard-20261115-01`. Release `worklog-heatmap-20261115-01` added the heatmap and clickable commit subjects. The existing [Worklog portfolio page](https://www.jimmyweber.com/pages/projects/worklog/) links to the dashboard, and the dashboard appears in the XML sitemap. Releases back up site files separately from the live activity feed.
 

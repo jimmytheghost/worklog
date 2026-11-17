@@ -27,4 +27,4 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatt
     -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3)
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($recurring, $logon) `
-    -Settings $settings -Principal $principal -Description 'Publish aggregate Codex activity from this device to Worklog.' -Force
+    -Settings $settings -Principal $principal -Description 'Publish GitHub history and aggregate Codex activity from this device to Worklog.' -Force

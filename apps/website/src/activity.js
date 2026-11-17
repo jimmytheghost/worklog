@@ -1,3 +1,5 @@
+import { mergeGitHubHistory } from "./github-history.js?v=1";
+
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
 const updated = document.querySelector("#updated");
@@ -344,6 +346,10 @@ function combineDeviceMonths(primaryMonths, devices) {
       });
     }
   }
+  const git = mergeGitHubHistory([primaryMonths, ...devices.flatMap(([, device]) => device.git ? [device.git.months] : [])]);
+  for (const [month, projects] of git) {
+    months.set(month, { ...(months.get(month) ?? { month, tokens: null, agentDays: [] }), projects });
+  }
   return [...months.values()].sort((a, b) => b.month.localeCompare(a.month));
 }
 
@@ -356,12 +362,16 @@ async function showDashboard() {
   }
   const { devices = [], unavailable } = await loadDevices(data.timeZone);
   const monthsWithActivity = combineDeviceMonths(data.months, devices);
-  const latest = [data.generatedAt, ...devices.map(([, device]) => device.syncedAt)]
-    .reduce((newest, instant) => Date.parse(instant) > Date.parse(newest) ? instant : newest);
+  const newest = (instants) => instants.reduce((latest, instant) =>
+    instant && (!latest || Date.parse(instant) > Date.parse(latest)) ? instant : latest, null);
+  const deviceGit = devices.flatMap(([, device]) => device.git ? [device.git] : []);
+  const commitsAt = newest([data.coverage.commitsAt, ...deviceGit.map((git) => git.commitsAt)]);
+  const pushesAt = newest([data.coverage.pushesAt, ...deviceGit.map((git) => git.pushesAt)]);
+  const latest = newest([data.generatedAt, commitsAt, pushesAt, ...devices.map(([, device]) => device.syncedAt)]);
   const through = {
     today: dateInZone(latest, data.timeZone),
-    commits: dateInZone(data.coverage.commitsAt, data.timeZone),
-    pushes: dateInZone(data.coverage.pushesAt, data.timeZone),
+    commits: dateInZone(commitsAt, data.timeZone),
+    pushes: dateInZone(pushesAt, data.timeZone),
   };
   const agentCoverage = [{ agentsFrom: data.coverage.agentsFrom, syncedAt: data.coverage.agentsAt },
     ...devices.map(([, device]) => device)].map(({ agentsFrom, syncedAt }) => ({
@@ -373,8 +383,8 @@ async function showDashboard() {
   updated.title = data.timeZone;
   updated.hidden = false;
   sourceUpdates.textContent = [
-    ["GitHub commits", data.coverage.commitsAt],
-    ["GitHub pushes", data.coverage.pushesAt],
+    ["GitHub commits", commitsAt],
+    ["GitHub pushes", pushesAt],
     [devices.length ? "Codex (primary)" : "Codex agents", data.coverage.agentsAt],
     ...devices.map(([name, device]) => [
       `Codex (${name === "windows-pc" ? "Windows PC" : name.replaceAll("-", " ")})`, device.syncedAt,
