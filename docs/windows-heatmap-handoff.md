@@ -1,8 +1,8 @@
 # Windows heatmap handoff
 
-Checkpoint 2026-11-15 · macOS and service reference `27fe310` · web reference `8618a37`
+Status on 2026-11-16 · Native Windows parity is pending. The live website and macOS app already provide the agent heatmap modes.
 
-## Next session
+## Native Windows scope
 
 Add **Agents** and **Subagents** to the existing Windows tray heatmap. Keep **Commit**, **Push**, and **Both** and the 360-unit WPF flyout. Selecting a day should show separate counts for commits, pushes, agents, and subagents, matching the Mac app. [Public heatmap reference](https://www.jimmyweber.com/worklog/)
 
@@ -40,4 +40,4 @@ Windows already displays agent and subagent totals for the selected range. Its *
 4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the Work History action and follow a GitHub commit link from the archive.
 5. Update the Windows README and the [main handoff](handoff.md) once the feature works in the packaged app. Record the actual validation and push the task commit.
 
-At this checkpoint the Mac build and live service data were verified. The Windows heatmap work and packaged Windows UI checks are pending.
+On November 16 the current Windows package was rebuilt and its local service and website publishing were verified. Interactive validation of the future Windows heatmap modes remains part of the parity task.

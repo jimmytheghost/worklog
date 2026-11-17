@@ -104,13 +104,15 @@ The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local serv
 
 ## Website
 
-The public frontend shows activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, and searchable project history with GitHub commit links. The heatmap uses the latest published date, independent of the history month. The static export includes repository names and commit subjects from collected activity, including private repositories, along with aggregate Codex usage. GitHub applies its repository access rules when visitors follow a link. [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/) · [Build and publishing handoff](WEBSITE-HANDOFF.md)
+The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date, and the period chart and searchable project history follow the selected month. Use **Sync status** in the top navigation to see the last GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
+
+The published feeds include repository names and commit subjects, including those from private repositories, and aggregate Codex counts. GitHub applies repository access rules when visitors follow a commit link. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations and Mac mini setup](WEBSITE-HANDOFF.md)
 
 ## Make it yours
 
 Start with [AGENTS.md](AGENTS.md) and [the handoff](docs/handoff.md). The [product brief](docs/product-brief.md), [architecture](docs/architecture.md), [data contract](docs/data-contract.md), and [design notes](docs/design-direction.md) explain the existing choices.
 
-The [Windows heatmap handoff](docs/windows-heatmap-handoff.md) covers the next parity task.
+The [Windows heatmap handoff](docs/windows-heatmap-handoff.md) covers the pending native tray parity work.
 
 - [`apps/macos/Sources/AgentDashboardMenuBar`](apps/macos/Sources/AgentDashboardMenuBar): native popover, heatmap, settings, and cached API state.
 - [`apps/windows`](apps/windows): Windows WPF tray flyout, service launcher, snapshot cache, and startup settings.

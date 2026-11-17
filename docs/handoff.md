@@ -1,10 +1,10 @@
 # Worklog Handoff
 
-Checkpoint 2026-11-15
+Checkpoint 2026-11-16
 
 ## Start here
 
-Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout backed by one local Fastify/SQLite service. It records GitHub work across accessible projects and shows Codex account limits separately from local tokens and agent activity. Open Worklog to inspect a range or heatmap day and use the local browser for complete monthly Work History. The public website reads a static export. [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
+Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each machine runs one local Fastify service and keeps its own SQLite ledger. The local browser provides complete monthly Work History for that ledger. The public dashboard combines the MacBook Pro and Windows PC exports and shows source freshness for each machine. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations](../WEBSITE-HANDOFF.md)
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
 
@@ -20,7 +20,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
 - Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
-- Static public dashboard with a 90-day heatmap for all four individual metrics, searchable project history, and clickable GitHub commit subjects. [Website handoff](../WEBSITE-HANDOFF.md)
+- Static public dashboard with activity totals, a four-metric 90-day heatmap, a period chart, searchable project history, and per-device Sync status. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
 - Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
@@ -46,6 +46,7 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | Codex synchronization | `apps/service/src/codex-sync.ts`, `apps/service/src/codex-account-sync.ts` |
 | Browser UI | `apps/dashboard/src` |
 | Public activity frontend and publisher | `apps/website`, `apps/service/src/public-activity.ts` |
+| Cross-device GitHub merge and Windows scheduled publisher | `apps/website/src/github-history.js`, `apps/website/publish-activity.py`, `apps/windows/scripts/register-website-publisher.ps1` |
 | Durable storage | `packages/storage` |
 | Event contracts | `packages/domain` |
 
@@ -57,7 +58,7 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | `GET /api/snapshot` | Current overview, the 365-day Git calendar, and the separate 90-day `heatmapDays` projection |
 | `GET /api/summary?period=day\|week\|month\|year\|all` | Selected-range totals and recent work |
 | `GET /api/history?month=YYYY-MM` | Complete monthly work history and daily observed agent counts |
-| `GET /api/website` | Public export of project names, commit subjects and links, and aggregate usage |
+| `GET /api/website` | Per-machine public projection of project names, commit subjects and links, aggregate Codex usage, and source freshness |
 | `GET /api/events` | Live server-sent refresh notifications |
 | `POST /api/sync` | Refresh all collectors |
 | `POST /api/sync/github` | Refresh GitHub only |
@@ -108,7 +109,11 @@ powershell -ExecutionPolicy Bypass -File apps/windows/scripts/package-app.ps1
 Start-Process apps/windows/dist/Worklog.exe
 ```
 
-The November 15 macOS heatmap change passed 131 workspace tests, type checking, the production build, and 18 Swift tests. The rebuilt app was relaunched and the heatmap rendered at menu-bar width with live data. Interactive popover inspection timed out. The last recorded live Windows package and layout verification was October 25. The later agent range totals passed Windows model checks and a cross-build from macOS.
+The November 15 macOS heatmap change passed 131 workspace tests, type checking, the production build, and 18 Swift tests. The rebuilt app was relaunched and the heatmap rendered at menu-bar width with live data. Interactive popover inspection timed out.
+
+On November 16 the Windows package was rebuilt and relaunched. The local service, collector output, startup registration, and scheduled publishing were verified. Windows model checks and the WPF build passed. The last recorded interactive Windows tray layout review was October 25.
+
+The November 16 website releases passed 133 workspace tests, type checking, and production builds. Scheduled MacBook Pro and Windows exports were verified on the live site. The merged archive restored nine Windows-ledger commits from November 10–11 without duplicates. Live Chromium checks covered the latest website frontend and the device status table at desktop and mobile widths. [Release and verification notes](../WEBSITE-HANDOFF.md)
 
 ## Data limits that must remain visible
 
@@ -119,10 +124,11 @@ The November 15 macOS heatmap change passed 131 workspace tests, type checking, 
 - Missing, zero, partial, stale, and unavailable are different states.
 - Commits and pushes stay separate even when the heatmap uses Both mode.
 
-## Recommended next session
+## Pending work
 
-Port the daily Agents and Subagents heatmap modes to the Windows flyout. The service contract is ready. The [Windows heatmap handoff](windows-heatmap-handoff.md) lists the files, compatibility rules, and checks to run on Windows.
+- Enroll the Mac mini when it is ready. It has no live feed yet. Use [Mac mini enrollment](../WEBSITE-HANDOFF.md#mac-mini-enrollment) from that machine.
+- The native Windows tray still has Commit, Push, and Both modes. Use the [Windows heatmap handoff](windows-heatmap-handoff.md) when working on native Agents and Subagents parity.
 
 ## Product guardrail
 
-Keep one local service, one ledger, read-only collectors, and complete monthly history. Publish only the website projection.
+Keep one local service and one ledger per machine, read-only collectors, and complete monthly history. Publish only the allowlisted website feeds.

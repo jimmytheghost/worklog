@@ -4,12 +4,12 @@ Status: implemented local-first desktop application with a static public view
 
 ## Product shape
 
-Worklog uses one local service for two native clients and a browser archive. A separate static site presents part of the ledger publicly.
+Worklog uses one local service per machine for the native client and browser archive. A separate static site combines published projections from enrolled machines.
 
 - `apps/macos`: the primary daily surface, a native macOS menu-bar popover.
-- `apps/windows`: a native C# / WPF notification-area app using the same service, contracts, and ledger.
+- `apps/windows`: a native C# / WPF notification-area app using the shared service and contracts with a local ledger.
 - `apps/dashboard`: the fuller browser view used for monthly Work History and deeper inspection.
-- `apps/website`: the public activity frontend and publisher. The frontend reads an exported JSON file from the web host.
+- `apps/website`: the public activity frontend and publisher. The frontend reads the primary `activity.json` and additional-device `codex-devices.json` feeds from the static web host.
 - `apps/service`: one Fastify process that collects, stores, aggregates, and serves data on loopback.
 - `packages/domain`: source-neutral event contracts and aggregation rules.
 - `packages/storage`: the SQLite event ledger and read models.
@@ -41,7 +41,7 @@ GitHub + Codex app-server + local Codex metadata
               |
               +-- loopback API --> macOS / Windows / local browser archive
               |
-              +-- website projection --> static JSON --> public Worklog
+              +-- website projection --> scheduled SSH publisher --> static feeds --> public Worklog
 ```
 
 Prompts, responses, terminal commands, tool output, diffs, repository contents, credentials, and commit bodies do not cross the privacy boundary. A commit's first-line subject and canonical GitHub link are allowed because they make the work ledger understandable.
@@ -92,11 +92,11 @@ The macOS popover shows account usage, range totals, recent work, and a grayscal
 
 The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its heatmap currently reads the Git calendar for Commit, Push, and Both. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
 
-The local browser dashboard provides the complete monthly archive with search, GitHub commit links where available, and a daily Codex activity table. The public website uses its own static layout for activity totals, a four-metric heatmap, charts, and searchable project history. The public feed includes repository names, commit subjects and links, and aggregate usage. [Website handoff](../WEBSITE-HANDOFF.md)
+The local browser dashboard provides the complete monthly archive for its ledger, with search, GitHub commit links where available, and a daily Codex activity table. The public frontend merges the published GitHub events before calculating totals, heatmaps, and project history. It adds Codex aggregates across recording devices and displays the timestamp of each machine's last reported commit, push, and Codex collection. The public feeds carry repository names, commit subjects and links, opaque GitHub deduplication keys, and aggregate Codex usage. [Website handoff](../WEBSITE-HANDOFF.md)
 
 ## Reliability and security
 
-- The local API binds to loopback by default. Publication copies the allowlisted JSON projection to the web host through the separate publisher.
+- The local API binds to loopback by default. Each publisher reads the local API and writes its allowlisted public JSON through SSH. Additional-device writes use a lock and atomic replacement, so concurrent publishers preserve one another's entries.
 - The ledger and caches stay local. Worklog uses no telemetry or cloud database.
 - Read-only source adapters and idempotent synchronization.
 - Last successful data survives later collector failures.

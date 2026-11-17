@@ -8,6 +8,10 @@ Heatmap dates follow the local service's reporting timezone and stay fixed when 
 
 Click the header gear to open Settings. **Start on computer startup** uses macOS Login Items to open Worklog when you sign in. The switch reflects the system setting; if macOS requires approval, Settings links to Login Items. Changing startup behavior requires the packaged app, rather than `swift run`.
 
+## Website publishing
+
+The app starts or reuses the local collector. A separate scheduled publisher sends the allowlisted activity projection to the public dashboard. See the [primary MacBook Pro setup and Mac mini enrollment](../../WEBSITE-HANDOFF.md#current-publishers).
+
 ## Develop
 
 ```sh

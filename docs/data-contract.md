@@ -281,7 +281,7 @@ Additional controls:
 - Exports clearly state whether they contain private repository names, identities, or local paths.
 - Deletion and retention policies operate per source account and can rebuild projections after removal.
 
-The website export includes repository names, commit subjects, and GitHub commit links, including rows for private repositories. It includes daily and monthly activity data and aggregate Codex usage. Session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
+The website feeds include repository names, commit subjects, and GitHub commit links, including rows for private repositories. They include daily and monthly activity and aggregate Codex usage. The publisher hashes repository and identified push IDs for public deduplication. Codex session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
 
 ## GitHub, Codex, and OpenAI usage separation
 
@@ -341,7 +341,14 @@ type MetricResult = {
 - `GET /api/snapshot` uses schema version 1. The original `activityDays` contains Git counts for 365 dates when GitHub data is available and is empty otherwise. Existing clients can continue decoding it.
 - The additive `heatmapDays` contains 90 chronological local dates when GitHub or Codex activity is available and is empty when neither source has data. Each entry has `date` as `YYYY-MM-DD` and nullable counts for `commits`, `pushes`, `agents`, and `subagents`. A Codex-only snapshot can report agent counts with unavailable Git counts. Within recorded Codex coverage, dates with no qualifying activity show zero. Dates outside coverage remain unavailable unless the ledger has observations for that date. Source freshness is still reported separately.
 - macOS prefers `heatmapDays` and falls back to the last 90 entries in `activityDays` when reading an older snapshot that lacks the new array. Windows currently reads `activityDays`. Its planned migration is in the [Windows heatmap handoff](windows-heatmap-handoff.md).
-- `GET /api/summary` exposes agent and subagent totals in `metrics`. `GET /api/history` exposes monthly totals and observed `agentActivity` rows. `GET /api/website` exposes the public projection used to generate the site's `activity.json`.
+- `GET /api/summary` exposes agent and subagent totals in `metrics`. `GET /api/history` exposes monthly totals and observed `agentActivity` rows. `GET /api/website` exposes the per-machine public projection consumed by the publisher.
+
+### Public activity feeds
+
+- `activity.json` contains the primary machine's `generatedAt`, `timeZone`, `coverage`, and `months`. Source freshness is reported as `coverage.commitsAt`, `coverage.pushesAt`, and `coverage.agentsAt`. The publisher adds opaque GitHub keys by matching the public rows to the local monthly history projection.
+- `codex-devices.json` contains `schemaVersion`, `timeZone`, and a `devices` object indexed by stable slug. Each entry carries `generatedAt`, `syncedAt` for Codex, `agentsFrom`, Codex `months`, and `git` with `commitsAt`, `pushesAt`, and GitHub `months`. Older entries can omit `git`.
+- Public commits deduplicate by repository and SHA. Identified pushes use a hashed GitHub repository activity ID. For legacy push rows with missing IDs, the merged count preserves at least the largest observation count per repository and date without summing unknown overlaps. Codex counts and observed tokens add across recording devices, with daily session deduplication performed inside each local ledger.
+- Sync status compares each source timestamp with the time the page loads. A timestamp at least 35 minutes old is stale. Missing or invalid timestamps show unavailable. Report freshness and historical coverage are independent.
 
 ## MVP assumptions and deferred decisions
 

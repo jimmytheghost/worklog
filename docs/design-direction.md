@@ -28,7 +28,7 @@ The browser window is the complete archive. It can use more space for search, mo
 
 ### 3. Public website
 
-The website pairs a fixed daily heatmap and selected-day counts with a separate chart for the chosen period. Search and expandable project histories keep commit subjects and push entries accessible on desktop and mobile. Commit subjects open GitHub. [Public Worklog](https://www.jimmyweber.com/worklog/)
+The fixed daily heatmap and period chart sit side by side on wide screens and stack on narrow screens. Date controls scroll within their charts, and weekday labels stay visible while the heatmap scrolls. Search and expandable project rows expose the merged history with direct GitHub commit links. The top navigation links to History and Sync status. The status table labels each device's source timestamps with Current, Stale, or Unavailable. [Public Worklog](https://www.jimmyweber.com/worklog/)
 
 ## Visual language
 

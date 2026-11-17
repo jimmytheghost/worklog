@@ -34,7 +34,8 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 ### Public Worklog
 
 - Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, and searchable monthly project history with clickable GitHub commit subjects.
-- A static export supplies repository activity and aggregate usage. The heatmap ends on the latest published reporting date.
+- Static feeds from enrolled machines supply repository history and aggregate Codex usage. Shared commits and identified pushes count once. The heatmap ends on the latest published reporting date.
+- Sync status shows the last reported GitHub commit, GitHub push, and Codex collection per machine, with distinct current, stale, and unavailable states.
 
 [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
 
@@ -83,7 +84,7 @@ Worklog stores the metadata required to explain activity. It does not ingest pro
 - Perfect reconstruction of pushes that GitHub no longer exposes.
 - Billing-grade accounting or invented credit/cost estimates.
 - Semantic analysis of source code or conversations.
-- Cloud synchronization, multi-user hosting, or mobile clients.
+- Cloud replication of local ledgers or Codex session stores, multi-user hosting, or mobile clients.
 - A large multi-route dashboard that requires constant maintenance.
 
 ## Acceptance standard
@@ -92,6 +93,6 @@ Worklog is successful when it starts reliably, refreshes without intervention, r
 
 Any new feature must earn its place by improving that daily loop without adding a second service, another always-running agent, or a maintenance-heavy subsystem.
 
-## Next product phase
+## Pending native parity
 
 Bring the daily agent and subagent heatmap modes to the Windows tray app using the shared snapshot contract. [Windows heatmap handoff](windows-heatmap-handoff.md)

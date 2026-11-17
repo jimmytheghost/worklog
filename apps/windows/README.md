@@ -39,7 +39,11 @@ The npm Codex launcher on Windows is a command shim; packaging resolves its nati
 
 The ledger stays at `~/.agent-dashboard/agent-dashboard.sqlite`. The Windows flyout stores its last decoded snapshot at `%LOCALAPPDATA%\Worklog\snapshot.json`. Only known display fields are cached, never raw prompts, responses, tools, or credentials. This snapshot includes private project/usage metadata. Saved snapshots are labeled when the service is unavailable; selected-range totals remain unavailable until the service responds rather than reusing a different period.
 
-No additional collector, database, telemetry, or remote service is introduced. Service stdout/stderr is drained without retention by the Windows launcher.
+Service stdout/stderr is drained without retention by the Windows launcher. The tray and service use one local ledger.
+
+## Website publishing
+
+Start with Windows launches the tray and its local collector at sign-in. The separate [website publisher registration](../../WEBSITE-HANDOFF.md#windows-publisher-registration) sets up the current-user scheduled upload of GitHub history and aggregate Codex activity. The public **Sync status** table reports when the device last supplied each source.
 
 ## Updating
 

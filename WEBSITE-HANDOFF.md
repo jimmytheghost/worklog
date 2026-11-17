@@ -1,6 +1,6 @@
 # Worklog website
 
-The public frontend shows activity totals, charts, and searchable project history. The 90-day heatmap switches between **Commits**, **Pushes**, **Agents**, and **Subagents**. Select a date to inspect all four counts. Hatching marks unavailable days for the selected metric. The heatmap stays anchored to the latest published date while visitors browse individual months. [JimmyWeber.com/worklog](https://www.jimmyweber.com/worklog/)
+The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. Select a date to see commits, pushes, agents, and subagents. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
 Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
@@ -8,21 +8,24 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
-3. Run `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY` using the site's existing SSH setup. The script replaces only `activity.json` after export and validation succeed. Serve that file alongside `index.html`.
+3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
+
+Use the site's existing explicit-file release workflow and retain the production backup. Give changed CSS and JavaScript asset references a new cache version. Verify the deployed assets and browser behavior at desktop and mobile widths. The live JSON feeds are owned by the machine publishers. Keep both out of static releases and Git.
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
-On Jimmy's Mac, `com.jimmyweber.worklog-service` starts the existing Worklog service at login. `com.jimmyweber.worklog-publish` sends a fresh export every 15 minutes while that service is reachable. If the service is unavailable, the website serves its last published export and displays the last source sync times. To restart the service after building, run `launchctl kickstart -k "gui/$(id -u)/com.jimmyweber.worklog-service"`. To stop automatic publishing, unload the publisher with `launchctl bootout "gui/$(id -u)/com.jimmyweber.worklog-publish"` and move its plist out of `~/Library/LaunchAgents/`.
+## Current publishers
 
-## Additional devices
+- **MacBook Pro, primary.** `com.jimmyweber.worklog-service` starts the service at login. `com.jimmyweber.worklog-publish` writes `activity.json` every 15 minutes while the service is reachable. To restart the service after building, run `launchctl kickstart -k "gui/$(id -u)/com.jimmyweber.worklog-service"`. To stop publishing, unload `com.jimmyweber.worklog-publish` with `launchctl bootout` and move its plist out of `~/Library/LaunchAgents/`.
+- **Windows PC, `windows-pc`.** Worklog starts at Windows sign-in. The current-user Task Scheduler job `Worklog Website Publisher (windows-pc)` runs at sign-in and every five minutes while signed in. It writes that device's entry in `codex-devices.json`. To confirm the scheduler run, use `Get-ScheduledTaskInfo -TaskName 'Worklog Website Publisher (windows-pc)'` and check `LastTaskResult` is `0`. Then confirm the corresponding source times on the site after the local collectors and publisher have both run.
 
-Keep one primary publisher for `activity.json`. Each additional device runs its own local Worklog service and calls the same publisher with `--device DEVICE-SLUG`. This updates that device’s entry in `codex-devices.json` alongside the primary feed. The dashboard adds daily agents and subagents and monthly observed tokens across devices, and shows each device’s last Codex sync. Offline devices retain their last published data. Both feeds use the same public GitHub fields and opaque deduplication keys, alongside aggregate Codex counts. Keep the data feeds out of Git and out of static-code deployments.
+Keep one primary publisher for `activity.json`. Give each additional machine a unique, stable slug and the same reporting timezone (`America/Denver` for this site). Offline machines retain their last published data. The dashboard adds daily agents and subagents and monthly observed tokens across recording devices. Keep Codex session stores and SQLite ledgers local to each machine so copied records cannot count twice.
 
 The Sync status table shows each machine’s last successful GitHub commit, GitHub push, and Codex reports in the reporting timezone. Each source becomes stale at 35 minutes, allowing time for the regular collection and publishing intervals. Sources without a usable timestamp show Unavailable. The site evaluates freshness each time the dashboard loads.
 
 GitHub history combines the published ledgers. Commits count once per repository and SHA. Identified pushes count once per GitHub repository activity ID, preserving distinct pushes on the same day. The publisher hashes repository and push IDs from the existing local monthly history API before upload. For older push records without a matching ID, the dashboard preserves the largest reported count per repository and day as a lower bound. GitHub push history remains partial.
 
-Use a unique, stable slug and the primary publisher’s reporting timezone for each device. Each session counts once per active day on the recording device. Keep Codex session stores local to each machine so copied records cannot count twice. The existing MacBook Pro publisher stays primary. To add a Mac mini, run a local service and configure its own recurring publisher with `--device mac-mini`. Work across toolkit projects is covered wherever GitHub activity or local Codex metadata is visible to an enrolled device.
+## Windows publisher registration
 
 On Windows, enable **Start with Windows** from the tray settings, then run this from the checkout with Python 3.8+ and an existing noninteractive SSH alias with a verified host key:
 
@@ -31,7 +34,18 @@ powershell -ExecutionPolicy Bypass -File apps/windows/scripts/register-website-p
   -SshAlias SSH_ALIAS -WebDirectory ABSOLUTE_WEB_DIRECTORY -Device windows-pc
 ```
 
-Registration verifies an initial upload before adding the current-user Task Scheduler job. The task runs at sign-in and every five minutes while the user is signed in. Confirm the task’s last run result and check the Windows PC source timestamp on the website after the next automatic run.
+Registration verifies an initial upload before creating the scheduled task. Reuse the same slug when updating a machine's publisher.
+
+## Mac mini enrollment
+
+The Mac mini has no feed as of November 16, 2026. When it is ready:
+
+1. Set up the [macOS source build](README.md#macos) on the Mini. Authenticate GitHub and Codex for that user, use `America/Denver`, and start one local Worklog service. Enable the packaged app's login item or use the existing macOS service launch-agent pattern. Check `http://127.0.0.1:4317/health` and let local GitHub and Codex collection finish. Local Codex reporting requires observed activity on that device.
+2. Configure Python 3.8+ and the existing noninteractive SSH connection with a verified host key. From the checkout, run `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY --device mac-mini` using the site's configured alias and directory. Keep credentials and machine-specific connection settings in local configuration.
+3. Add a per-user LaunchAgent in `~/Library/LaunchAgents/` with a distinct label such as `com.jimmyweber.worklog-publish-mac-mini`, `RunAtLoad` enabled, and `StartInterval` set to 900 seconds. Its `ProgramArguments` should contain the absolute Python path, absolute path to `publish-activity.py`, SSH alias, absolute remote web directory, `--device`, and `mac-mini` as separate entries. Validate the plist with `plutil -lint` and load it with `launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.jimmyweber.worklog-publish-mac-mini.plist"` if using that label.
+4. Open [Sync status](https://www.jimmyweber.com/worklog/#sync-title) and verify the **Mac mini** row alongside the MacBook Pro and Windows PC. After the next scheduled run, reload the site and confirm the Mini's report times advance. Check that a commit visible on two devices appears once in History.
+
+## Release history
 
 Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
 
