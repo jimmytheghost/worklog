@@ -66,11 +66,31 @@ Native macOS checks still require macOS and Swift. For Windows UI review, packag
 
 Source `953ee35` passed 136 workspace tests, type checking, the production build, Windows model checks, and a native WPF build with zero warnings and errors. The package was rebuilt and inspected at the existing `apps/windows/dist/Worklog.exe` path. All was selected initially. All, Commit, Push, and Both switched correctly, retained the selected date, and displayed separate commit, push, agent, and subagent counts. A day with two agents and zero Git activity changed intensity between All and Both. A day with four measured zeros stayed dark.
 
-The model checks covered unavailable values, Codex-only activity, legacy Git-calendar fallback, an explicitly empty daily projection, and the typed cache round trip. Offline and legacy-cache rendering were verified at model level. The packaged UI was inspected with the live service at the current Windows display scale.
+The model checks covered unavailable values, Codex-only activity, legacy Git-calendar fallback, an explicitly empty daily projection, and the typed cache round trip. The initial pass checked offline and legacy-cache cases at model level. The follow-up UI and display-scale checks are recorded below.
 
 Dropbox was synchronizing source and dependency files during validation. The validated Windows checkout is retained at `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`, with its production service build and Windows dependencies. The generated `checkout.json` points there, while the executable remains at its existing Dropbox path. Preserve this retained checkout when using this package, or repackage from another stable Windows checkout. The native SQLite binding and the built service's external dependencies were resolved successfully there.
 
 The existing service process and ledger remained in use throughout inspection. The startup registration and scheduled website publisher were verified after packaging. The updated executable was returned to normal tray mode.
+
+## Offline-cache and display-scale validation on November 17, 2026
+
+The follow-up used source based on `492be33` and fixed keyboard focus loss when a range, heatmap mode, or selected day rebuilds the controls. Worklog restores the corresponding new control when focus was within the window. Keyboard activation and subsequent Tab navigation were verified in the packaged app.
+
+An isolated harness compiled the production `MainWindow.xaml`, `MainWindow.xaml.cs`, and application resources. Its copy of `LocalService` used a synthetic cache directory, a separate loopback endpoint, and a shorter timeout. Cold starts received a refused connection. A second case received a successful Day summary, then the fixture connection was dropped before selecting Week. The production saved-data/error path rendered both the current nullable daily cache and a legacy Git-only cache. All was initially selected, all four heatmap modes switched, and selected-day details retained zero and unavailable values. The failed Week request cleared the previous Day totals.
+
+The installed `Worklog.exe` was restarted and inspected at each Windows display setting on the 3440 × 1440 primary display:
+
+| Windows scale | Native window DPI | Native window size in pixels | Work area in pixels |
+| --- | --- | --- | --- |
+| 100%, restored | 96 | 360 × 746 | 3440 × 1392 |
+| 150% | 144 | 540 × 1119 | 3440 × 1368 |
+| 200% | 192 | 720 × 1276 | 3440 × 1344 |
+
+At 150% and 200%, the four heatmap buttons, wrapped day details, scroll area, fixed footer, and placement within the taskbar work area were checked. Keyboard focus survived a mode activation at 200% and advanced to the next control. The original 100% setting was restored through Windows Settings, and the final package was checked again at 96 DPI.
+
+All 152 workspace tests, type checking, the production build, Windows model checks, and WPF build passed. WPF reported zero warnings and errors. Local screenshots, Win32 DPI measurements, fixture observations, and restoration records are retained under `%LOCALAPPDATA%\WorklogPreviews\windows-ui-cache-validation-20261117\evidence`.
+
+The offline checks used the isolated production-view harness. The installed package was checked against the live service at each scale. The live ledger, cache, service process, startup registration, and publisher remained in use. The test harness and fixture server were closed, and the final Worklog package was returned to normal tray mode.
 
 ## Next implementation
 

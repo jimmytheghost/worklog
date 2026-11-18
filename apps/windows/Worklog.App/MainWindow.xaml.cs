@@ -100,13 +100,29 @@ public partial class MainWindow : Window, IDisposable
         ContentPanel.Children.Add(new Border { Background = Brush("Card"), CornerRadius = new CornerRadius(9), Padding = new Thickness(11), Margin = new Thickness(0, 0, 0, 10), Child = panel });
         return panel;
     }
-    private Button Action(string label, Action action, bool selected = false)
+    private Button Action(string label, Action action, bool selected = false, string? focusKey = null)
     {
-        var button = new Button { Content = label, Margin = new Thickness(0, 0, 4, 0), FontSize = 10, Padding = new Thickness(7, 5, 7, 5) };
+        var button = new Button { Content = label, Tag = focusKey, Margin = new Thickness(0, 0, 4, 0), FontSize = 10, Padding = new Thickness(7, 5, 7, 5) };
         if (selected) { button.Background = Brush("Mint"); button.Foreground = Brush("Surface"); }
         button.Click += (_, _) => action(); return button;
     }
     private void Render()
+    {
+        var focusKey = IsKeyboardFocusWithin
+            ? (System.Windows.Input.Keyboard.FocusedElement as Button)?.Tag as string
+            : null;
+        RenderContent();
+        if (focusKey is not null)
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new System.Action(() =>
+                FindButtons(ContentPanel).FirstOrDefault(button => button.Tag as string == focusKey)?.Focus()));
+    }
+    private static IEnumerable<Button> FindButtons(DependencyObject parent)
+    {
+        if (parent is Button button) yield return button;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            foreach (var child in FindButtons(VisualTreeHelper.GetChild(parent, index))) yield return child;
+    }
+    private void RenderContent()
     {
         ContentPanel.Children.Clear();
         Status.Text = error ?? (cached ? "Saved snapshot · checking service" : snapshot is null ? "Local ledger unavailable" : "Local ledger · " + snapshot.Timezone);
@@ -138,7 +154,7 @@ public partial class MainWindow : Window, IDisposable
         else account.Children.Add(Text("Sign in with Codex, then refresh Worklog.", 11, "Muted"));
         var ranges = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10), IsEnabled = !busy };
         foreach (var value in new[] { "day", "week", "month", "year", "all" })
-            ranges.Children.Add(Action(char.ToUpperInvariant(value[0]) + value[1..], () => { if (busy) return; period = value; summary = null; Render(); _ = RefreshAsync(false); }, period == value));
+            ranges.Children.Add(Action(char.ToUpperInvariant(value[0]) + value[1..], () => { if (busy) return; period = value; summary = null; Render(); _ = RefreshAsync(false); }, period == value, "range:" + value));
         ContentPanel.Children.Add(ranges);
         var metrics = new System.Windows.Controls.Primitives.UniformGrid { Columns = 5, Rows = 1, Margin = new Thickness(0, 0, 0, 10) };
         var totals = summary?.Period == period && !cached ? summary.Metrics : null;
@@ -189,7 +205,7 @@ public partial class MainWindow : Window, IDisposable
     {
         var panel = Card(); panel.Children.Add(Text("ACTIVITY · LAST 90 DAYS", 10, "Muted"));
         var modes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 8) };
-        foreach (var name in new[] { "All", "Commit", "Push", "Both" }) modes.Children.Add(Action(name, () => { mode = name; Render(); }, mode == name));
+        foreach (var name in new[] { "All", "Commit", "Push", "Both" }) modes.Children.Add(Action(name, () => { mode = name; Render(); }, mode == name, "heatmap-mode:" + name));
         panel.Children.Add(modes);
         var days = snapshot!.DisplayedHeatmapDays;
         if (days.Length == 0) { panel.Children.Add(Text("Activity history unavailable", 11, "Muted")); return; }
@@ -200,7 +216,7 @@ public partial class MainWindow : Window, IDisposable
             var count = day.HeatmapValue(mode);
             var shade = (byte)(count is null ? 30 : count == 0 ? 52 : Math.Min(225, 85 + Math.Log2(count.Value + 1) * 28));
             var label = day.Description;
-            var button = new Button { Width = 15, Height = 15, Padding = new Thickness(0), Margin = new Thickness(2), Background = new SolidColorBrush(Color.FromRgb(shade, shade, shade)), ToolTip = label, BorderThickness = new Thickness(1), BorderBrush = selectedDay == day.Date ? Brush("Mint") : count is null ? Brush("Muted") : Brushes.Transparent };
+            var button = new Button { Tag = "heatmap-day:" + day.Date, Width = 15, Height = 15, Padding = new Thickness(0), Margin = new Thickness(2), Background = new SolidColorBrush(Color.FromRgb(shade, shade, shade)), ToolTip = label, BorderThickness = new Thickness(1), BorderBrush = selectedDay == day.Date ? Brush("Mint") : count is null ? Brush("Muted") : Brushes.Transparent };
             System.Windows.Automation.AutomationProperties.SetName(button, label);
             button.Click += (_, _) => { selectedDay = day.Date; Render(); }; grid.Children.Add(button);
         }
