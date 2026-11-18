@@ -2,6 +2,20 @@
 
 Checkpoint 2026-11-17 · Website release `worklog-today-20261117-01`
 
+## Session close — November 17, 2026
+
+All evening dashboard work is deployed. The current release is `worklog-today-20261117-01`, following `worklog-evening-20261117-01`; the portfolio refresh is also live. [Open Today](https://www.jimmyweber.com/worklog/?range=today). Released frontend source is `14c7eb9`; subsequent documentation is on GitHub `main`.
+
+- Shipped: Today before 7 days, the date presets/custom picker, curved metric explorer, rolling 30D option, chart/table/CSV views, collapse/focus return, and the final canvas/accent low-fi activity scrollbar. The heatmap has no custom scrollbar.
+- Today uses the latest shared, exact 24-hour report across devices, not two full calendar days. Git filters by instant; Codex uses matching aggregate windows. Token counters retain session-start-window semantics. Missing/partial/stale reporting remains qualified, and Today CSV includes UTC window bounds.
+- Validation completed: 173 workspace tests, typecheck/build, both releases' installed/public checks, and live desktop/mobile browser flows at 320/390/1440 px. Release backups and guarded rollback are recorded in the website workspace's `PROJECTS-OPERATIONS.md` and [website handoff](../WEBSITE-HANDOFF.md).
+- The user shut down the Windows desktop at session end. Its retained reports may become stale and Today may show partial coverage while it is offline; this is expected. Do not wake it or treat the planned shutdown as a collector incident. At the next sign-in, verify the existing single service and scheduled publisher resume and the Windows report advances.
+- Both reporting services/publishers were updated; ledgers, native UI/packages, and startup settings were preserved. The Mac service/publisher remain in place. The owned localhost:4178 preview server was stopped; use the public site for the completed release.
+
+Remaining maintenance: the Mac shared Dropbox Git metadata encountered an unreadable object and was not repaired. All released work is pushed. Continue from an independent clone outside Dropbox; the current release checkout is `/tmp/worklog-today-release-source` and may be removed by temporary-file cleanup. If absent, clone GitHub `main` afresh rather than relying on the old linked worktree. Preserve original source edits/conflict copies and back up metadata before any repair. [Git storage and recovery notes](git-storage.md).
+
+The Mac mini enrollment and native Windows individual Agents/Subagents filters remain the previously documented pending work. No website deployment or runtime restart remains pending from this session.
+
 ## Start here
 
 Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each machine runs one local Fastify service and keeps its own SQLite ledger. The local browser provides complete monthly Work History for that ledger. The public dashboard combines the MacBook Pro and Windows PC exports and shows source freshness for each machine. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations](../WEBSITE-HANDOFF.md)
@@ -48,6 +62,9 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | Browser UI | `apps/dashboard/src` |
 | Public activity frontend and publisher | `apps/website`, `apps/service/src/public-activity.ts` |
 | Website header, palettes, and heatmap | `apps/website/src/index.html`, `apps/website/src/styles.css`, `apps/website/src/activity.js` |
+| Website date ranges and exact Today selection | `apps/website/src/date-ranges.js`, `apps/website/src/today-range.js` |
+| Curved metric explorer, qualified series, and CSV | `apps/website/src/metric-explorer.js`, `apps/website/src/metric-series.js` |
+| Persistent activity-chart scrolling | `apps/website/src/plot-scrollbar.js` |
 | Cross-device GitHub merge and Windows scheduled publisher | `apps/website/src/github-history.js`, `apps/website/publish-activity.py`, `apps/windows/scripts/register-website-publisher.ps1` |
 | Durable storage | `packages/storage` |
 | Event contracts | `packages/domain` |

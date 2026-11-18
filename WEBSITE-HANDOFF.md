@@ -42,6 +42,12 @@ Git events are filtered by their exported `occurredAt` instant before totals and
 
 Both MacBook Pro and Windows PC services and publishers have been updated to emit the optional `rolling24Hours` projection and Git timestamps. Existing feeds and clients remain schema-version-1 compatible. `today-range.js` is included in release `worklog-today-20261117-01`. No native UI, ledger, startup, or account-limit data changed.
 
+## Session-end operating state — November 17, 2026
+
+The user intentionally shut down the Windows desktop after both releases and the Today reporting rollout were verified. The website remains hosted independently. Windows' last published records remain available, but its Sync status will become stale and Today may qualify available subtotals as partial while the machine is offline. Do not interpret the planned shutdown as a deployment failure or fabricate zero activity.
+
+At the next Windows sign-in, check that the existing one service and `Worklog Website Publisher (windows-pc)` task resume, the task returns `0`, and the device's `generatedAt`, Git timestamps, and four rolling windows advance. Preserve its durable runtime checkout, outside-Dropbox Git metadata, ledger, native package, startup registration, and publisher identity. No wake-up or overnight monitoring was requested. The local preview server was stopped; no further publication is pending. The remaining Mac Git-metadata maintenance is described in [the session handoff](docs/handoff.md#session-close--november-17-2026).
+
 ## Current publishers
 
 - **MacBook Pro, primary.** `com.jimmyweber.worklog-service` starts the service at login. `com.jimmyweber.worklog-publish` writes `activity.json` every 15 minutes while the service is reachable. To restart the service after building, run `launchctl kickstart -k "gui/$(id -u)/com.jimmyweber.worklog-service"`. To stop publishing, unload `com.jimmyweber.worklog-publish` with `launchctl bootout` and move its plist out of `~/Library/LaunchAgents/`.
