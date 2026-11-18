@@ -1,4 +1,4 @@
-import { buildMetricSeries, metricDefinitions, metricSummary, seriesCsv } from "./metric-series.js?v=1";
+import { buildMetricSeries, metricDefinitions, metricSummary, rollingDateRange, seriesCsv } from "./metric-series.js?v=2";
 
 const full = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -54,7 +54,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     <div class="explorer-toolbar">
       <label class="field">Metric <select class="explorer-metric"></select></label>
       <div class="explorer-ranges" role="group" aria-label="Chart date range">
-        <button type="button" data-range="1">1M</button><button type="button" data-range="3">3M</button><button type="button" data-range="6">6M</button><button type="button" data-range="12">1Y</button><button type="button" data-range="all">All</button><button type="button" data-range="custom">Custom</button>
+        <button type="button" data-range="30">30D</button><button type="button" data-range="3">3M</button><button type="button" data-range="6">6M</button><button type="button" data-range="12">1Y</button><button type="button" data-range="all">All</button><button type="button" data-range="custom">Custom</button>
       </div>
       <label class="field">Group by <select class="explorer-group"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label>
     </div>
@@ -106,6 +106,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   function bounds() {
     let start = earliest, end = latestDate;
     if (range === "custom") { start = startControl.value; end = endControl.value; }
+    else if (range === "30") return rollingDateRange(latestDate);
     else if (range !== "all") {
       const date = utc(latestDate);
       date.setUTCDate(1);
@@ -148,7 +149,11 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     const magnitude = 10 ** Math.floor(Math.log10(max / 4));
     const step = Math.max(1, [1, 2, 2.5, 3, 4, 5, 6, 8, 10].find((value) => value * magnitude >= max / 4) * magnitude);
     const ceiling = step * 4;
-    const x = (index) => points.length < 2 ? (left + right) / 2 : left + (right - left) * index / (points.length - 1);
+    const rollingTokens = metric === "tokens" && range === "30";
+    const window = bounds();
+    const x = (index) => rollingTokens
+      ? left + (right - left) * (+utc(points[index].endDate) - +utc(window.start)) / (+utc(window.end) - +utc(window.start))
+      : points.length < 2 ? (left + right) / 2 : left + (right - left) * index / (points.length - 1);
     const y = (value) => bottom - (bottom - top) * value / ceiling;
     coordinates = points.map((point, index) => ({ x: x(index), y: point.value === null ? null : y(point.value) }));
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -165,11 +170,13 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       svg.append(svgNode("line", { x1: left, x2: right, y1: cy, y2: cy, class: "explorer-guide" }), svgNode("text", { x: left - 10, y: cy + 4, "text-anchor": "end", class: "explorer-axis" }, short(value)));
     }
     svg.append(svgNode("text", { x: left, y: 12, class: "explorer-axis" }, metricDefinitions[metric].label));
-    const tickCount = Math.min(width < 550 ? 3 : 6, points.length);
-    const ticks = new Set(Array.from({ length: tickCount }, (_, i) => Math.round(i * (points.length - 1) / Math.max(1, tickCount - 1))));
+    const tickCount = rollingTokens ? (width < 550 ? 3 : 6) : Math.min(width < 550 ? 3 : 6, points.length);
+    const ticks = new Set(Array.from({ length: tickCount }, (_, i) => rollingTokens ? i : Math.round(i * (points.length - 1) / Math.max(1, tickCount - 1))));
     for (const i of ticks) {
-      const label = (groupControl.value === "month" ? monthFormat : dateFormat).format(utc(points[i].date));
-      svg.append(svgNode("text", { x: x(i), y: height - 13, "text-anchor": i === 0 ? "start" : i === points.length - 1 ? "end" : "middle", class: "explorer-axis" }, label));
+      const fraction = i / Math.max(1, tickCount - 1);
+      const date = rollingTokens ? new Date(+utc(window.start) + Math.round(fraction * 29) * 86_400_000) : utc(points[i].date);
+      const label = (rollingTokens || groupControl.value !== "month" ? dateFormat : monthFormat).format(date);
+      svg.append(svgNode("text", { x: rollingTokens ? left + (right - left) * (+date - +utc(window.start)) / (+utc(window.end) - +utc(window.start)) : x(i), y: height - 13, "text-anchor": i === 0 ? "start" : i === (rollingTokens ? tickCount : points.length) - 1 ? "end" : "middle", class: "explorer-axis" }, label));
     }
     let segments = [], segment = [];
     coordinates.forEach((point) => {
@@ -219,7 +226,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       return;
     }
     const { start, end } = bounds();
-    if (!start || !end || start > end || start < earliest || end > latestDate) {
+    if (!start || !end || start > end || (start < earliest && range !== "30") || end > latestDate) {
       $(".explorer-date-error").textContent = "Choose a valid date range within the recorded history.";
       return;
     }
@@ -231,9 +238,9 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     const label = metricDefinitions[metric].label;
     $("#explorer-title").textContent = label;
     const groupLabel = { day: "Daily", week: "Weekly", month: "Monthly" }[groupControl.value];
-    $(".explorer-period").textContent = `${start} — ${end} · ${groupLabel} observations`;
+    $(".explorer-period").textContent = `${start} — ${end} · ${groupLabel} observations${monthlyOnly && range === "30" ? " (full-month totals)" : ""}`;
     const stats = [
-      [metric === "projects" ? "Distinct projects" : "Observed total", summary.total],
+      [metric === "projects" ? "Distinct projects" : monthlyOnly && range === "30" ? "Published month totals" : "Observed total", summary.total],
       [`Average / ${groupControl.value}`, summary.average],
       [`Peak ${groupControl.value}`, summary.peak?.value ?? null],
       ["Observed points", `${summary.available} / ${points.length}`],
@@ -246,7 +253,9 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     }));
     $(".explorer-coverage").textContent = `${summary.available} observed · ${summary.partial} partial · ${summary.missing} unavailable`;
     $(".explorer-note").textContent = monthlyOnly
-      ? "Tokens are published as monthly observed totals. Daily and weekly breakdowns are unavailable; selected months are shown in full through their latest report. These counters are separate from account limits."
+      ? range === "30"
+        ? "30D places monthly observations at month-end or the latest reporting date within the 30-day window. Points and stats include full published month totals; an exact 30-day token total is unavailable. Daily breakdowns are unavailable, and these counters are separate from account limits."
+        : "Tokens are published as monthly observed totals. Daily and weekly breakdowns are unavailable; selected months are shown in full through their latest report. These counters are separate from account limits."
       : metric === "projects"
         ? "Projects counts distinct repositories with recorded commits or pushes in each interval. The range total counts each project once."
         : "Gaps mark unavailable intervals; hollow points mark partial intervals. Zero is an observed value. Pushes and Codex counts reflect available records; source freshness appears in Sync status.";
@@ -301,6 +310,9 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     if (!dimensions) return selected;
     const rect = svg.getBoundingClientRect();
     const plotX = (event.clientX - rect.left) * svg.viewBox.baseVal.width / rect.width;
+    if (metric === "tokens" && range === "30") {
+      return coordinates.reduce((nearest, point, index) => Math.abs(point.x - plotX) < Math.abs(coordinates[nearest].x - plotX) ? index : nearest, 0);
+    }
     return Math.round((plotX - dimensions.left) / (dimensions.right - dimensions.left) * (points.length - 1));
   }
   svg.addEventListener("pointermove", (event) => { if (!pinned) inspect(pointAt(event)); });

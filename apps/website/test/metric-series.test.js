@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildMetricSeries, metricSummary, seriesCsv } from "../src/metric-series.js";
+import { buildMetricSeries, metricSummary, rollingDateRange, seriesCsv } from "../src/metric-series.js";
 
 const day = (date, commits, pushes = commits) => ({ date, commits, pushes, agents: commits, subagents: commits });
 const options = { start: "2026-11-01", end: "2026-11-03", group: "day" };
@@ -95,4 +95,26 @@ test("date validation rejects malformed and impossible dates; reversed ranges ar
     assert.throws(() => buildMetricSeries({}, "commits", { ...options, start }), /calendar date/);
   }
   assert.deepEqual(buildMetricSeries({}, "commits", { ...options, start: "2026-12-01" }), []);
+});
+
+test("rolling 30 days includes the latest date and crosses months, years, and leap days", () => {
+  for (const [end, start] of [["2026-11-17", "2026-10-19"], ["2027-01-10", "2026-12-12"], ["2024-03-01", "2024-02-01"]]) {
+    assert.deepEqual(rollingDateRange(end), { start, end });
+    const points = buildMetricSeries({}, "commits", { ...rollingDateRange(end), group: "day" });
+    assert.equal(points.length, 30);
+    assert.equal(points.at(-1).date, end);
+  }
+  assert.throws(() => rollingDateRange("2026-02-30"), /calendar date/);
+  assert.throws(() => rollingDateRange("2026-11-17", 0), /positive day count/);
+});
+
+test("a rolling token view keeps full-month source intervals instead of implying prorated usage", () => {
+  const points = buildMetricSeries({ months: [{ month: "2026-10", tokens: 100 }, { month: "2026-11", tokens: 200 }] }, "tokens", {
+    ...rollingDateRange("2026-11-17"), group: "month",
+  });
+  assert.deepEqual(points.map(({ date, endDate, value }) => ({ date, endDate, value })), [
+    { date: "2026-10-01", endDate: "2026-10-31", value: 100 },
+    { date: "2026-11-01", endDate: "2026-11-17", value: 200 },
+  ]);
+  assert.match(seriesCsv(points, "tokens"), /2026-10-01,2026-10-31,100,available/);
 });

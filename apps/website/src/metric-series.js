@@ -20,6 +20,13 @@ function validateDate(value) {
   }
 }
 
+/** Inclusive calendar-day window, independent of month length and DST. */
+export function rollingDateRange(end, dayCount = 30) {
+  validateDate(end);
+  if (!Number.isInteger(dayCount) || dayCount < 1) throw new RangeError("Expected a positive day count");
+  return { start: iso(new Date(+instant(end) - (dayCount - 1) * dayMilliseconds)), end };
+}
+
 function bucketKey(date, group) {
   if (group === "month") return `${date.slice(0, 7)}-01`;
   if (group === "week") {
@@ -54,7 +61,9 @@ export function buildMetricSeries({ months = [], days = [] }, metric, { start, e
       const month = first.slice(0, 7);
       cursor.setUTCMonth(cursor.getUTCMonth() + 1);
       const last = iso(new Date(+cursor - dayMilliseconds));
-      const date = first < start ? start : first;
+      // Monthly counters retain their full source interval even when the view
+      // starts mid-month; they cannot be prorated into a daily subtotal.
+      const date = first;
       const endDate = last > end ? end : last;
       const value = byMonth.get(month);
       // A current month's published observation remains a monthly observation.

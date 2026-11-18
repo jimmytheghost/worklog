@@ -2,7 +2,7 @@ import { resolveRange, selectRange } from "./date-ranges.js?v=1";
 import { mergeGitHubHistory } from "./github-history.js?v=1";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
-import { createMetricExplorer } from "./metric-explorer.js?v=3";
+import { createMetricExplorer } from "./metric-explorer.js?v=4";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
