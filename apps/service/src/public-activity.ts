@@ -1,7 +1,8 @@
 import { localDateForInstant, type EventPayloads } from "@agent-dashboard/domain";
-import type { Storage } from "@agent-dashboard/storage";
+import type { CodexTokenKnowledge, Storage } from "@agent-dashboard/storage";
 
 import { buildAgentActivity } from "./agent-activity.js";
+import { CODEX_COVERAGE_KEY } from "./codex-sync.js";
 import { GITHUB_SOURCE_ID } from "./github-sync.js";
 import { monthBounds } from "./history.js";
 import { boundsForPeriod } from "./period-summary.js";
@@ -10,7 +11,30 @@ interface PublicProject {
   name: string;
   commits: number;
   pushes: number;
-  activity: Array<{ date: string; kind: "commit" | "push"; subject: string; url?: string }>;
+  activity: Array<{ date: string; occurredAt: string; kind: "commit" | "push"; subject: string; url?: string }>;
+}
+
+/** Aligned snapshots let separately scheduled devices share an exact 24-hour window. */
+function rolling24Hours(storage: Storage, timeZone: string, now: Date) {
+  const quarterHour = 15 * 60 * 1_000;
+  const latestEnd = Math.floor(now.getTime() / quarterHour) * quarterHour;
+  const coverage = storage.getCoverage(CODEX_COVERAGE_KEY, now);
+  return Array.from({ length: 4 }, (_, offset) => {
+    const end = new Date(latestEnd - offset * quarterHour).toISOString();
+    const start = new Date(Date.parse(end) - 24 * 60 * 60 * 1_000).toISOString();
+    const usage = storage.queryCodexObservedTokens({ start, end });
+    const hasReport = coverage?.lastSucceededAt !== undefined
+      && Date.parse(coverage.lastSucceededAt) >= Date.parse(start);
+    const observedZero = usage.sessionsObserved === 0 && hasReport;
+    const tokens = usage.sessionsKnown > 0 || observedZero ? usage.knownSubtotal : null;
+    const tokensKnowledge: CodexTokenKnowledge = tokens === null ? "unknown"
+      : observedZero && (coverage?.completeness !== "complete"
+        || Date.parse(coverage.coverageEnd ?? coverage.lastSucceededAt ?? "") < Date.parse(end))
+        ? "partial" : usage.knowledge;
+    const agents = buildAgentActivity(storage, { start, end }, timeZone, now);
+    return { start, end, tokens, tokensKnowledge, agents: agents.agents,
+      subagents: agents.subagents, agentDays: agents.days };
+  });
 }
 
 export function buildPublicActivity(storage: Storage, timeZone: string, now: Date) {
@@ -38,12 +62,12 @@ export function buildPublicActivity(storage: Storage, timeZone: string, now: Dat
         : undefined;
       project.commits += 1;
       project.activity.push({
-        date, kind: "commit", subject: payload.subject ?? "Commit",
+        date, occurredAt: event.occurredAt, kind: "commit", subject: payload.subject ?? "Commit",
         ...(url === undefined ? {} : { url }),
       });
     } else {
       project.pushes += 1;
-      project.activity.push({ date, kind: "push", subject: "Push observed" });
+      project.activity.push({ date, occurredAt: event.occurredAt, kind: "push", subject: "Push observed" });
     }
     monthProjects.set(name, project);
     byMonth.set(month, monthProjects);
@@ -68,6 +92,7 @@ export function buildPublicActivity(storage: Storage, timeZone: string, now: Dat
     schemaVersion: 1,
     generatedAt: now.toISOString(),
     timeZone,
+    rolling24Hours: rolling24Hours(storage, timeZone, now),
     coverage: {
       commitsAt: commits?.lastSucceededAt ?? null,
       pushesAt: pushes?.lastSucceededAt ?? null,
