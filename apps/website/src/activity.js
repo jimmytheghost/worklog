@@ -1,9 +1,10 @@
+import { selectToday } from "./today-range.js?v=1";
 import { attachPlotScrollbar } from "./plot-scrollbar.js?v=1";
 import { resolveRange, selectRange } from "./date-ranges.js?v=1";
-import { mergeGitHubHistory } from "./github-history.js?v=1";
+import { mergeGitHubHistory } from "./github-history.js?v=2";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
-import { createMetricExplorer } from "./metric-explorer.js?v=4";
+import { createMetricExplorer } from "./metric-explorer.js?v=5";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
@@ -335,9 +336,9 @@ function renderChart(series) {
   }
 }
 
-function renderMetrics(totals, tokens, projects) {
+function renderMetrics(totals, tokens, projects, partialMetrics = [], projectCount = projects.length) {
   const metricsData = [
-    ["Projects", projects.length, "projects"],
+    ["Projects", projectCount, "projects"],
     ["Commits", totals.commits, "commits"],
     ["Pushes", totals.pushes, "pushes"],
     ["Observed tokens", tokens, "tokens"],
@@ -347,7 +348,7 @@ function renderMetrics(totals, tokens, projects) {
   metrics.replaceChildren(...metricsData.map(([label, value, key]) => {
     const group = element("div");
     const amount = element("dd", value !== null && value >= 100_000 ? compact.format(value) : valueLabel(value));
-    amount.title = value === null ? "Data unavailable" : valueLabel(value);
+    amount.title = value === null ? "Data unavailable" : `${partialMetrics.includes(key) ? "Partial observed total: " : ""}${valueLabel(value)}`;
     amount.toggleAttribute("data-unavailable", value === null);
     const title = element("dt");
     const button = element("button", label, "metric-launch");
@@ -475,7 +476,7 @@ async function showDashboard() {
   const deviceGit = devices.flatMap(([, device]) => device.git ? [device.git] : []);
   const commitsAt = newest([data.coverage.commitsAt, ...deviceGit.map((git) => git.commitsAt)]);
   const pushesAt = newest([data.coverage.pushesAt, ...deviceGit.map((git) => git.pushesAt)]);
-  const latest = newest([data.generatedAt, commitsAt, pushesAt, ...devices.map(([, device]) => device.syncedAt)]);
+  const latest = newest([data.generatedAt, commitsAt, pushesAt, ...devices.flatMap(([, device]) => [device.syncedAt, device.generatedAt])]);
   const through = {
     today: dateInZone(latest, data.timeZone),
     commits: dateInZone(commitsAt, data.timeZone),
@@ -506,16 +507,21 @@ async function showDashboard() {
   const error = document.querySelector("#range-error");
   const caption = document.querySelector("#range-caption");
   for (const input of [startInput, endInput]) { input.min = earliest; input.max = through.today; }
+  const todayView = selectToday(monthsWithActivity, data, devices, data.timeZone);
+  todayView.stale = Date.now() - Date.parse(todayView.bounds.endAt) > staleAfterMinutes * 60_000;
+  todayView.label = `${todayView.stale ? "Reported 24-hour window (stale)" : "Last 24 hours"} · ${updateFormat.format(new Date(todayView.bounds.startAt))} – ${updateFormat.format(new Date(todayView.bounds.endAt))}`;
+  const resolveSelection = (next, start, end) => next === "today" ? todayView.bounds
+    : resolveRange(next, earliest, through.today, start, end);
   let selection = "all";
-  let bounds = resolveRange("all", earliest, through.today);
+  let bounds = resolveSelection("all");
   const params = new URLSearchParams(location.search);
   try {
     if (params.has("start") || params.has("end")) {
-      bounds = resolveRange("custom", earliest, through.today, params.get("start"), params.get("end"));
+      bounds = resolveSelection("custom", params.get("start"), params.get("end"));
       selection = "custom";
     } else {
       const requested = params.get("range") ?? params.get("month") ?? "all";
-      bounds = resolveRange(requested, earliest, through.today);
+      bounds = resolveSelection(requested);
       selection = requested;
     }
   } catch {
@@ -524,13 +530,14 @@ async function showDashboard() {
   const chartViewport = document.querySelector(".activity .plot-scroll");
   if (chartViewport) attachPlotScrollbar(chartViewport, "Activity over time");
   const explorer = createMetricExplorer({
-    months: monthsWithActivity, days: allDays, latestDate: through.today, metrics,
+    months: monthsWithActivity, days: allDays, latestDate: through.today, metrics, today: todayView,
     charts: document.querySelector(".charts"),
   });
   let projects = [];
   let series = [];
   function renderPeriod() {
-    const selected = selectRange(monthsWithActivity, allDays, bounds, through.today);
+    const isToday = selection === "today";
+    const selected = isToday ? todayView : selectRange(monthsWithActivity, allDays, bounds, through.today);
     projects = combineProjects(selected.months);
     const monthly = selection === "all" || selected.days.length > 93;
     if (monthly) {
@@ -544,8 +551,13 @@ async function showDashboard() {
         ...totalsForSeries(days), label: monthLabel(month), tick: monthLabel(month).slice(0, 3),
       }));
     } else series = selected.days;
-    const label = `${heatmapDateFormat.format(new Date(`${bounds.start}T00:00:00Z`))} – ${heatmapDateFormat.format(new Date(`${bounds.end}T00:00:00Z`))}`;
-    caption.textContent = `${label}${selected.coversMonths ? "" : " · Observed tokens require whole reporting months."}`;
+    const label = isToday
+      ? todayView.label
+      : `${heatmapDateFormat.format(new Date(`${bounds.start}T00:00:00Z`))} – ${heatmapDateFormat.format(new Date(`${bounds.end}T00:00:00Z`))}`;
+    const partial = selected.partialMetrics?.length ? ` · Partial reports: ${selected.partialMetrics.map((key) => key === "tokens" ? "tokens" : chartLabels[key]?.toLowerCase() ?? key).join(", ")}.` : "";
+    caption.textContent = isToday
+      ? `${label}${selected.reason ? ` · ${selected.reason}` : partial} · Tokens reflect observed counters for sessions started in this window.`
+      : `${label}${selected.coversMonths ? "" : " · Observed tokens require whole reporting months."}`;
     chartPeriod.textContent = `${monthly ? "Monthly" : "Daily"} totals · ${label}`;
     period.value = monthsWithActivity.some(({ month }) => month === selection) ? selection : "";
     for (const button of presets) {
@@ -554,20 +566,20 @@ async function showDashboard() {
     }
     custom.hidden = selection !== "custom";
     startInput.value = bounds.start; endInput.value = bounds.end;
-    renderMetrics(selected.totals, selected.tokens, projects);
+    renderMetrics(selected.totals, selected.tokens, projects, selected.partialMetrics, isToday ? todayView.projectCount : projects.length);
     explorer.refresh(bounds);
     renderChart(series);
     renderProjects(projects);
   }
   function applyPeriod(next, start, end) {
     try {
-      const nextBounds = resolveRange(next, earliest, through.today, start, end);
+      const nextBounds = resolveSelection(next, start, end);
       selection = next; bounds = nextBounds; error.textContent = "";
       const url = new URL(location.href);
       for (const key of ["month", "range", "start", "end"]) url.searchParams.delete(key);
       if (selection === "custom") {
         url.searchParams.set("start", bounds.start); url.searchParams.set("end", bounds.end);
-      } else if (["7", "30", "90", "year"].includes(selection)) url.searchParams.set("range", selection);
+      } else if (["today", "7", "30", "90", "year"].includes(selection)) url.searchParams.set("range", selection);
       else if (selection !== "all") url.searchParams.set("month", selection);
       history.replaceState(null, "", url);
       renderPeriod();

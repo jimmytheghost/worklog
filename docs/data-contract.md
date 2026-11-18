@@ -279,7 +279,7 @@ Additional controls:
 - Hash workspace identifiers where the literal local path is unnecessary. Public exports omit local paths.
 - Exports clearly state whether they contain private repository names, identities, or local paths.
 
-The website feeds include repository names, commit subjects, and GitHub commit links, including rows for private repositories. They include daily and monthly activity and aggregate Codex usage. The publisher hashes repository and identified push IDs for public deduplication. Codex session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
+The website feeds include repository names, commit subjects, exact Git event timestamps, and GitHub commit links, including rows for private repositories. They include daily and monthly activity and aggregate Codex usage. The publisher hashes repository and identified push IDs for public deduplication. Codex session identifiers and account details stay local. GitHub controls access when visitors follow commit links.
 
 ## GitHub, local Codex, and account usage
 
@@ -375,3 +375,11 @@ Fixtures or representative sanitized records must demonstrate:
 - The trailing 90-day heatmap preserves separate counts, zero, and unavailable data in Git-only, Codex-only, and mixed snapshots.
 - Partial pagination and stale sources surface their coverage/freshness state in aggregate results.
 - Logs, observations, database rows, and exports contain none of the prohibited content classes.
+
+## Public Today projection
+
+The optional schema-version-1 `rolling24Hours` field contains four aggregate windows ending at UTC quarter-hour boundaries (the current boundary and the previous three). Each is exactly 86,400,000 milliseconds with inclusive `start` and exclusive `end`, independent of reporting timezone and DST. A window contains only `start`, `end`, nullable observed `tokens`, `tokensKnowledge`, nullable `agents`/`subagents`, and aggregate `agentDays` (`localDate`, `agents`, `subagents`). The device publisher retains this nested allowlist. Source session IDs, prompts, responses, tool output, account facts, and credentials are excluded.
+
+The website selects the latest shared window among fresh reporting sources. Git activity uses its normalized `occurredAt` instant; date-only legacy rows are not assigned an invented time. Missing sources and counters qualify known subtotals as partial, while wholly unknown metrics remain null. The reporting window and source freshness remain visible. Projects count distinct repositories with qualifying Git activity. Agent counts retain once-per-active-local-date-per-device semantics within the selected instant range.
+
+Observed tokens use `queryCodexObservedTokens`: sessions are selected by start instant, with trustworthy cumulative usage snapshots inside the half-open window. This is an observed local session-counter subtotal, not an hourly token-allocation estimate, account limit, or billing total. The Today CSV records `window_start` and `window_end` in UTC along with each aggregate row. Calendar day/month ranges keep their existing behavior.

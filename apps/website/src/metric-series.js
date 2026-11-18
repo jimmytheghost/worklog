@@ -93,6 +93,7 @@ export function buildMetricSeries({ months = [], days = [] }, metric, { start, e
     const key = bucketKey(date, group);
     const bucket = buckets.get(key) ?? { date, endDate: date, values: [], projects: new Set(), partial: false };
     const source = byDate.get(date);
+    bucket.partial ||= source?.partialMetrics?.includes(metric) ?? false;
     bucket.endDate = date;
     if (metric === "projects") {
       const names = projectsByDate.get(date) ?? new Set();
@@ -136,10 +137,19 @@ export function metricSummary(points, metric) {
 }
 
 /** Exports only the selected aggregate, never project names or event subjects. */
-export function seriesCsv(points, metric) {
+export function seriesCsv(points, metric, window) {
   if (!Object.hasOwn(metricDefinitions, metric)) throw new RangeError("Unknown metric");
+  if (window) {
+    const validInstants = [window.startAt, window.endAt].every((value) => typeof value === "string"
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+      && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value);
+    if (!validInstants || Date.parse(window.endAt) - Date.parse(window.startAt) !== dayMilliseconds) {
+      throw new RangeError("Expected an exact 24-hour UTC window");
+    }
+  }
+  const prefix = window ? `${window.startAt},${window.endAt},` : "";
   return [
-    `date,end_date,${metric},quality`,
-    ...points.map((point) => `${point.date},${point.endDate},${point.value ?? ""},${point.value === null ? "unavailable" : point.partial ? "partial" : "available"}`),
+    `${window ? "window_start,window_end," : ""}date,end_date,${metric},quality`,
+    ...points.map((point) => `${prefix}${point.date},${point.endDate},${point.value ?? ""},${point.value === null ? "unavailable" : point.partial ? "partial" : "available"}`),
   ].join("\r\n") + "\r\n";
 }

@@ -1,4 +1,4 @@
-import { buildMetricSeries, metricDefinitions, metricSummary, rollingDateRange, seriesCsv } from "./metric-series.js?v=2";
+import { buildMetricSeries, metricDefinitions, metricSummary, rollingDateRange, seriesCsv } from "./metric-series.js?v=3";
 
 const full = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -40,7 +40,7 @@ function curvePath(points) {
   }).join(" ");
 }
 
-export function createMetricExplorer({ months, days, latestDate, metrics, charts }) {
+export function createMetricExplorer({ months, days, latestDate, metrics, charts, today }) {
   if (!charts) return { refresh() {} };
   const panel = node("section", undefined, "metric-explorer panel");
   panel.id = "metric-explorer";
@@ -54,7 +54,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     <div class="explorer-toolbar">
       <label class="field">Metric <select class="explorer-metric"></select></label>
       <div class="explorer-ranges" role="group" aria-label="Chart date range">
-        <button type="button" data-range="30">30D</button><button type="button" data-range="3">3M</button><button type="button" data-range="6">6M</button><button type="button" data-range="12">1Y</button><button type="button" data-range="all">All</button><button type="button" data-range="custom">Custom</button>
+        <button type="button" data-range="today">24H</button><button type="button" data-range="30">30D</button><button type="button" data-range="3">3M</button><button type="button" data-range="6">6M</button><button type="button" data-range="12">1Y</button><button type="button" data-range="all">All</button><button type="button" data-range="custom">Custom</button>
       </div>
       <label class="field">Group by <select class="explorer-group"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label>
     </div>
@@ -81,6 +81,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   let metric = "commits", range = "all", group = "month", points = [], selected = 0, open = false, pinned = false, view = "chart";
   let opener = null, crosshair, marker, coordinates = [], dimensions, currentPeriod = "all";
   for (const [key, definition] of Object.entries(metricDefinitions)) metricControl.add(new Option(definition.label, key));
+  $('[data-range="today"]').hidden = !today;
   startControl.value = earliest;
   endControl.value = latestDate;
   for (const input of [startControl, endControl]) { input.min = earliest; input.max = latestDate; }
@@ -105,6 +106,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   }
   function bounds() {
     let start = earliest, end = latestDate;
+    if (range === "today" && today) return { start: today.bounds.start, end: today.bounds.end };
     if (range === "custom") { start = startControl.value; end = endControl.value; }
     else if (range === "30") return rollingDateRange(latestDate);
     else if (range !== "all") {
@@ -203,7 +205,8 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     inspect(selected);
   }
   function renderTable() {
-    $(".explorer-table-caption").textContent = `${metricDefinitions[metric].label} by ${groupControl.value}`;
+    $(".explorer-table-caption").textContent = range === "today" && metric === "tokens"
+      ? "Observed tokens · Last 24 hours" : `${metricDefinitions[metric].label} by ${groupControl.value}`;
     const rows = points.map((point) => {
       const row = node("tr");
       const heading = node("th", point.label); heading.scope = "row";
@@ -213,9 +216,11 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     $("tbody").replaceChildren(...rows);
   }
   function render() {
-    const monthlyOnly = metric === "tokens";
-    groupControl.disabled = monthlyOnly;
-    groupControl.value = monthlyOnly ? "month" : group;
+    const isToday = range === "today" && today;
+    const windowTokens = isToday && metric === "tokens";
+    const monthlyOnly = metric === "tokens" && !isToday;
+    groupControl.disabled = monthlyOnly || windowTokens;
+    groupControl.value = windowTokens ? "day" : monthlyOnly ? "month" : group;
     metricControl.value = metric;
     for (const button of panel.querySelectorAll("[data-range]")) button.setAttribute("aria-pressed", String(button.dataset.range === range));
     $(".explorer-custom").hidden = range !== "custom";
@@ -226,23 +231,28 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       return;
     }
     const { start, end } = bounds();
-    if (!start || !end || start > end || (start < earliest && range !== "30") || end > latestDate) {
+    if (!start || !end || start > end || (start < earliest && range !== "30" && range !== "today") || end > latestDate) {
       $(".explorer-date-error").textContent = "Choose a valid date range within the recorded history.";
       return;
     }
     $(".explorer-date-error").textContent = "";
-    points = buildMetricSeries({ months, days }, metric, { start, end, group: groupControl.value });
+    points = windowTokens
+      ? [{ date: end, endDate: end, label: "Last 24 hours", value: today.tokens, partial: today.tokensKnowledge === "partial" }]
+      : buildMetricSeries(isToday ? { months: today.months, days: today.days } : { months, days }, metric, { start, end, group: groupControl.value });
     selected = Math.max(0, points.findLastIndex(({ value }) => value !== null));
     pinned = false;
     const summary = metricSummary(points, metric);
     const label = metricDefinitions[metric].label;
     $("#explorer-title").textContent = label;
     const groupLabel = { day: "Daily", week: "Weekly", month: "Monthly" }[groupControl.value];
-    $(".explorer-period").textContent = `${start} — ${end} · ${groupLabel} observations${monthlyOnly && range === "30" ? " (full-month totals)" : ""}`;
+    $(".explorer-period").textContent = isToday
+      ? `${today.label ?? "Last 24 hours"}${windowTokens ? " · One window observation" : ` · ${groupLabel} observations`}`
+      : `${start} — ${end} · ${groupLabel} observations${monthlyOnly && range === "30" ? " (full-month totals)" : ""}`;
+    const interval = windowTokens ? "window" : groupControl.value;
     const stats = [
       [metric === "projects" ? "Distinct projects" : monthlyOnly && range === "30" ? "Published month totals" : "Observed total", summary.total],
-      [`Average / ${groupControl.value}`, summary.average],
-      [`Peak ${groupControl.value}`, summary.peak?.value ?? null],
+      [`Average / ${interval}`, summary.average],
+      [`Peak ${interval}`, summary.peak?.value ?? null],
       ["Observed points", `${summary.available} / ${points.length}`],
     ];
     $(".explorer-stats").replaceChildren(...stats.map(([name, value]) => {
@@ -252,7 +262,9 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       return item;
     }));
     $(".explorer-coverage").textContent = `${summary.available} observed · ${summary.partial} partial · ${summary.missing} unavailable`;
-    $(".explorer-note").textContent = monthlyOnly
+    $(".explorer-note").textContent = isToday
+      ? `${today.reason ?? "Counts cover the same reported 24-hour window across reporting devices."}${today.partialMetrics?.length ? " Some reports are partial or unavailable." : ""} Tokens reflect observed counters for sessions started in this window, separate from account limits.`
+      : monthlyOnly
       ? range === "30"
         ? "30D places monthly observations at month-end or the latest reporting date within the 30-day window. Points and stats include full published month totals; an exact 30-day token total is unavailable. Daily breakdowns are unavailable, and these counters are separate from account limits."
         : "Tokens are published as monthly observed totals. Daily and weekly breakdowns are unavailable; selected months are shown in full through their latest report. These counters are separate from account limits."
@@ -318,7 +330,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   svg.addEventListener("pointermove", (event) => { if (!pinned) inspect(pointAt(event)); });
   svg.addEventListener("click", (event) => { inspect(pointAt(event)); pinned = !pinned; inspect(selected); });
   $(".explorer-export").addEventListener("click", () => {
-    const url = URL.createObjectURL(new Blob([seriesCsv(points, metric)], { type: "text/csv;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([seriesCsv(points, metric, range === "today" ? today?.bounds : undefined)], { type: "text/csv;charset=utf-8" }));
     const link = node("a"); link.href = url;
     const { start, end } = bounds();
     link.download = `worklog-${metric}-${start}-${end}.csv`;
@@ -330,10 +342,10 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   return {
     refresh(period) {
       refreshCards();
-      const key = `${period.start}/${period.end}`;
+      const key = `${period.mode ?? "dates"}/${period.startAt ?? period.start}/${period.endAt ?? period.end}`;
       if (key === currentPeriod) return;
       currentPeriod = key;
-      range = "custom";
+      range = period.mode === "today" ? "today" : "custom";
       group = (+utc(period.end) - +utc(period.start)) / 86400000 > 92 ? "month" : "day";
       startControl.value = period.start;
       endControl.value = period.end;

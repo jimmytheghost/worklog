@@ -24,7 +24,7 @@
   <meta name="theme-color" content="#101410">
   <link rel="stylesheet" href="./styles.css?v=11">
   <link rel="stylesheet" href="./metric-explorer.css?v=2">
-  <script type="module" src="./activity.js?v=14"></script>
+  <script type="module" src="./activity.js?v=15"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -60,6 +60,7 @@
           <h2 id="summary-title">Activity totals</h2>
           <div class="range-picker">
             <div class="range-presets" role="group" aria-label="Activity date range">
+              <button type="button" data-period="today" aria-pressed="false">Today</button>
               <button type="button" data-period="7" aria-pressed="false">7 days</button>
               <button type="button" data-period="30" aria-pressed="false">30 days</button>
               <button type="button" data-period="90" aria-pressed="false">90 days</button>

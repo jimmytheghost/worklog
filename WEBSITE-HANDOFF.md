@@ -2,7 +2,7 @@
 
 The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. The default All filter sums available commits, pushes, agents, and subagents. Both combines commits and pushes; the four individual filters remain available. All labels partially observed totals as partial, and selected-day details keep unavailable counts distinct from zero. Select a date to see all four counts. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
-The local frontend adds persistent horizontal scroll controls to the activity bar chart with square canvas-colored buttons and accent-colored arrows, a canvas-colored proportional thumb with an accent grip, and a checkerboard track. The heatmap keeps its ordinary horizontal scrolling without custom controls. The controls support dragging, arrow/page keys, Home/End, and ordinary chart scrolling. They stay visible when all dates fit, with scrolling disabled. Native overlay scrollbars are hidden only after the custom controls initialize. Desktop and 320-pixel browser checks verified dragging, keyboard/button scrolling, chart metric/range changes, and the disabled state when dates fit. Publication is pending.
+The frontend has persistent horizontal scroll controls to the activity bar chart with square canvas-colored buttons and accent-colored arrows, a canvas-colored proportional thumb with an accent grip, and a checkerboard track. The heatmap keeps its ordinary horizontal scrolling without custom controls. The controls support dragging, arrow/page keys, Home/End, and ordinary chart scrolling. They stay visible when all dates fit, with scrolling disabled. Native overlay scrollbars are hidden only after the custom controls initialize. Desktop and 320-pixel browser checks verified dragging, keyboard/button scrolling, chart metric/range changes, and the disabled state when dates fit. Published in `worklog-evening-20261117-01`.
 
 The header squares switch between green, neon blue, and grey. Green is the default, and the browser remembers the selected palette when storage is available. Each palette has a zero tone and four activity tones scaled to the highest observed day for the selected metric.
 
@@ -10,7 +10,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `plot-scrollbar.js`, `date-ranges.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `plot-scrollbar.js`, `date-ranges.js`, `today-range.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
@@ -20,11 +20,11 @@ For a local preview, copy the supported build files to a `worklog/` subdirectory
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
-## Date range picker — local build, pending publication
+## Date range picker
 
 The summary header offers 7/30/90-day, This year, All, individual month, and custom inclusive date ranges. Presets end on the latest published date, using reporting calendar dates. Apply range validates both dates and updates totals, daily or monthly chart, project history, and the metric explorer. The 90-day heatmap remains anchored to the latest report. Links preserve ranges with `range`, `start`/`end`, or the existing `month` query parameter. Monthly tokens are unavailable for ranges that cut through a reporting month; they are never prorated. Publish `date-ranges.js` along with the updated assets. Validation passed: workspace tests, type checking, production builds, and browser checks at desktop, 390 px, and 320 px. Browser checks covered a cross-month custom range, reversed-date recovery, range URLs, filtered totals and projects, explorer synchronization, and no page overflow.
 
-## Metric explorer — local build, pending publication
+## Metric explorer
 
 Each activity total opens an animated line-chart explorer with rounded controls and smooth curves through the observed points. Curves stay within adjacent values and break at unavailable intervals. The explorer appears in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary date range when that period changes; otherwise it starts with all recorded history grouped by month.
 
@@ -32,7 +32,15 @@ Controls include a rolling 30-day preset, 3/6/12-calendar-month presets, all his
 
 Tokens remain monthly only. In the 30D view, monthly observations appear at their reporting dates and retain their full-month values; the stats explicitly say Published month totals, since an exact 30-day token subtotal is unavailable. Custom ranges expand to whole published months, with the current month ending at the latest report. The explorer consumes the existing public feeds and adds no collector, storage, or account-limit data. CSV contains only dates, the selected aggregate, and its coverage label.
 
-Validated locally with the published feed snapshot: all six totals matched, chart/table and export worked, empty/reversed custom dates remained recoverable, period changes and collapse preserved the overview, and keyboard/touch inspection worked. Responsive checks covered 320, 390, and 1440 px and the three existing palettes. Model tests cover missing/zero/partial values, distinct projects, Monday-based weeks, and monthly tokens. This feature has not been deployed; include all three new assets in a future explicit-file website release.
+Validated locally with the published feed snapshot: all six totals matched, chart/table and export worked, empty/reversed custom dates remained recoverable, period changes and collapse preserved the overview, and keyboard/touch inspection worked. Responsive checks covered 320, 390, and 1440 px and the three existing palettes. Model tests cover missing/zero/partial values, distinct projects, Monday-based weeks, and monthly tokens. Published in `worklog-evening-20261117-01`; all three new assets are included in the release.
+
+## Today — local build, pending publication
+
+Today appears before 7 days and selects one exact, half-open 24-hour window shared by reporting devices. Each machine exports four aggregate snapshots ending at aligned UTC quarter hours, so independently scheduled publishers can use the latest common window. The caption shows its actual reporting times; the window is 24 elapsed hours across daylight-saving changes. The 90-day heatmap remains fixed.
+
+Git events are filtered by their exported `occurredAt` instant before totals and project history are built. Shared events still deduplicate across devices, preserving a timestamp when one source is older. Codex agents/subagents and observed token counters come from that same window. Tokens retain the existing local-counter semantics: sessions started within the window, with trustworthy usage snapshots inside it. No sessions or account identifiers are exported. A missing or stale device report never substitutes an entire calendar day or a monthly token value. Known subtotals are qualified as partial; entirely unavailable metrics stay unavailable. The Today explorer and CSV use the same window, with UTC boundaries included in CSV.
+
+Both MacBook Pro and Windows PC services and publishers have been updated to emit the optional `rolling24Hours` projection and Git timestamps. Existing feeds and clients remain schema-version-1 compatible. `today-range.js` must accompany the updated frontend. No native UI, ledger, startup, or account-limit data changes are required.
 
 ## Current publishers
 
@@ -69,6 +77,8 @@ The Mac mini has no feed as of November 16, 2026. When it is ready:
 
 ## Release history
 
+Release `worklog-evening-20261117-01` published dashboard source `c1f2112` on November 17, 2026. It added the date picker, metric explorer, shared series/CSV model, and persistent scrollbar modules; it replaced the main script, stylesheet, and HTML. The final approved canvas/accent scrollbar styling is included, with no custom heatmap scrollbar. Eight installed hashes and 23 public HTTP content/MIME/checksum assertions passed. Live browser checks covered all six metrics, 30D, custom/reversed ranges, chart/table/CSV, keyboard inspection and collapse, All/Both heatmap filters, scrolling, and 320/390/1440-pixel layouts with all palettes. Canonical and browser/crawler preview-image checks passed for dashboard aliases and the existing portfolio. The activity feeds, native apps, shared website code, and sitemap were outside this static release. The website operations record retains the backup and guarded rollback.
+
 Release `worklog-all-activity-20261117-01` added `heatmap-metrics.js` and updated `activity.js` and `index.html`. All is the page-load default and sums observed commits, pushes, agents, and subagents; Both combines commits and pushes. Aggregate tests distinguish complete, partial, zero, and unavailable activity. Local browser checks covered 320 px; live checks covered 390 and 1440 px, the default selection after reload, Both totals, and unchanged selected-day details. Installed hashes, public script/image hashes, HTML markers, and link-preview metadata checks passed. Public HTML is checked by content because Cloudflare injects analytics markup; its installed checksum matches the frozen payload. The original checksum assertion and revised verification plan are retained in the website release record.
 
 Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
@@ -87,7 +97,7 @@ The site was first published in release `worklog-dashboard-20261115-01`. Release
 
 ## Rollback
 
-The current production frontend is release `worklog-all-activity-20261117-01`. Roll it back through the website release runner to restore the preceding heatmap filters. The previous frontend is release `worklog-header-mark-20261116-01`, built from source commit `37a3bbc`. To restore the palette release without the header skull, roll back `worklog-header-mark-20261116-01` through the website's guarded release runner. To restore the original single-green design, roll back the header release first, then `worklog-palettes-20261116-01`. The website workspace's `PROJECTS-OPERATIONS.md` records the frozen plans, server backups, and commands. The Git tag is the source checkpoint for the single-green design. [Green frontend tag](https://github.com/jimmytheghost/worklog/tree/worklog-frontend-green-20261116)
+The current production frontend is release `worklog-evening-20261117-01`. Roll it back through the guarded website release runner to restore `worklog-all-activity-20261117-01` and remove only the newly introduced frontend modules. Earlier rollback records follow. The previous frontend is release `worklog-header-mark-20261116-01`, built from source commit `37a3bbc`. To restore the palette release without the header skull, roll back `worklog-header-mark-20261116-01` through the website's guarded release runner. To restore the original single-green design, roll back the header release first, then `worklog-palettes-20261116-01`. The website workspace's `PROJECTS-OPERATIONS.md` records the frozen plans, server backups, and commands. The Git tag is the source checkpoint for the single-green design. [Green frontend tag](https://github.com/jimmytheghost/worklog/tree/worklog-frontend-green-20261116)
 
 ## Link preview
 

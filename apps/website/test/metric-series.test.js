@@ -118,3 +118,18 @@ test("a rolling token view keeps full-month source intervals instead of implying
   ]);
   assert.match(seriesCsv(points, "tokens"), /2026-10-01,2026-10-31,100,available/);
 });
+
+test("Today partial-source flags survive chart aggregation", () => {
+  const points = buildMetricSeries({ days: [{ ...day("2026-11-01", 3), partialMetrics: ["commits"] }] }, "commits", {
+    start: "2026-11-01", end: "2026-11-01", group: "day",
+  });
+  assert.equal(points[0].value, 3);
+  assert.equal(points[0].partial, true);
+});
+
+test("Today CSV preserves exact UTC window boundaries across reporting dates", () => {
+  const window = { startAt: "2026-11-17T05:45:00.000Z", endAt: "2026-11-18T05:45:00.000Z" };
+  const points = [{ date: "2026-11-17", endDate: "2026-11-17", value: 7, partial: false }];
+  assert.equal(seriesCsv(points, "tokens", window), "window_start,window_end,date,end_date,tokens,quality\r\n2026-11-17T05:45:00.000Z,2026-11-18T05:45:00.000Z,2026-11-17,2026-11-17,7,available\r\n");
+  assert.throws(() => seriesCsv(points, "tokens", { ...window, startAt: "=unsafe" }), /24-hour UTC window/);
+});
