@@ -22,9 +22,9 @@
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
   <meta name="twitter:image:alt" content="Worklog app icon and wordmark">
   <meta name="theme-color" content="#101410">
-  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
   <link rel="stylesheet" href="./metric-explorer.css?v=2">
-  <script type="module" src="./activity.js?v=10"></script>
+  <script type="module" src="./activity.js?v=11"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -56,10 +56,27 @@
     <noscript><p>Enable JavaScript to browse the work history.</p></noscript>
     <div id="dashboard" hidden>
       <section aria-labelledby="summary-title">
-        <div class="section-header">
+        <div class="section-header summary-header">
           <h2 id="summary-title">Activity totals</h2>
-          <label class="field">Period <select id="period"></select></label>
+          <div class="range-picker">
+            <div class="range-presets" role="group" aria-label="Activity date range">
+              <button type="button" data-period="7" aria-pressed="false">7 days</button>
+              <button type="button" data-period="30" aria-pressed="false">30 days</button>
+              <button type="button" data-period="90" aria-pressed="false">90 days</button>
+              <button type="button" data-period="year" aria-pressed="false">This year</button>
+              <button type="button" data-period="all" aria-pressed="true">All</button>
+              <button type="button" data-period="custom" aria-pressed="false" aria-controls="custom-range" aria-expanded="false">Custom</button>
+            </div>
+            <label class="field month-picker">Month <select id="period" aria-label="Choose a recorded month"></select></label>
+          </div>
         </div>
+        <form id="custom-range" class="custom-range" hidden>
+          <label class="field" for="range-start">From <input id="range-start" type="date" required aria-describedby="range-error"></label>
+          <label class="field" for="range-end">To <input id="range-end" type="date" required aria-describedby="range-error"></label>
+          <button type="submit">Apply range</button>
+          <span id="range-error" role="status"></span>
+        </form>
+        <p id="range-caption" class="caption range-caption" role="status"></p>
         <dl class="metrics" id="metrics"></dl>
         <p class="context">Each Codex session counts once per active day on its recording device. Pushes and Codex usage reflect available records.</p>
       </section>

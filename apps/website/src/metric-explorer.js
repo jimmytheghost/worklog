@@ -318,15 +318,13 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   return {
     refresh(period) {
       refreshCards();
-      if (period === currentPeriod) return;
-      currentPeriod = period;
-      if (period === "all") { range = "all"; group = "month"; }
-      else {
-        range = "custom"; group = "day";
-        startControl.value = `${period}-01`;
-        const last = utc(`${period}-01`); last.setUTCMonth(last.getUTCMonth() + 1); last.setUTCDate(0);
-        endControl.value = dateString(last) < latestDate ? dateString(last) : latestDate;
-      }
+      const key = `${period.start}/${period.end}`;
+      if (key === currentPeriod) return;
+      currentPeriod = key;
+      range = "custom";
+      group = (+utc(period.end) - +utc(period.start)) / 86400000 > 92 ? "month" : "day";
+      startControl.value = period.start;
+      endControl.value = period.end;
       if (open) render();
     },
   };

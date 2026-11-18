@@ -208,6 +208,34 @@ select, input {
 }
 select:hover, input:hover { border-color: var(--muted); }
 input::placeholder { color: var(--muted); opacity: 1; }
+
+.summary-header { align-items: start; }
+.summary-header h2 { padding-top: 9px; }
+.range-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.range-presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.range-presets button, .custom-range button {
+  min-height: 40px;
+  padding: 6px 11px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--inset);
+  color: var(--muted);
+  font: .76rem/1.4 var(--mono);
+}
+.range-presets button:hover, .custom-range button:hover { border-color: var(--accent); color: var(--text); }
+.range-presets button[aria-pressed="true"], .custom-range button, .custom-range button:hover { background: var(--accent); border-color: var(--accent); color: var(--canvas); }
+.custom-range { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 10px 16px; margin-bottom: 12px; }
+#range-error { color: var(--stale); font: .76rem/1.4 var(--mono); }
+.range-caption { margin-bottom: 12px; }
+@media (max-width: 640px) {
+  .range-picker, .month-picker { width: 100%; }
+  .month-picker select { flex: 1; min-width: 0; }
+  .range-presets { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .custom-range { justify-content: start; }
+  .custom-range .field { flex: 1 1 100%; }
+  .custom-range input { flex: 1; min-width: 0; }
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

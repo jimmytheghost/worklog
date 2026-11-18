@@ -8,7 +8,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `date-ranges.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
@@ -18,9 +18,13 @@ For a local preview, copy the supported build files to a `worklog/` subdirectory
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
+## Date range picker — local build, pending publication
+
+The summary header offers 7/30/90-day, This year, All, individual month, and custom inclusive date ranges. Presets end on the latest published date, using reporting calendar dates. Apply range validates both dates and updates totals, daily or monthly chart, project history, and the metric explorer. The 90-day heatmap remains anchored to the latest report. Links preserve ranges with `range`, `start`/`end`, or the existing `month` query parameter. Monthly tokens are unavailable for ranges that cut through a reporting month; they are never prorated. Publish `date-ranges.js` along with the updated assets. Validation passed: workspace tests, type checking, production builds, and browser checks at desktop, 390 px, and 320 px. Browser checks covered a cross-month custom range, reversed-date recovery, range URLs, filtered totals and projects, explorer synchronization, and no page overflow.
+
 ## Metric explorer — local build, pending publication
 
-Each activity total opens an animated line-chart explorer with rounded controls and smooth curves through the observed points. Curves stay within adjacent values and break at unavailable intervals. The explorer appears in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary month when that period changes; otherwise it starts with all recorded history grouped by month.
+Each activity total opens an animated line-chart explorer with rounded controls and smooth curves through the observed points. Curves stay within adjacent values and break at unavailable intervals. The explorer appears in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary date range when that period changes; otherwise it starts with all recorded history grouped by month.
 
 Controls include 1/3/6/12-calendar-month presets, all history, custom dates, daily/weekly/monthly grouping, chart/table views, area fill, points, and aggregate CSV download. Presets include the latest recorded month through its latest published day. Hover/touch, click-to-pin, arrow keys, and previous/next buttons inspect intervals. Range stats show observed total, average per observed interval, peak, and coverage. Project totals count distinct repositories across the range. Missing intervals remain gaps, observed zero stays zero, and intervals mixing known and unavailable days are partial. Push and Codex observations retain the existing feed coverage limits and Sync status.
 

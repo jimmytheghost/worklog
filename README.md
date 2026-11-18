@@ -104,7 +104,7 @@ The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local serv
 
 ## Website
 
-The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date and defaults to All activity. Both shows commits plus pushes; individual metric buttons remain available. The period chart and searchable project history follow the **Period** menu, which offers **All recorded** and individual months. Use **Sync status** in the header to see the latest GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
+The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date and defaults to All activity. Both shows commits plus pushes; individual metric buttons remain available. Activity totals, the period chart, and searchable project history follow the date range picker: 7, 30, or 90 days, This year, All, individual months, or inclusive custom start/end dates. Presets end on the latest published reporting date. Observed tokens require whole reporting months; ranges that cut through a month show them as unavailable. Use **Sync status** in the header to see the latest GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
 
 The header squares switch between green, neon blue, and grey. The browser remembers your choice. The heatmap uses five tones from zero to highest activity, and hatching marks unavailable days.
 

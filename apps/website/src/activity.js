@@ -1,7 +1,8 @@
+import { resolveRange, selectRange } from "./date-ranges.js?v=1";
 import { mergeGitHubHistory } from "./github-history.js?v=1";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
-import { createMetricExplorer } from "./metric-explorer.js?v=2";
+import { createMetricExplorer } from "./metric-explorer.js?v=3";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
@@ -333,12 +334,12 @@ function renderChart(series) {
   }
 }
 
-function renderMetrics(totals, months, projects) {
+function renderMetrics(totals, tokens, projects) {
   const metricsData = [
     ["Projects", projects.length, "projects"],
     ["Commits", totals.commits, "commits"],
     ["Pushes", totals.pushes, "pushes"],
-    ["Observed tokens", sumObserved(months.map((month) => month.tokens)), "tokens"],
+    ["Observed tokens", tokens, "tokens"],
     ["Agents", totals.agents, "agents"],
     ["Subagents", totals.subagents, "subagents"],
   ];
@@ -490,47 +491,95 @@ async function showDashboard() {
   updated.title = data.timeZone;
   updated.hidden = false;
   renderSyncStatus(data.coverage, devices, data.timeZone);
-  period.append(new Option("All recorded", "all"), ...monthsWithActivity.map((month) => new Option(monthLabel(month.month), month.month)));
-  const queryPeriod = new URLSearchParams(location.search).get("month");
-  if (monthsWithActivity.some((month) => month.month === queryPeriod)) period.value = queryPeriod;
-
+  period.append(new Option("Select month…", ""), ...monthsWithActivity.map((month) => new Option(monthLabel(month.month), month.month)));
   const byMonth = new Map(monthsWithActivity.map((month) => {
     const days = makeMonthlySeries(month, agentCoverage, through);
     return [month.month, { days, totals: totalsForSeries(days) }];
   }));
-  const overview = [...monthsWithActivity].reverse().map(({ month }) => ({
-    ...byMonth.get(month).totals,
-    label: monthLabel(month),
-    tick: monthLabel(month).slice(0, 3),
-  }));
-
+  const allDays = [...byMonth.values()].flatMap(({ days }) => days);
+  const earliest = `${monthsWithActivity.at(-1).month}-01`;
+  const presets = [...document.querySelectorAll("[data-period]")];
+  const custom = document.querySelector("#custom-range");
+  const startInput = document.querySelector("#range-start");
+  const endInput = document.querySelector("#range-end");
+  const error = document.querySelector("#range-error");
+  const caption = document.querySelector("#range-caption");
+  for (const input of [startInput, endInput]) { input.min = earliest; input.max = through.today; }
+  let selection = "all";
+  let bounds = resolveRange("all", earliest, through.today);
+  const params = new URLSearchParams(location.search);
+  try {
+    if (params.has("start") || params.has("end")) {
+      bounds = resolveRange("custom", earliest, through.today, params.get("start"), params.get("end"));
+      selection = "custom";
+    } else {
+      const requested = params.get("range") ?? params.get("month") ?? "all";
+      bounds = resolveRange(requested, earliest, through.today);
+      selection = requested;
+    }
+  } catch {
+    // Invalid or outdated links fall back to all recorded history.
+  }
   const explorer = createMetricExplorer({
-    months: monthsWithActivity,
-    days: [...byMonth.values()].flatMap(({ days }) => days),
-    latestDate: through.today,
-    metrics,
+    months: monthsWithActivity, days: allDays, latestDate: through.today, metrics,
     charts: document.querySelector(".charts"),
   });
   let projects = [];
   let series = [];
   function renderPeriod() {
-    const months = period.value === "all" ? monthsWithActivity : monthsWithActivity.filter((month) => month.month === period.value);
-    projects = combineProjects(months);
-    series = period.value === "all" ? overview : byMonth.get(period.value).days;
-    if (chartPeriod) {
-      chartPeriod.textContent = period.value === "all" ? "Monthly totals · All recorded" : `Daily totals · ${monthLabel(period.value)}`;
+    const selected = selectRange(monthsWithActivity, allDays, bounds, through.today);
+    projects = combineProjects(selected.months);
+    const monthly = selection === "all" || selected.days.length > 93;
+    if (monthly) {
+      const grouped = new Map();
+      for (const day of selected.days) {
+        const key = day.date.slice(0, 7);
+        const days = grouped.get(key) ?? [];
+        days.push(day); grouped.set(key, days);
+      }
+      series = [...grouped].map(([month, days]) => ({
+        ...totalsForSeries(days), label: monthLabel(month), tick: monthLabel(month).slice(0, 3),
+      }));
+    } else series = selected.days;
+    const label = `${heatmapDateFormat.format(new Date(`${bounds.start}T00:00:00Z`))} – ${heatmapDateFormat.format(new Date(`${bounds.end}T00:00:00Z`))}`;
+    caption.textContent = `${label}${selected.coversMonths ? "" : " · Observed tokens require whole reporting months."}`;
+    chartPeriod.textContent = `${monthly ? "Monthly" : "Daily"} totals · ${label}`;
+    period.value = monthsWithActivity.some(({ month }) => month === selection) ? selection : "";
+    for (const button of presets) {
+      button.setAttribute("aria-pressed", String(button.dataset.period === selection));
+      if (button.dataset.period === "custom") button.setAttribute("aria-expanded", String(selection === "custom"));
     }
-    renderMetrics(totalsForSeries(series), months, projects);
-    explorer.refresh(period.value);
+    custom.hidden = selection !== "custom";
+    startInput.value = bounds.start; endInput.value = bounds.end;
+    renderMetrics(selected.totals, selected.tokens, projects);
+    explorer.refresh(bounds);
     renderChart(series);
     renderProjects(projects);
   }
-  period.addEventListener("change", () => {
-    const url = new URL(location.href);
-    if (period.value === "all") url.searchParams.delete("month");
-    else url.searchParams.set("month", period.value);
-    history.replaceState(null, "", url);
-    renderPeriod();
+  function applyPeriod(next, start, end) {
+    try {
+      const nextBounds = resolveRange(next, earliest, through.today, start, end);
+      selection = next; bounds = nextBounds; error.textContent = "";
+      const url = new URL(location.href);
+      for (const key of ["month", "range", "start", "end"]) url.searchParams.delete(key);
+      if (selection === "custom") {
+        url.searchParams.set("start", bounds.start); url.searchParams.set("end", bounds.end);
+      } else if (["7", "30", "90", "year"].includes(selection)) url.searchParams.set("range", selection);
+      else if (selection !== "all") url.searchParams.set("month", selection);
+      history.replaceState(null, "", url);
+      renderPeriod();
+    } catch (reason) { error.textContent = reason.message; }
+  }
+  for (const button of presets) button.addEventListener("click", () => {
+    if (button.dataset.period === "custom") {
+      custom.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      startInput.focus();
+    } else applyPeriod(button.dataset.period);
+  });
+  period.addEventListener("change", () => { if (period.value) applyPeriod(period.value); });
+  custom.addEventListener("submit", (event) => {
+    event.preventDefault(); applyPeriod("custom", startInput.value, endInput.value);
   });
   chartMetric.addEventListener("change", () => renderChart(series));
   search.addEventListener("input", () => renderProjects(projects));
