@@ -22,6 +22,24 @@ function svgNode(tag, attrs = {}, text) {
   return result;
 }
 
+// Monotone cubic curves pass through every observation without inventing peaks
+// or dipping below a pair of observed values. Gaps are drawn separately.
+function curvePath(points) {
+  const slopes = points.slice(1).map((point, index) => (point.y - points[index].y) / (point.x - points[index].x));
+  const tangents = points.map((_, index) => {
+    if (index === 0) return slopes[0] ?? 0;
+    if (index === points.length - 1) return slopes.at(-1);
+    const before = slopes[index - 1], after = slopes[index];
+    return before * after <= 0 ? 0 : 2 * before * after / (before + after);
+  });
+  return points.map((point, index) => {
+    if (index === 0) return `M${point.x},${point.y}`;
+    const previous = points[index - 1];
+    const handle = (point.x - previous.x) / 3;
+    return `C${previous.x + handle},${previous.y + tangents[index - 1] * handle} ${point.x - handle},${point.y - tangents[index] * handle} ${point.x},${point.y}`;
+  }).join(" ");
+}
+
 export function createMetricExplorer({ months, days, latestDate, metrics, charts }) {
   if (!charts) return { refresh() {} };
   const panel = node("section", undefined, "metric-explorer panel");
@@ -141,7 +159,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     const gradient = svgNode("linearGradient", { id: "explorer-gradient", x1: 0, y1: 0, x2: 0, y2: 1 });
     gradient.append(svgNode("stop", { offset: "0%", "stop-color": "var(--accent)", "stop-opacity": ".2" }), svgNode("stop", { offset: "100%", "stop-color": "var(--accent)", "stop-opacity": ".01" }));
     defs.append(pattern, gradient); svg.append(defs);
-    svg.append(svgNode("rect", { x: left, y: top, width: right - left, height: bottom - top, fill: "url(#explorer-grid)" }));
+    svg.append(svgNode("rect", { x: left, y: top, width: right - left, height: bottom - top, rx: 10, fill: "url(#explorer-grid)" }));
     for (let i = 0; i <= 4; i++) {
       const value = ceiling * i / 4, cy = y(value);
       svg.append(svgNode("line", { x1: left, x2: right, y1: cy, y2: cy, class: "explorer-guide" }), svgNode("text", { x: left - 10, y: cy + 4, "text-anchor": "end", class: "explorer-axis" }, short(value)));
@@ -160,7 +178,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     });
     if (segment.length) segments.push(segment);
     for (const line of segments) {
-      const path = line.map(({ x, y }, i) => `${i ? "L" : "M"}${x},${y}`).join(" ");
+      const path = curvePath(line);
       if ($(".explorer-fill").checked) svg.append(svgNode("path", { d: `${path} L${line.at(-1).x},${bottom} L${line[0].x},${bottom} Z`, fill: "url(#explorer-gradient)" }));
       svg.append(svgNode("path", { d: path, class: "explorer-line", pathLength: 1 }));
     }
@@ -168,7 +186,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       if (y === null) {
         svg.append(svgNode("line", { x1: x - 2, x2: x + 2, y1: bottom + 5, y2: bottom + 5, class: "explorer-missing-mark" }));
       } else if ($(".explorer-dots").checked || points.length === 1 || points[i].partial) {
-        svg.append(svgNode("circle", { cx: x, cy: y, r: points.length > 100 ? 1.8 : 3, class: points[i].partial ? "explorer-point partial" : "explorer-point" }));
+        svg.append(svgNode("circle", { cx: x, cy: y, r: points.length > 100 ? 1.8 : 3.5, class: points[i].partial ? "explorer-point partial" : "explorer-point" }));
       }
     });
     if (points.every(({ value }) => value === null)) svg.append(svgNode("text", { x: (left + right) / 2, y: (top + bottom) / 2, "text-anchor": "middle", class: "explorer-empty" }, "No observations in this range"));

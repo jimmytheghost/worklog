@@ -7,17 +7,18 @@
 .metrics > div:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 .metric-launch span { color: var(--accent); opacity: .55; transition: transform .2s, opacity .2s; }
 .metric-launch:hover span, .metric-launch[aria-expanded="true"] span { opacity: 1; transform: translate(2px, -2px); }
-.metric-explorer { margin-top: 24px; padding: 22px; scroll-margin-top: 16px; min-height: 460px; overflow: clip; }
+.metric-explorer { margin-top: 24px; padding: 22px; scroll-margin-top: 16px; min-height: 460px; overflow: clip; border-radius: 16px; }
 .explorer-heading, .explorer-toolbar, .explorer-viewbar, .explorer-inspector, .explorer-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .explorer-heading { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .explorer-eyebrow { margin-bottom: 5px; color: var(--muted); font: .68rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .13em; }
 .metric-explorer h2 { font: 600 clamp(1.4rem, 3vw, 2rem)/1.2 var(--mono); letter-spacing: -.055em; color: var(--accent); }
 .metric-explorer h2:focus { outline: none; }
-.metric-explorer button { border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; min-height: 34px; color: var(--muted); background: var(--inset); font: .74rem/1.3 var(--mono); }
+.metric-explorer button { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 34px; color: var(--muted); background: var(--inset); font: .74rem/1.3 var(--mono); }
 .metric-explorer button:hover { border-color: var(--accent); color: var(--text); }
 .metric-explorer button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--canvas); }
 .metric-explorer button:disabled { opacity: .4; cursor: default; }
 .metric-explorer .explorer-collapse { display: grid; place-items: center; width: 42px; height: 42px; padding: 8px; }
+.metric-explorer select, .explorer-custom input { border-radius: 8px; }
 .explorer-toolbar { justify-content: start; gap: 14px 24px; margin-block: 18px 8px; }
 .explorer-ranges, .explorer-views { display: flex; flex-wrap: wrap; gap: 3px; }
 .explorer-toolbar > .field:last-child { margin-left: auto; }
@@ -37,7 +38,7 @@
 .explorer-grid-dot { fill: var(--edge); opacity: .45; }
 .explorer-guide { stroke: var(--line); stroke-width: 1; }
 .explorer-axis { fill: var(--muted); font: 10px var(--mono); }
-.explorer-line { stroke: var(--accent); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.explorer-line { stroke: var(--accent); stroke-width: 2.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
 @keyframes explorer-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .explorer-line { stroke-dasharray: 1; animation: explorer-draw .65s ease both; }
 .explorer-point { fill: var(--accent); stroke: var(--surface); stroke-width: 1; }
@@ -47,7 +48,7 @@
 .explorer-marker { fill: var(--accent); stroke: var(--canvas); stroke-width: 2; pointer-events: none; }
 .explorer-marker[data-missing="true"] { fill: var(--surface); stroke: var(--hatch); }
 .explorer-empty { fill: var(--muted); font: 12px var(--mono); }
-.explorer-inspector { min-height: 64px; margin-top: 6px; padding: 12px 14px; background: var(--inset); border: 1px solid var(--line); font: .77rem/1.4 var(--mono); }
+.explorer-inspector { min-height: 64px; margin-top: 6px; padding: 12px 14px; background: var(--inset); border: 1px solid var(--line); font: .77rem/1.4 var(--mono); border-radius: 10px; }
 .explorer-inspector > div:first-child { display: flex; flex-wrap: wrap; gap: 5px 18px; align-items: baseline; }
 .explorer-inspect-date { color: var(--muted); }
 .explorer-inspect-value { color: var(--accent); }
@@ -55,7 +56,7 @@
 .explorer-stepper { display: flex; gap: 4px; }
 .explorer-foot { margin-top: 10px; color: var(--muted); font: .65rem/1.4 var(--mono); }
 .explorer-note { max-width: 105ch; margin-top: 10px; font-size: .76rem; color: var(--muted); }
-.explorer-table-wrap { max-height: 320px; overflow: auto; margin-block: 16px 6px; }
+.explorer-table-wrap { max-height: 320px; overflow: auto; margin-block: 16px 6px; border-radius: 10px; }
 .explorer-table { width: 100%; border-collapse: collapse; font: .75rem/1.4 var(--mono); text-align: left; }
 .explorer-table th, .explorer-table td { padding: 9px; border-bottom: 1px solid var(--line); }
 .explorer-table thead { position: sticky; top: 0; background: var(--inset); }

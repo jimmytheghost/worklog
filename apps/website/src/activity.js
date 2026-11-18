@@ -1,7 +1,7 @@
 import { mergeGitHubHistory } from "./github-history.js?v=1";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
-import { createMetricExplorer } from "./metric-explorer.js?v=1";
+import { createMetricExplorer } from "./metric-explorer.js?v=2";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");

@@ -20,7 +20,7 @@ The data export carries repository names, commit subjects, and GitHub commit lin
 
 ## Metric explorer — local build, pending publication
 
-Each activity total opens an animated line-chart explorer in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary month when that period changes; otherwise it starts with all recorded history grouped by month.
+Each activity total opens an animated line-chart explorer with rounded controls and smooth curves through the observed points. Curves stay within adjacent values and break at unavailable intervals. The explorer appears in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary month when that period changes; otherwise it starts with all recorded history grouped by month.
 
 Controls include 1/3/6/12-calendar-month presets, all history, custom dates, daily/weekly/monthly grouping, chart/table views, area fill, points, and aggregate CSV download. Presets include the latest recorded month through its latest published day. Hover/touch, click-to-pin, arrow keys, and previous/next buttons inspect intervals. Range stats show observed total, average per observed interval, peak, and coverage. Project totals count distinct repositories across the range. Missing intervals remain gaps, observed zero stays zero, and intervals mixing known and unavailable days are partial. Push and Codex observations retain the existing feed coverage limits and Sync status.
 
