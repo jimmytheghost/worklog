@@ -23,7 +23,7 @@
   <meta name="twitter:image:alt" content="Worklog app icon and wordmark">
   <meta name="theme-color" content="#101410">
   <link rel="stylesheet" href="./styles.css?v=7">
-  <script type="module" src="./activity.js?v=7"></script>
+  <script type="module" src="./activity.js?v=8"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -71,8 +71,10 @@
               <p class="caption">Last 90 days</p>
             </div>
             <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
-              <button type="button" data-metric="commits" aria-pressed="true">Commits</button>
+              <button type="button" data-metric="all" aria-pressed="true">All</button>
+              <button type="button" data-metric="commits" aria-pressed="false">Commits</button>
               <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
+              <button type="button" data-metric="both" aria-pressed="false">Both</button>
               <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
               <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
             </div>

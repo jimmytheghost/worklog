@@ -22,7 +22,7 @@ public partial class MainWindow : Window, IDisposable
 {
     private Snapshot? snapshot;
     private Summary? summary;
-    private string period = "day", mode = "Both";
+    private string period = "day", mode = "All";
     private string? selectedDay;
     private bool busy, settings, cached;
     private string? error;
@@ -189,23 +189,24 @@ public partial class MainWindow : Window, IDisposable
     {
         var panel = Card(); panel.Children.Add(Text("ACTIVITY · LAST 90 DAYS", 10, "Muted"));
         var modes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 8) };
-        foreach (var name in new[] { "Commit", "Push", "Both" }) modes.Children.Add(Action(name, () => { mode = name; Render(); }, mode == name));
+        foreach (var name in new[] { "All", "Commit", "Push", "Both" }) modes.Children.Add(Action(name, () => { mode = name; Render(); }, mode == name));
         panel.Children.Add(modes);
-        var days = (snapshot!.ActivityDays ?? []).TakeLast(90).ToArray();
+        var days = snapshot!.DisplayedHeatmapDays;
         if (days.Length == 0) { panel.Children.Add(Text("Activity history unavailable", 11, "Muted")); return; }
+        if (!days.Any(day => day.Date == selectedDay)) selectedDay = days.Last().Date;
         var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 15 };
         foreach (var day in days)
         {
-            var count = mode == "Commit" ? day.Commits : mode == "Push" ? day.Pushes : day.Commits + day.Pushes;
-            var shade = (byte)(count == 0 ? 52 : Math.Min(225, 85 + Math.Log2(count + 1) * 28));
-            var label = $"{day.Date}: {day.Commits:0} commits · {day.Pushes:0} pushes";
-            var button = new Button { Width = 15, Height = 15, Padding = new Thickness(0), Margin = new Thickness(2), Background = new SolidColorBrush(Color.FromRgb(shade, shade, shade)), ToolTip = label, BorderThickness = new Thickness(1), BorderBrush = selectedDay == day.Date ? Brush("Mint") : Brushes.Transparent };
+            var count = day.HeatmapValue(mode);
+            var shade = (byte)(count is null ? 30 : count == 0 ? 52 : Math.Min(225, 85 + Math.Log2(count.Value + 1) * 28));
+            var label = day.Description;
+            var button = new Button { Width = 15, Height = 15, Padding = new Thickness(0), Margin = new Thickness(2), Background = new SolidColorBrush(Color.FromRgb(shade, shade, shade)), ToolTip = label, BorderThickness = new Thickness(1), BorderBrush = selectedDay == day.Date ? Brush("Mint") : count is null ? Brush("Muted") : Brushes.Transparent };
             System.Windows.Automation.AutomationProperties.SetName(button, label);
             button.Click += (_, _) => { selectedDay = day.Date; Render(); }; grid.Children.Add(button);
         }
         panel.Children.Add(grid);
         panel.Children.Add(Text(days.First().Date + "  —  " + days.Last().Date, 9, "Muted"));
-        if (days.FirstOrDefault(d => d.Date == selectedDay) is { } selected) panel.Children.Add(Text($"{selected.Date} · {selected.Commits:0} commits · {selected.Pushes:0} pushes", 11));
+        if (days.FirstOrDefault(d => d.Date == selectedDay) is { } selected) panel.Children.Add(Text(selected.Description, 11));
     }
     public void ShowSettings() { settings = true; Render(); }
     private void RenderSettings()

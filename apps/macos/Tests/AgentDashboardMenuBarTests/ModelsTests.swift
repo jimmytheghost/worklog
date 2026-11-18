@@ -4,6 +4,22 @@ import Testing
 
 @Suite("Snapshot models")
 struct ModelsTests {
+    @Test func heatmapCombinesAllObservedActivityWithoutLosingUnavailableCounts() {
+        typealias Day = DashboardSnapshot.DayActivity
+        let complete = Day(date: "2026-11-17", commits: 2, pushes: 3, agents: 5, subagents: 7)
+        #expect(HeatmapMetric.all.value(complete) == 17)
+        #expect(HeatmapMetric.both.value(complete) == 5)
+        let codex = Day(date: complete.date, commits: nil, pushes: nil, agents: 0, subagents: 3)
+        #expect(HeatmapMetric.all.value(codex) == 3)
+        #expect(HeatmapMetric.both.value(codex) == nil)
+        let legacy = Day(date: complete.date, commits: 2, pushes: 1, agents: nil, subagents: nil)
+        #expect(HeatmapMetric.all.value(legacy) == 3)
+        let zero = Day(date: complete.date, commits: 0, pushes: 0, agents: 0, subagents: 0)
+        #expect(HeatmapMetric.all.value(zero) == 0)
+        let missing = Day(date: complete.date, commits: nil, pushes: nil, agents: nil, subagents: nil)
+        #expect(HeatmapMetric.all.value(missing) == nil)
+    }
+
     @Test func resetCountdownUsesActualTimeAndHandlesTimestampFormats() throws {
         typealias Window = DashboardSnapshot.CodexAccount.Window
         let now = try #require(ISO8601DateFormatter().date(from: "2026-10-11T21:00:00Z"))

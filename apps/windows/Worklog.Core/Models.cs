@@ -5,8 +5,10 @@ namespace Worklog.Core;
 
 // Only decoded display fields are cached. Unknown service fields are discarded.
 public sealed record Snapshot(int SchemaVersion, string GeneratedAt, string Timezone,
-    Metric[] Summary, Source[] Sources, DayActivity[]? ActivityDays, Account? CodexAccount)
+    Metric[] Summary, Source[] Sources, DayActivity[]? ActivityDays, Account? CodexAccount, DayActivity[]? HeatmapDays = null)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DayActivity[] DisplayedHeatmapDays => HeatmapDays ?? (ActivityDays ?? []).TakeLast(90).ToArray();
     public static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public static Snapshot Parse(string json)
     {
@@ -19,7 +21,25 @@ public sealed record Snapshot(int SchemaVersion, string GeneratedAt, string Time
 }
 public sealed record Metric([property: System.Text.Json.Serialization.JsonPropertyName("metric")] string Name, double? Value, string? Freshness, string? Completeness);
 public sealed record Source(string SourceSystem, string Status, string Freshness, string? Completeness, string? LastSucceededAt);
-public sealed record DayActivity(string Date, double Commits, double Pushes);
+public sealed record DayActivity(string Date, double? Commits, double? Pushes, double? Agents = null, double? Subagents = null)
+{
+    public double? HeatmapValue(string mode) => mode switch
+    {
+        "Commit" => Commits,
+        "Push" => Pushes,
+        "Both" => Commits + Pushes,
+        "All" => ObservedTotal(),
+        _ => null
+    };
+    private double? ObservedTotal()
+    {
+        var observed = new[] { Commits, Pushes, Agents, Subagents }.OfType<double>().ToArray();
+        return observed.Length == 0 ? null : observed.Sum();
+    }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Description => $"{Date} · {Count(Commits)} commits · {Count(Pushes)} pushes · {Count(Agents)} agents · {Count(Subagents)} subagents";
+    private static string Count(double? value) => value?.ToString("0", CultureInfo.InvariantCulture) ?? "unavailable";
+}
 public sealed record Summary(int SchemaVersion, string Period, string Timezone, Totals Metrics, Activity[] RecentActivity)
 {
     public static Summary Parse(string json, string period)

@@ -1,6 +1,7 @@
 import SwiftUI
 
-private enum HeatmapMetric: String, CaseIterable, Identifiable {
+enum HeatmapMetric: String, CaseIterable, Identifiable {
+    case all = "All"
     case commits = "Commit"
     case pushes = "Push"
     case both = "Both"
@@ -8,12 +9,27 @@ private enum HeatmapMetric: String, CaseIterable, Identifiable {
     case subagents = "Subagents"
 
     var id: String { rawValue }
+
+    func value(_ day: DashboardSnapshot.DayActivity) -> Double? {
+        switch self {
+        case .all:
+            let observed = [day.commits, day.pushes, day.agents, day.subagents].compactMap { $0 }
+            return observed.isEmpty ? nil : observed.reduce(0, +)
+        case .commits: return day.commits
+        case .pushes: return day.pushes
+        case .both:
+            guard let commits = day.commits, let pushes = day.pushes else { return nil }
+            return commits + pushes
+        case .agents: return day.agents
+        case .subagents: return day.subagents
+        }
+    }
 }
 
 struct ActivityHeatmapView: View {
     let days: [DashboardSnapshot.DayActivity]
 
-    @State private var metric: HeatmapMetric = .both
+    @State private var metric: HeatmapMetric = .all
     @State private var selectedDate: String?
 
     private var selectedDay: DashboardSnapshot.DayActivity? {
@@ -85,7 +101,7 @@ struct ActivityHeatmapView: View {
                     Text(option.rawValue)
                         .font(.caption2.weight(.semibold))
                         .lineLimit(1)
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 4)
                         .padding(.vertical, 4)
                         .contentShape(Rectangle())
                 }
@@ -97,6 +113,7 @@ struct ActivityHeatmapView: View {
                 .accessibilityAddTraits(metric == option ? .isSelected : [])
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(2)
         .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
         .accessibilityLabel("Heatmap metric")
@@ -148,15 +165,7 @@ struct ActivityHeatmapView: View {
     }
 
     private func value(_ day: DashboardSnapshot.DayActivity) -> Double? {
-        switch metric {
-        case .commits: return day.commits
-        case .pushes: return day.pushes
-        case .both:
-            guard let commits = day.commits, let pushes = day.pushes else { return nil }
-            return commits + pushes
-        case .agents: return day.agents
-        case .subagents: return day.subagents
-        }
+        metric.value(day)
     }
 
     private func amount(_ count: Double?) -> String {

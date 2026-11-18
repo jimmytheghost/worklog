@@ -1,4 +1,5 @@
 import { mergeGitHubHistory } from "./github-history.js?v=1";
+import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
@@ -260,13 +261,15 @@ function renderHeatmap(daySeries, latestDate) {
   heatmapGrid.replaceChildren(...monthLabels, ...weekdayLabels, ...buttons);
 
   function showMetric(key) {
-    const max = Math.max(1, ...days.map((day) => day[key] ?? 0));
+    const max = Math.max(1, ...days.map((day) => heatmapValue(day, key) ?? 0));
     heatmapMetrics.forEach((control) => control.setAttribute("aria-pressed", String(control.dataset.metric === key)));
     buttons.forEach((button, index) => {
-      const value = days[index][key];
+      const value = heatmapValue(days[index], key);
       button.dataset.level = value > 0 ? Math.ceil(4 * Math.sqrt(value / max)) : 0;
       button.classList.toggle("heatmap-missing", value === null);
-      const label = `${dates[index]} · ${chartLabels[key]} ${value === null ? "unavailable" : valueLabel(value)}`;
+      const name = key === "all" ? "All activity" : key === "both" ? "Commits + pushes" : chartLabels[key];
+      const partial = key === "all" && isPartialActivity(days[index]) ? " (partial)" : "";
+      const label = `${dates[index]} · ${name} ${value === null ? "unavailable" : valueLabel(value)}${partial}`;
       button.title = label;
       button.setAttribute("aria-label", label);
     });
@@ -275,7 +278,7 @@ function renderHeatmap(daySeries, latestDate) {
   heatmapMetrics.forEach((control) => {
     control.addEventListener("click", () => showMetric(control.dataset.metric));
   });
-  showMetric("commits");
+  showMetric("all");
   select(selected);
   const scroll = heatmapGrid.parentElement;
   scroll.scrollLeft = scroll.scrollWidth;

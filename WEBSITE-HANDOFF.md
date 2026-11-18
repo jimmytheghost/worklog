@@ -1,6 +1,6 @@
 # Worklog website
 
-The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. Select a date to see commits, pushes, agents, and subagents. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
+The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. The default All filter sums available commits, pushes, agents, and subagents. Both combines commits and pushes; the four individual filters remain available. All labels partially observed totals as partial, and selected-day details keep unavailable counts distinct from zero. Select a date to see all four counts. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
 The header squares switch between green, neon blue, and grey. Green is the default, and the browser remembers the selected palette when storage is available. Each palette has a zero tone and four activity tones scaled to the highest observed day for the selected metric.
 
@@ -8,7 +8,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `heatmap-metrics.js`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
@@ -53,6 +53,8 @@ The Mac mini has no feed as of November 16, 2026. When it is ready:
 
 ## Release history
 
+Release `worklog-all-activity-20261117-01` added `heatmap-metrics.js` and updated `activity.js` and `index.html`. All is the page-load default and sums observed commits, pushes, agents, and subagents; Both combines commits and pushes. Aggregate tests distinguish complete, partial, zero, and unavailable activity. Local browser checks covered 320 px; live checks covered 390 and 1440 px, the default selection after reload, Both totals, and unchanged selected-day details. Installed hashes, public script/image hashes, HTML markers, and link-preview metadata checks passed. Public HTML is checked by content because Cloudflare injects analytics markup; its installed checksum matches the frozen payload. The original checksum assertion and revised verification plan are retained in the website release record.
+
 Release `worklog-multi-device-20261116-01` installed `activity.js` and `index.html` with a production backup through the website release workflow. Desktop and mobile checks verified that the live heatmap and monthly token total include the Windows PC alongside the MacBook Pro. The primary and device data files are managed by their publishers and are outside this code release.
 
 Release `worklog-shared-github-20261116-01` added `github-history.js` and updated `activity.js` and `index.html`. Desktop and mobile checks verified the merged commit links and push totals, including the Windows ledger’s nine November 10–11 commits that were missing from the MacBook Pro feed.
@@ -69,7 +71,7 @@ The site was first published in release `worklog-dashboard-20261115-01`. Release
 
 ## Rollback
 
-The current production frontend is release `worklog-header-mark-20261116-01`, built from source commit `37a3bbc`. To restore the palette release without the header skull, roll back `worklog-header-mark-20261116-01` through the website's guarded release runner. To restore the original single-green design, roll back the header release first, then `worklog-palettes-20261116-01`. The website workspace's `PROJECTS-OPERATIONS.md` records the frozen plans, server backups, and commands. The Git tag is the source checkpoint for the single-green design. [Green frontend tag](https://github.com/jimmytheghost/worklog/tree/worklog-frontend-green-20261116)
+The current production frontend is release `worklog-all-activity-20261117-01`. Roll it back through the website release runner to restore the preceding heatmap filters. The previous frontend is release `worklog-header-mark-20261116-01`, built from source commit `37a3bbc`. To restore the palette release without the header skull, roll back `worklog-header-mark-20261116-01` through the website's guarded release runner. To restore the original single-green design, roll back the header release first, then `worklog-palettes-20261116-01`. The website workspace's `PROJECTS-OPERATIONS.md` records the frozen plans, server backups, and commands. The Git tag is the source checkpoint for the single-green design. [Green frontend tag](https://github.com/jimmytheghost/worklog/tree/worklog-frontend-green-20261116)
 
 ## Link preview
 

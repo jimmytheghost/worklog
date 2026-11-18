@@ -1,6 +1,6 @@
 # Worklog Handoff
 
-Checkpoint 2026-11-16 · Website frontend `37a3bbc` · Release `worklog-header-mark-20261116-01`
+Checkpoint 2026-11-17 · Website release `worklog-all-activity-20261117-01`
 
 ## Start here
 
@@ -15,13 +15,13 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Both native apps offer **View on Website** at the bottom, opening [the public dashboard](https://jimmyweber.com/worklog). The Windows tray context menu offers the same action.
 - Windows account facts use compact inline pairs in two columns. Five range metrics share one row, with agent and subagent totals below. Settings explains local tokens and partial coverage. Source status and freshness stay in the overview.
 - Day, Week, Month, Year, and All summaries. Week is today plus the previous six local calendar days; Month is today plus the previous 29.
-- macOS has five heatmap modes for the trailing 90 days. Select a date to see commits, pushes, agents, and subagents separately.
-- Windows currently has Commit, Push, and Both heatmap modes with separate selected-day Git counts.
+- macOS has six heatmap modes for the trailing 90 days, defaulting to All observed activity. Select a date to see commits, pushes, agents, and subagents separately.
+- Windows has All (the default), Commit, Push, and Both heatmap modes with separate selected-day commit, push, agent, and subagent counts. All sums available activity; Both requires both Git counts.
 - Observed token, commit, push, active-day, and project totals.
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
 - Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
-- Static public dashboard with activity totals, a four-metric 90-day heatmap, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
+- Static public dashboard with activity totals, a 90-day heatmap with All (the default), Both, and four individual metrics, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
 - Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
@@ -117,6 +117,8 @@ On November 16 the Windows package was rebuilt and relaunched. The local service
 
 The November 16 website releases passed 133 workspace tests, type checking, and production builds. Chromium verified the latest header in all three palettes at 320–1440 px, along with the earlier palette, heatmap, history, and Sync status changes. Both production feeds showed current commit, push, and Codex reports at the evening checkpoint. The Windows publisher's last run returned `0`, and the live device feed listed Windows PC as the only secondary publisher. [Release and verification notes](../WEBSITE-HANDOFF.md)
 
+The November 17 heatmap update passed 136 workspace tests, type checking, production builds, and 19 Swift tests. The Mac app was packaged, signature-checked, relaunched, and rendered at menu-bar width with all six labels visible. Interactive native inspection timed out. Windows source and cache checks were added, but neither Windows command could run on this Mac because `dotnet` is unavailable. The website All/Both release passed installed asset and public URL checks, plus local/live browser checks at desktop and phone widths. All defaults to the sum of available commits, pushes, agents, and subagents; missing counts remain visible in day details.
+
 ## Data limits that must remain visible
 
 - GitHub push coverage is partial because GitHub does not expose unlimited historical push activity.
@@ -129,7 +131,7 @@ The November 16 website releases passed 133 workspace tests, type checking, and 
 ## Pending work
 
 - Enroll the Mac mini when it is ready. It has no live feed yet. Use [Mac mini enrollment](../WEBSITE-HANDOFF.md#mac-mini-enrollment) from that machine.
-- The native Windows tray still has Commit, Push, and Both modes. Use the [Windows heatmap handoff](windows-heatmap-handoff.md) when working on native Agents and Subagents parity.
+- The native Windows tray has All, Commit, Push, and Both modes; individual Agents and Subagents filters remain pending. Use the [Windows heatmap handoff](windows-heatmap-handoff.md) when working on native Agents and Subagents parity.
 
 ## Product guardrail
 

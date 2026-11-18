@@ -14,7 +14,7 @@ The macOS menu-bar app with my current data, captured October 20, 2026.
 
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
 - Shows Day, rolling Week, rolling Month, Year, and All summaries in a native macOS menu-bar popover or Windows tray flyout.
-- Includes a clickable 90-day heatmap. macOS has Commit, Push, Both, Agents, and Subagents modes and shows all four counts for the selected day. Windows currently has Commit, Push, and Both modes.
+- Includes a clickable 90-day heatmap. All is the default and sums observed commits, pushes, agents, and subagents. Both combines commits and pushes. macOS also has individual Commit, Push, Agents, and Subagents modes; Windows has Commit and Push. Both apps show all four selected-day counts, with unavailable values kept separate from zero.
 - Opens the public dashboard with **View on Website**. A searchable monthly Work History is also available in the local browser dashboard.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
 - Counts top-level Codex sessions and spawned subagents once per active local day. Range totals sum those daily counts, with historical backfill from retained records.
@@ -104,7 +104,7 @@ The path can be overridden with `GITHUB_IDENTITIES_PATH`. Restart the local serv
 
 ## Website
 
-The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date. The period chart and searchable project history follow the **Period** menu, which offers **All recorded** and individual months. Use **Sync status** in the header to see the latest GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
+The public dashboard combines GitHub history and observed Codex activity from the MacBook Pro and Windows PC. Shared commits and identified pushes count once. The 90-day heatmap ends on the latest published reporting date and defaults to All activity. Both shows commits plus pushes; individual metric buttons remain available. The period chart and searchable project history follow the **Period** menu, which offers **All recorded** and individual months. Use **Sync status** in the header to see the latest GitHub commit, GitHub push, and Codex reports for each machine. A report is marked stale at 35 minutes.
 
 The header squares switch between green, neon blue, and grey. The browser remembers your choice. The heatmap uses five tones from zero to highest activity, and hatching marks unavailable days.
 
