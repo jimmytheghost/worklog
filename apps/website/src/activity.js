@@ -1,3 +1,4 @@
+import { attachPlotScrollbar } from "./plot-scrollbar.js?v=1";
 import { resolveRange, selectRange } from "./date-ranges.js?v=1";
 import { mergeGitHubHistory } from "./github-history.js?v=1";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
@@ -519,6 +520,10 @@ async function showDashboard() {
     }
   } catch {
     // Invalid or outdated links fall back to all recorded history.
+  }
+  for (const [selector, label] of [[".heatmap .plot-scroll", "Activity heatmap"], [".activity .plot-scroll", "Activity over time"]]) {
+    const viewport = document.querySelector(selector);
+    if (viewport) attachPlotScrollbar(viewport, label);
   }
   const explorer = createMetricExplorer({
     months: monthsWithActivity, days: allDays, latestDate: through.today, metrics,

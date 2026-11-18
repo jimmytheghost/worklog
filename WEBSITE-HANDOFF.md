@@ -2,13 +2,15 @@
 
 The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. The default All filter sums available commits, pushes, agents, and subagents. Both combines commits and pushes; the four individual filters remain available. All labels partially observed totals as partial, and selected-day details keep unavailable counts distinct from zero. Select a date to see all four counts. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
+The local frontend adds persistent horizontal scroll controls to the heatmap and activity bar chart with square arrow buttons, a beveled proportional thumb, and a checkerboard track. The controls support dragging, arrow/page keys, Home/End, and ordinary chart scrolling. They stay visible when all dates fit, with scrolling disabled. Native overlay scrollbars are hidden only after the custom controls initialize. Desktop and 320-pixel browser checks verified dragging, keyboard/button scrolling, chart metric/range changes, and the disabled state when dates fit. Publication is pending.
+
 The header squares switch between green, neon blue, and grey. Green is the default, and the browser remembers the selected palette when storage is available. Each palette has a zero tone and four activity tones scaled to the highest observed day for the selected metric.
 
 Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `date-ranges.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `plot-scrollbar.js`, `date-ranges.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
