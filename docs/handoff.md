@@ -77,6 +77,7 @@ The service listens on `http://127.0.0.1:4317`. The development dashboard listen
 - The package script embeds the repository path in the app bundle. Repackage if the repository moves.
 - The packaged app starts the service if it is not healthy and reuses an existing healthy instance.
 - Windows package: `apps/windows/dist/Worklog.exe` (ignored build artifact), with checkout/Node/native Codex paths recorded in `checkout.json`.
+- Windows Git metadata: `%LOCALAPPDATA%\Worklog\git`, outside Dropbox. The source checkout's `.git` pointer is Dropbox-ignored; retained worktrees were repaired. [Storage layout, migration checks, and recovery](git-storage.md).
 - Windows cache: `%LOCALAPPDATA%\Worklog\snapshot.json`, containing decoded display fields only. Saved-data mode does not reuse stale totals from a different selected range.
 - Windows polls snapshots on open and every 30 seconds, or every two seconds during collection. Both native clients leave the service running when quit.
 

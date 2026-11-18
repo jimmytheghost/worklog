@@ -47,6 +47,8 @@ Start with Windows launches the tray and its local collector at sign-in. The sep
 
 ## Updating
 
+The existing Windows Dropbox checkout uses `%LOCALAPPDATA%\Worklog\git` for Git metadata. Its `.git` file is a local Dropbox-ignored pointer, and both retained worktrees use the same local metadata. Keep that directory and the retained runtime checkout available. [Git storage, verification, and recovery](../../docs/git-storage.md) records the layout and backup. Moving Git metadata alone does not change the package's checkout path or require an app/service restart.
+
 Quit Worklog from its tray menu before replacing the executable. Pull the latest source, run `pnpm install --frozen-lockfile` and `pnpm build`, repeat the packaging command, then launch `apps/windows/dist/Worklog.exe`. If service code changed, stop the existing Worklog Node process after verifying its command line points to this checkout's `apps/service/dist/server.js`; the next app launch starts the new service. The Windows launcher does not write the macOS launcher's `service.pid` file. Reuse the same output directory when Start with Windows is enabled, or enable it again from the new executable's Settings.
 
 ## Validation

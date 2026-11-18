@@ -27,6 +27,8 @@ Week includes today and the previous six local calendar days. Month includes tod
 
 This is a source-only project. There is no downloadable app release.
 
+Clone into a local directory outside cloud synchronization. The existing Windows Dropbox checkout keeps its Git metadata outside Dropbox; see [Git storage and recovery](docs/git-storage.md) before moving its checkout or metadata.
+
 ### Windows
 
 Requires 64-bit Windows 10/11, the .NET 9 SDK (including the Desktop Runtime), Node.js 24+, pnpm 11, and GitHub CLI. Authenticate with `gh auth login`; sign in with `codex login` for Codex account usage. Local session collection needs an existing Codex state index.
