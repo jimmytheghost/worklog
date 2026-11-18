@@ -305,10 +305,10 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .plot-scroll[data-custom-scrollbar] { scrollbar-width: none; }
 .plot-scroll[data-custom-scrollbar]::-webkit-scrollbar { display: none; }
 .plot-scrollbar { display: flex; align-items: center; gap: 3px; flex: none; margin: 7px 0 12px; padding: 3px; border: 1px solid var(--edge); background: var(--inset); }
-.plot-scrollbar button { display: grid; place-items: center; flex: none; width: 26px; height: 26px; padding: 0; border: 1px solid var(--canvas); border-radius: 0; background: var(--muted); color: var(--canvas); box-shadow: inset 1px 1px var(--text), inset -1px -1px var(--edge); font: 11px/1 var(--mono); }
-.plot-scrollbar button:hover:not(:disabled) { background: var(--accent); }
+.plot-scrollbar button { display: grid; place-items: center; flex: none; width: 26px; height: 26px; padding: 0; border: 1px solid var(--edge); border-radius: 0; background: var(--canvas); color: var(--accent); box-shadow: inset 1px 1px var(--line), inset -1px -1px var(--canvas); font: 11px/1 var(--mono); }
+.plot-scrollbar button:hover:not(:disabled) { border-color: var(--accent); }
 .plot-scrollbar button:active:not(:disabled) { box-shadow: inset 1px 1px var(--edge); }
-.plot-scrollbar button:disabled { color: var(--edge); cursor: default; }
+.plot-scrollbar button:disabled { opacity: .35; cursor: default; }
 .plot-scrollbar input { appearance: none; flex: 1; width: 0; min-width: 0; max-width: none; min-height: 26px; height: 26px; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: 0; background: var(--inset); cursor: ew-resize; }
 .plot-scrollbar input::-webkit-slider-runnable-track { height: 24px; background: repeating-conic-gradient(var(--line) 0% 25%, var(--inset) 0% 50%) 0 0 / 4px 4px; }
 .plot-scrollbar input::-moz-range-track { height: 24px; background: repeating-conic-gradient(var(--line) 0% 25%, var(--inset) 0% 50%) 0 0 / 4px 4px; }

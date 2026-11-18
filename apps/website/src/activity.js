@@ -521,10 +521,8 @@ async function showDashboard() {
   } catch {
     // Invalid or outdated links fall back to all recorded history.
   }
-  for (const [selector, label] of [[".heatmap .plot-scroll", "Activity heatmap"], [".activity .plot-scroll", "Activity over time"]]) {
-    const viewport = document.querySelector(selector);
-    if (viewport) attachPlotScrollbar(viewport, label);
-  }
+  const chartViewport = document.querySelector(".activity .plot-scroll");
+  if (chartViewport) attachPlotScrollbar(chartViewport, "Activity over time");
   const explorer = createMetricExplorer({
     months: monthsWithActivity, days: allDays, latestDate: through.today, metrics,
     charts: document.querySelector(".charts"),
