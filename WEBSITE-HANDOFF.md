@@ -8,7 +8,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `heatmap-metrics.js`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 
@@ -17,6 +17,16 @@ Use the site's existing explicit-file release workflow and retain the production
 For a local preview, copy the supported build files to a `worklog/` subdirectory in a temporary preview root. Put a schema-version-1 `activity.json` fixture next to `index.html`, with an optional `codex-devices.json` fixture for additional devices. Run `python -m http.server 4177 --bind 127.0.0.1 --directory PREVIEW_ROOT` and open `http://127.0.0.1:4177/worklog/`. Keep preview fixtures outside the static release file list.
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
+
+## Metric explorer — local build, pending publication
+
+Each activity total opens an animated line-chart explorer in place of the heatmap and bar chart. Collapse or Escape restores the mounted overview and returns focus to the selected metric. The explorer follows the selected summary month when that period changes; otherwise it starts with all recorded history grouped by month.
+
+Controls include 1/3/6/12-calendar-month presets, all history, custom dates, daily/weekly/monthly grouping, chart/table views, area fill, points, and aggregate CSV download. Presets include the latest recorded month through its latest published day. Hover/touch, click-to-pin, arrow keys, and previous/next buttons inspect intervals. Range stats show observed total, average per observed interval, peak, and coverage. Project totals count distinct repositories across the range. Missing intervals remain gaps, observed zero stays zero, and intervals mixing known and unavailable days are partial. Push and Codex observations retain the existing feed coverage limits and Sync status.
+
+Tokens remain monthly only; custom ranges expand to whole published months, with the current month ending at the latest report. The explorer consumes the existing public feeds and adds no collector, storage, or account-limit data. CSV contains only dates, the selected aggregate, and its coverage label.
+
+Validated locally with the published feed snapshot: all six totals matched, chart/table and export worked, empty/reversed custom dates remained recoverable, period changes and collapse preserved the overview, and keyboard/touch inspection worked. Responsive checks covered 320, 390, and 1440 px and the three existing palettes. Model tests cover missing/zero/partial values, distinct projects, Monday-based weeks, and monthly tokens. This feature has not been deployed; include all three new assets in a future explicit-file website release.
 
 ## Current publishers
 

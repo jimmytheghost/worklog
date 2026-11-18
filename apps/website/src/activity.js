@@ -1,6 +1,8 @@
 import { mergeGitHubHistory } from "./github-history.js?v=1";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
+import { createMetricExplorer } from "./metric-explorer.js?v=1";
+
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
 const updated = document.querySelector("#updated");
@@ -333,19 +335,30 @@ function renderChart(series) {
 
 function renderMetrics(totals, months, projects) {
   const metricsData = [
-    ["Projects", projects.length],
-    ["Commits", totals.commits],
-    ["Pushes", totals.pushes],
-    ["Observed tokens", sumObserved(months.map((month) => month.tokens))],
-    ["Agents", totals.agents],
-    ["Subagents", totals.subagents],
+    ["Projects", projects.length, "projects"],
+    ["Commits", totals.commits, "commits"],
+    ["Pushes", totals.pushes, "pushes"],
+    ["Observed tokens", sumObserved(months.map((month) => month.tokens)), "tokens"],
+    ["Agents", totals.agents, "agents"],
+    ["Subagents", totals.subagents, "subagents"],
   ];
-  metrics.replaceChildren(...metricsData.map(([label, value]) => {
+  metrics.replaceChildren(...metricsData.map(([label, value, key]) => {
     const group = element("div");
     const amount = element("dd", value !== null && value >= 100_000 ? compact.format(value) : valueLabel(value));
     amount.title = value === null ? "Data unavailable" : valueLabel(value);
     amount.toggleAttribute("data-unavailable", value === null);
-    group.append(element("dt", label), amount);
+    const title = element("dt");
+    const button = element("button", label, "metric-launch");
+    button.type = "button";
+    button.dataset.explorerMetric = key;
+    button.setAttribute("aria-controls", "metric-explorer");
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-label", `Explore ${label.toLowerCase()} over time`);
+    const arrow = element("span", "↗");
+    arrow.setAttribute("aria-hidden", "true");
+    button.append(arrow);
+    title.append(button);
+    group.append(title, amount);
     return group;
   }));
 }
@@ -491,6 +504,13 @@ async function showDashboard() {
     tick: monthLabel(month).slice(0, 3),
   }));
 
+  const explorer = createMetricExplorer({
+    months: monthsWithActivity,
+    days: [...byMonth.values()].flatMap(({ days }) => days),
+    latestDate: through.today,
+    metrics,
+    charts: document.querySelector(".charts"),
+  });
   let projects = [];
   let series = [];
   function renderPeriod() {
@@ -501,6 +521,7 @@ async function showDashboard() {
       chartPeriod.textContent = period.value === "all" ? "Monthly totals · All recorded" : `Daily totals · ${monthLabel(period.value)}`;
     }
     renderMetrics(totalsForSeries(series), months, projects);
+    explorer.refresh(period.value);
     renderChart(series);
     renderProjects(projects);
   }
