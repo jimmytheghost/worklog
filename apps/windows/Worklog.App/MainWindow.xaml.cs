@@ -226,10 +226,10 @@ public partial class MainWindow : Window, IDisposable
         ContentPanel.Children.Add(Text("Worklog for Windows", 14));
         ContentPanel.Children.Add(Text("A local work ledger. Shared as-is.\n\nOne local service at 127.0.0.1:4317. Quitting the tray leaves the service running.\n\nGitHub: gh auth login\nCodex: codex login\n\nReporting timezone: " + (snapshot?.Timezone ?? "America/Denver") + "\nSet SERVICE_TIMEZONE before starting the service to change it.\n\nSnapshots: " + LocalService.DataDirectory + "\nLedger: ~/.agent-dashboard\n\nLocal metadata only. No telemetry.", 11, "Muted"));
     }
-    public static void OpenHistory() => Process.Start(new ProcessStartInfo("http://127.0.0.1:4317/?view=history") { UseShellExecute = true });
+    public static void OpenWebsite() => Process.Start(new ProcessStartInfo("https://jimmyweber.com/worklog") { UseShellExecute = true });
     private void Settings_Click(object sender, RoutedEventArgs e) { settings = !settings; Render(); }
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync(true);
-    private void History_Click(object sender, RoutedEventArgs e) => OpenHistory();
+    private void Website_Click(object sender, RoutedEventArgs e) => OpenWebsite();
     private void Quit_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
     public void Dispose() { timer.Stop(); }
 }

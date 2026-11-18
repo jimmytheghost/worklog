@@ -71,13 +71,6 @@ final class SnapshotStore: ObservableObject {
         Task { await fetchPeriodSummary() }
     }
 
-    var workHistoryURL: URL {
-        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/"
-        components.queryItems = [URLQueryItem(name: "view", value: "history")]
-        return components.url!
-    }
-
     func load() async {
         guard !requestInFlight else { return }
         await fetchSnapshot(showLoading: snapshot == nil)

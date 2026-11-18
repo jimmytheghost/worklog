@@ -12,6 +12,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 - Native macOS menu-bar popover with cached-first loading and no Dock icon.
 - Native Windows tray flyout with Tipoff-inspired charcoal/mint styling, one tray instance per session, snapshot caching, and optional Start with Windows (off by default).
+- Both native apps offer **View on Website** at the bottom, opening [the public dashboard](https://jimmyweber.com/worklog). The Windows tray context menu offers the same action.
 - Windows account facts use compact inline pairs in two columns. Five range metrics share one row, with agent and subagent totals below. Settings explains local tokens and partial coverage. Source status and freshness stay in the overview.
 - Day, Week, Month, Year, and All summaries. Week is today plus the previous six local calendar days; Month is today plus the previous 29.
 - macOS has five heatmap modes for the trailing 90 days. Select a date to see commits, pushes, agents, and subagents separately.

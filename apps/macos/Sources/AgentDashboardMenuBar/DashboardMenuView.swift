@@ -299,9 +299,7 @@ struct DashboardMenuView: View {
             }
             .disabled(store.state == .refreshing)
 
-            Button("Open Work History") {
-                NSWorkspace.shared.open(store.workHistoryURL)
-            }
+            Link("View on Website", destination: URL(string: "https://jimmyweber.com/worklog")!)
 
             Spacer()
 

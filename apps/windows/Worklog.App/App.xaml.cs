@@ -25,7 +25,7 @@ public partial class App : System.Windows.Application
         tray = new Forms.NotifyIcon { Icon = icon, Text = "Worklog", Visible = true, ContextMenuStrip = new Forms.ContextMenuStrip() };
         tray.ContextMenuStrip.Items.Add("Open Worklog", null, (_, _) => Open());
         tray.ContextMenuStrip.Items.Add("Refresh", null, async (_, _) => await flyout.RefreshAsync(true));
-        tray.ContextMenuStrip.Items.Add("Work History", null, (_, _) => Worklog.App.MainWindow.OpenHistory());
+        tray.ContextMenuStrip.Items.Add("View on Website", null, (_, _) => Worklog.App.MainWindow.OpenWebsite());
         tray.ContextMenuStrip.Items.Add("Settings", null, (_, _) => { Open(); flyout.ShowSettings(); });
         tray.ContextMenuStrip.Items.Add(new Forms.ToolStripSeparator());
         tray.ContextMenuStrip.Items.Add("Quit Worklog", null, (_, _) => Shutdown());

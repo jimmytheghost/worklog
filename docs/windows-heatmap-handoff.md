@@ -6,7 +6,7 @@ Status on 2026-11-16 · Native Windows parity is pending. The Windows PC already
 
 Add **Agents** and **Subagents** to the existing Windows tray heatmap. Keep **Commit**, **Push**, and **Both** and the 360-unit WPF flyout. Selecting a day should show separate counts for commits, pushes, agents, and subagents, matching the Mac app. [Public heatmap reference](https://www.jimmyweber.com/worklog/)
 
-Windows already displays agent and subagent totals for the selected range. Its **Open Work History** action opens the shared local browser archive, which already provides GitHub links on commit rows when a URL is available. Verify that flow on Windows alongside the heatmap work.
+Windows already displays agent and subagent totals for the selected range. Its **View on Website** action opens [the public Worklog dashboard](https://jimmyweber.com/worklog). The shared local browser archive remains available at `http://127.0.0.1:4317/?view=history` and provides GitHub links on commit rows when a URL is available.
 
 ## Data and implementation
 
@@ -37,7 +37,7 @@ Windows already displays agent and subagent totals for the selected range. Its *
    Start-Process apps/windows/dist/Worklog.exe -ArgumentList '--inspect'
    ```
 
-4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the Work History action and follow a GitHub commit link from the archive.
+4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the View on Website action. Open the local browser archive separately and follow a GitHub commit link.
 5. Update the Windows README and the [main handoff](handoff.md) once the feature works in the packaged app. Record the actual validation and push the task commit.
 
 On November 16 the current Windows package was rebuilt and its local service and website publishing were verified. Interactive validation of the future Windows heatmap modes remains part of the parity task.

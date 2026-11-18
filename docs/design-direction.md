@@ -18,7 +18,7 @@ This is the primary daily surface. On macOS the current composition is header, h
 4. Day/Week/Month/Year/All buttons, followed by local tokens, commits, pushes, active days, and projects in one row. Agent and subagent range totals appear below.
 5. A trailing 90-day grayscale heatmap, Commit/Push/Both controls, and selected-day counts.
 6. Recent work and source status, freshness, and coverage.
-7. Refresh, Open Work History, and quit controls, outside the scrolling content.
+7. Refresh, View on Website, and quit controls, outside the scrolling content. View on Website opens https://jimmyweber.com/worklog.
 
 The popover should remain roughly task-bar sized. A vertical scroll area is acceptable when content exceeds the screen, but sections should not expand merely because more data exists.
 

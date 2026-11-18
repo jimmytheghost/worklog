@@ -15,7 +15,7 @@ The macOS menu-bar app with my current data, captured October 20, 2026.
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
 - Shows Day, rolling Week, rolling Month, Year, and All summaries in a native macOS menu-bar popover or Windows tray flyout.
 - Includes a clickable 90-day heatmap. macOS has Commit, Push, Both, Agents, and Subagents modes and shows all four counts for the selected day. Windows currently has Commit, Push, and Both modes.
-- Opens a searchable monthly Work History in your browser.
+- Opens the public dashboard with **View on Website**. A searchable monthly Work History is also available in the local browser dashboard.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
 - Counts top-level Codex sessions and spawned subagents once per active local day. Range totals sum those daily counts, with historical backfill from retained records.
 - Shows the signed-in Codex account's available rate-limit windows, reset countdowns, usage facts, credits, and banked resets.
@@ -42,7 +42,7 @@ powershell -ExecutionPolicy Bypass -File apps/windows/scripts/package-app.ps1
 Start-Process apps/windows/dist/Worklog.exe
 ```
 
-The native WPF app lives in the notification area. Left-click its icon to toggle the 360-unit flyout or right-click for Open, Refresh, Work History, Settings, and Quit. Account facts use compact pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Selected range and heatmap buttons use dark text on mint. The gear opens startup settings and explains local token counters and partial push and agent coverage. Start with Windows is off by default. [Tipoff](https://github.com/jimmytheghost/tipoff) inspired the styling.
+The native WPF app lives in the notification area. Left-click its icon to toggle the 360-unit flyout or right-click for Open, Refresh, View on Website, Settings, and Quit. View on Website opens [the public Worklog dashboard](https://jimmyweber.com/worklog). Account facts use compact pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Selected range and heatmap buttons use dark text on mint. The gear opens startup settings and explains local token counters and partial push and agent coverage. Start with Windows is off by default. [Tipoff](https://github.com/jimmytheghost/tipoff) inspired the styling.
 
 Packaging records the checkout and Node paths. Keep both available and repackage if they move. This is an unsigned source build with no standalone installer or automatic updater. To update, quit the tray app, pull changes, repeat the install/build/package commands, and relaunch. Quitting the tray leaves the shared service running; see [Windows build, service restart, cache, and validation notes](apps/windows/README.md) before updating service code.
 

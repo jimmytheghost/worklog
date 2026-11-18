@@ -22,14 +22,14 @@ The npm Codex launcher on Windows is a command shim; packaging resolves its nati
 
 ## Tray behavior
 
-- The first launch opens the flyout. Left-click the tray icon to toggle it; right-click for Open, Refresh, Work History, Settings, or Quit. Check the hidden-icons arrow if needed.
+- The first launch opens the flyout. Left-click the tray icon to toggle it; right-click for Open, Refresh, View on Website, Settings, or Quit. Check the hidden-icons arrow if needed.
 - The flyout closes on focus loss or Escape. `Worklog.exe --inspect` keeps it open for inspection.
 - Day, Week, Month, Year, and All use the existing service summaries. Week is today plus six previous local dates; Month is today plus 29. Year is the calendar year. Reporting defaults to America/Denver; the service inherits `SERVICE_TIMEZONE` when started.
 - The account card keeps remaining-use gauges and reset countdowns above six compact facts: lifetime tokens, peak day, current streak, best streak, banked resets, and credits. Facts use small inline label/value pairs in two columns. Long values are trimmed with their full value available in a tooltip.
 - Local tokens, commits, pushes, active days, and projects fit in one row. Agent and subagent range totals appear below. Selected range and heatmap-mode buttons use dark text on mint.
 - The heatmap shows up to the last 90 reported days in Commit, Push, and Both modes. Click a day for separate commit and push counts. Keyboard focus and accessible labels are provided for each cell.
 - Codex account limits and reset times appear separately from local session token counters. Unknown values display an em dash. Source status, freshness, and coverage remain visible; push history is partial.
-- Work History opens the local searchable monthly browser archive, with GitHub links on commit rows that have a URL. It requires the service.
+- View on Website opens [the public Worklog dashboard](https://jimmyweber.com/worklog) in your default browser. The local searchable monthly archive remains available at `http://127.0.0.1:4317/?view=history` while the service is running.
 - Settings explains local token counters and partial push and agent history. Source status, freshness, and coverage stay in the overview.
 - Settings also offers Start with Windows, off by default. It registers this executable for the current user. Keep it at a stable path. Windows Startup Apps can separately disable it; there is no installer or automatic updater.
 - Only one tray instance runs per Windows session. It reuses the healthy Worklog service on port 4317 or starts the built service without a console window. The UI polls every 30 seconds and on open, or every two seconds while collectors are running; collectors keep their existing 15-minute GitHub and five-minute Codex schedules. Refresh requests all collectors; results arrive on subsequent polls.
@@ -60,7 +60,7 @@ dotnet build apps/windows/Worklog.App --configfile apps/windows/NuGet.Config
 git diff --check
 ```
 
-Native macOS checks still require macOS and Swift. For Windows UI review, package and launch with `--inspect`, then check tray toggle, focus dismissal, range changes, heatmap selection, history, startup settings, and saved-data behavior with the service stopped.
+Native macOS checks still require macOS and Swift. For Windows UI review, package and launch with `--inspect`, then check tray toggle, focus dismissal, range changes, heatmap selection, View on Website, startup settings, and saved-data behavior with the service stopped.
 
 ## Next implementation
 

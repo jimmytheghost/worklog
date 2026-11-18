@@ -2,7 +2,7 @@
 
 A minimal native macOS 14+ app for the local Worklog service. It displays cached data immediately, refreshes from `http://127.0.0.1:4317`, and has no Dock icon when packaged. The packaged app quietly starts the one production service when needed.
 
-The popover includes Day, rolling seven-day Week, rolling 30-day Month, Year, and All summaries and a clickable trailing 90-day grayscale heatmap with Commit, Push, Both, Agents, and Subagents modes. Select a day to see all four counts. Unavailable values appear as dashes. The popover also includes recent work, refresh, Work History, and quit controls. Week and Month both include today as their last day.
+The popover includes Day, rolling seven-day Week, rolling 30-day Month, Year, and All summaries and a clickable trailing 90-day grayscale heatmap with Commit, Push, Both, Agents, and Subagents modes. Select a day to see all four counts. Unavailable values appear as dashes. The popover also includes recent work, refresh, View on Website, and quit controls. View on Website opens [the public Worklog dashboard](https://jimmyweber.com/worklog) in your browser. Week and Month both include today as their last day.
 
 Heatmap dates follow the local service's reporting timezone and stay fixed when you change the summary range. Each top-level Codex session or spawned subagent counts once per active date. Earlier days depend on retained local records. The selected-day detail shows a dash for an unavailable count and zero for an observed day with no qualifying activity.
 

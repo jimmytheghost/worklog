@@ -13,7 +13,7 @@
       </StackPanel>
       <Grid DockPanel.Dock="Bottom" Margin="12"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
         <Button x:Name="RefreshButton" Content="↻  Refresh" Click="Refresh_Click" FontSize="11"/>
-        <Button Grid.Column="1" Content="Open Work History ↗" Background="Transparent" Foreground="{DynamicResource Mint}" Click="History_Click" FontSize="11"/>
+        <Button Grid.Column="1" Content="View on Website ↗" Background="Transparent" Foreground="{DynamicResource Mint}" Click="Website_Click" FontSize="11"/>
         <Button Grid.Column="2" Content="⏻" Background="Transparent" ToolTip="Quit Worklog" AutomationProperties.Name="Quit Worklog" Click="Quit_Click"/>
       </Grid>
       <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="630">
