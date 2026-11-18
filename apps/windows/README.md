@@ -94,6 +94,14 @@ All 152 workspace tests, type checking, the production build, Windows model chec
 
 The offline checks used the isolated production-view harness. The installed package was checked against the live service at each scale. The live ledger, cache, service process, startup registration, and publisher remained in use. The test harness and fixture server were closed, and the final Worklog package was returned to normal tray mode.
 
+## Rolling 24-hour publisher update on November 17, 2026
+
+The retained Windows runtime checkout was advanced to `fc347c3`. All 158 workspace tests, type checking, the production build, and the native SQLite binding check passed. The verified old service was stopped once; the existing tray started its replacement from the retained checkout. One service remained bound to loopback, the ledger passed SQLite's quick check with no lost event rows, and the native executable, package checkout pointer, startup registration, and outside-Dropbox Git storage were preserved.
+
+The scheduled `Worklog Website Publisher (windows-pc)` now runs `apps/website/publish-activity.py` from `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`, with that checkout as its working directory. Its Python executable, SSH alias, destination, device slug, triggers, principal, and settings were preserved. A triggered run returned `0`; the live Windows device feed retained all four rolling 24-hour observations and `occurredAt` on every published Git event. Each observation spans exactly 24 hours, ending at a quarter-hour boundary; the four end times are 15 minutes apart. The Mac and Windows feeds shared all four exact start/end pairs during verification. Codex collection retained its partial coverage status.
+
+Update and build this retained checkout before restarting the installed service; changing only the Dropbox source does not update the package's service build or scheduled publisher. Private baseline, ledger backup, and validation records are retained under `%LOCALAPPDATA%\WorklogPreviews\windows-today-runtime-20261117\evidence`, outside Git and Dropbox. Static website publication is tracked separately in the [website handoff](../../WEBSITE-HANDOFF.md).
+
 ## Next implementation
 
 The Windows daily heatmap still needs Agents and Subagents modes. The [Windows heatmap handoff](../../docs/windows-heatmap-handoff.md) describes the existing service data, cache compatibility, and Windows verification.
