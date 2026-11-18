@@ -54,3 +54,9 @@ Keep the active Git directory and the source working files when recovering a mis
 Before fetching newer commits, the move preserved every ref, stash entry, reflog, worktree status, and changed/untracked file hash. All original metadata files were archived; only the expected source-path configuration and repaired Git pointers changed in the active copy. `git fsck --full` passed with the same pre-existing dangling objects and no missing or corrupt objects. Fetching from GitHub and fast-forwarding the main checkout also succeeded.
 
 The same single tray process and single service process stayed running. Health, snapshot, and Day-summary requests succeeded. The packaged executable, `checkout.json`, startup registration, and publisher task definition stayed unchanged; the publisher's last result was `0`. The retained runtime worktree and its built service remain available at their existing paths. No app or service code changed.
+
+## Mac release checkout, November 17, 2026
+
+A Mac linked worktree whose common Git directory remained in Dropbox encountered an unreadable Git object during the Today release. Working source files were preserved, and the release was validated, committed, and pushed from a fresh independent clone at `/tmp/worklog-today-release-source`. This temporary path is the current release checkout, not a durable runtime dependency. The Mac service keeps its existing runtime path and one ledger.
+
+The shared Mac Git metadata was not repaired by the website deployment. Use an independent clone outside Dropbox for subsequent work until that metadata is backed up and deliberately migrated or repaired. Do not copy the Windows Git directory or its machine-specific pointer to the Mac. All released source and documentation are on GitHub `main`.

@@ -1,6 +1,6 @@
 # Worklog Handoff
 
-Checkpoint 2026-11-17 · Website release `worklog-evening-20261117-01`
+Checkpoint 2026-11-17 · Website release `worklog-today-20261117-01`
 
 ## Start here
 
@@ -21,7 +21,7 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
 - Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
-- Static public dashboard with date presets/custom ranges, a curved metric explorer with chart/table views and CSV export, persistent activity-chart scrolling, activity totals, a 90-day heatmap with All (the default), Both, and four individual metrics, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
+- Static public dashboard with Today (an exact shared 24-hour reporting window), date presets/custom ranges, a curved metric explorer with chart/table views and CSV export, persistent activity-chart scrolling, activity totals, a 90-day heatmap with All (the default), Both, and four individual metrics, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
 - Official signed-in Codex account limits, reset times, lifetime usage facts, credits, and banked-reset collection.
