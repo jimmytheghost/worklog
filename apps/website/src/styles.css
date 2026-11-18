@@ -312,11 +312,11 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .plot-scrollbar input { appearance: none; flex: 1; width: 0; min-width: 0; max-width: none; min-height: 26px; height: 26px; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: 0; background: var(--inset); cursor: ew-resize; }
 .plot-scrollbar input::-webkit-slider-runnable-track { height: 24px; background: repeating-conic-gradient(var(--line) 0% 25%, var(--inset) 0% 50%) 0 0 / 4px 4px; }
 .plot-scrollbar input::-moz-range-track { height: 24px; background: repeating-conic-gradient(var(--line) 0% 25%, var(--inset) 0% 50%) 0 0 / 4px 4px; }
-.plot-scrollbar input::-webkit-slider-thumb { appearance: none; width: var(--scroll-thumb-width, 28px); height: 22px; margin-top: 1px; border: 1px solid var(--canvas); border-radius: 0; background: repeating-linear-gradient(90deg, var(--edge) 0 1px, transparent 1px 3px) center / 9px 10px no-repeat, var(--muted); box-shadow: inset 1px 1px var(--text), inset -1px -1px var(--edge); }
-.plot-scrollbar input::-moz-range-thumb { width: var(--scroll-thumb-width, 28px); height: 22px; box-sizing: border-box; border: 1px solid var(--canvas); border-radius: 0; background: repeating-linear-gradient(90deg, var(--edge) 0 1px, transparent 1px 3px) center / 9px 10px no-repeat, var(--muted); box-shadow: inset 1px 1px var(--text), inset -1px -1px var(--edge); }
+.plot-scrollbar input::-webkit-slider-thumb { appearance: none; width: var(--scroll-thumb-width, 28px); height: 22px; margin-top: 1px; border: 1px solid var(--edge); border-radius: 0; background: repeating-linear-gradient(90deg, var(--accent) 0 1px, transparent 1px 3px) center / 9px 10px no-repeat, var(--canvas); box-shadow: inset 1px 1px var(--line), inset -1px -1px var(--canvas); }
+.plot-scrollbar input::-moz-range-thumb { width: var(--scroll-thumb-width, 28px); height: 22px; box-sizing: border-box; border: 1px solid var(--edge); border-radius: 0; background: repeating-linear-gradient(90deg, var(--accent) 0 1px, transparent 1px 3px) center / 9px 10px no-repeat, var(--canvas); box-shadow: inset 1px 1px var(--line), inset -1px -1px var(--canvas); }
 .plot-scrollbar input:disabled { cursor: default; }
-.plot-scrollbar input:disabled::-webkit-slider-thumb { background: var(--line); box-shadow: none; }
-.plot-scrollbar input:disabled::-moz-range-thumb { background: var(--line); box-shadow: none; }
+.plot-scrollbar input:disabled::-webkit-slider-thumb { background: var(--canvas); box-shadow: none; }
+.plot-scrollbar input:disabled::-moz-range-thumb { background: var(--canvas); box-shadow: none; }
 @media (forced-colors: active) {
   .plot-scrollbar button, .plot-scrollbar input { border-color: ButtonText; }
   .plot-scrollbar input::-webkit-slider-thumb { background: ButtonText; border-color: ButtonText; }
