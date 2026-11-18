@@ -1,5 +1,11 @@
 const commitSha = /\/commit\/([0-9a-f]{40,64})$/i;
 
+const hasInstant = (row) => typeof row?.occurredAt === "string"
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(row.occurredAt)
+  && Number.isFinite(Date.parse(row.occurredAt))
+  && new Date(row.occurredAt).toISOString().slice(0, 19) === row.occurredAt.slice(0, 19);
+const preferTimestamp = (previous, row) => previous && (hasInstant(previous) || !hasInstant(row)) ? previous : row;
+
 export function mergeGitHubHistory(sources) {
   const names = new Map();
   const keysByName = new Map();
@@ -25,7 +31,7 @@ export function mergeGitHubHistory(sources) {
         for (const row of project.activity) {
           const sha = row.kind === "commit" && commitSha.exec(row.url ?? "")?.[1].toLowerCase();
           if (sha) {
-            if (!repo.commits.has(sha)) repo.commits.set(sha, row);
+            repo.commits.set(sha, preferTimestamp(repo.commits.get(sha), row));
             continue;
           }
           const bucket = `${row.date}:${row.kind}`;
@@ -36,14 +42,15 @@ export function mergeGitHubHistory(sources) {
           }
           const day = repo.days.get(bucket) ?? { identified: new Map(), largest: [] };
           repo.days.set(bucket, day);
-          if (row.key && !day.identified.has(row.key)) day.identified.set(row.key, row);
+          if (row.key) day.identified.set(row.key, preferTimestamp(day.identified.get(row.key), row));
           const rows = counts.get(bucket) ?? [];
           rows.push(row);
           counts.set(bucket, rows);
         }
         for (const [bucket, rows] of counts) {
           const day = repo.days.get(bucket);
-          if (rows.length > day.largest.length) day.largest = rows;
+          if (rows.length > day.largest.length || rows.length === day.largest.length
+            && rows.filter(hasInstant).length > day.largest.filter(hasInstant).length) day.largest = rows;
         }
       }
     }

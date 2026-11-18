@@ -24,3 +24,23 @@ test("retains the largest legacy daily push count without adding overlapping obs
   const device = { name: "Owner/Repo", key: "repo", activity: [push("1"), push("2")] };
   assert.equal(mergeGitHubHistory([feed(legacy), feed(device)]).get(month)[0].pushes, 3);
 });
+
+test("retains exact timestamps from a later duplicate without increasing Git totals", () => {
+  const time = "2026-11-17T05:30:00.000Z";
+  const old = { name: "owner/repo", key: "repo", activity: [commit("owner/repo", "a"), push("1")] };
+  const current = { name: "owner/repo", key: "repo", activity: [
+    { ...commit("owner/repo", "a"), occurredAt: time }, { ...push("1"), occurredAt: time },
+  ] };
+  for (const sources of [[feed(old), feed(current)], [feed(current), feed(old)]]) {
+    const merged = mergeGitHubHistory(sources).get(month)[0];
+    assert.equal(merged.commits, 1);
+    assert.equal(merged.pushes, 1);
+    assert(merged.activity.every(({ occurredAt }) => occurredAt === time));
+  }
+});
+
+test("malformed duplicate timestamps cannot hide a trustworthy observation", () => {
+  const malformed = { name: "owner/repo", activity: [{ ...commit("owner/repo", "a"), occurredAt: "2026-02-30T12:00:00.000Z" }] };
+  const exact = { name: "owner/repo", activity: [{ ...commit("owner/repo", "a"), occurredAt: "2026-11-16T12:00:00.000Z" }] };
+  assert.equal(mergeGitHubHistory([feed(malformed), feed(exact)]).get(month)[0].activity[0].occurredAt, "2026-11-16T12:00:00.000Z");
+});
