@@ -79,7 +79,7 @@ describe("monthly work history", () => {
       commits: 1,
       pushes: 0,
       activity: [{
-        date: "2026-08-01", kind: "commit", subject: "Build the dashboard",
+        date: "2026-08-01", occurredAt: "2026-08-02T02:00:00.000Z", kind: "commit", subject: "Build the dashboard",
         url: `https://github.com/jimmy/alpha/commit/${"1".padStart(40, "a")}`,
       }],
     }]);

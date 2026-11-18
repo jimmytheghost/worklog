@@ -67,6 +67,12 @@ with lock_path.open("a") as lock:
     if previous and entry["generatedAt"] <= previous.get("generatedAt", ""):
         sys.exit(0)
     feed["devices"][device] = {key: entry[key] for key in ("generatedAt", "syncedAt", "agentsFrom", "months", "git")}
+    if "rolling24Hours" in entry:
+        feed["devices"][device]["rolling24Hours"] = [
+            {**{key: window[key] for key in ("start", "end", "tokens", "tokensKnowledge", "agents", "subagents")},
+             "agentDays": [{key: day[key] for key in ("localDate", "agents", "subagents")} for day in window["agentDays"]]}
+            for window in entry["rolling24Hours"]
+        ]
     with tempfile.NamedTemporaryFile(dir=directory, prefix=".activity-", delete=False) as temporary:
         try:
             temporary.write(json.dumps(feed, separators=(",", ":")).encode("utf-8"))
@@ -119,7 +125,7 @@ def add_github_keys(snapshot):
 
 def device_activity(snapshot):
     coverage = snapshot["coverage"]
-    return {
+    entry = {
         "timeZone": snapshot["timeZone"],
         "generatedAt": snapshot["generatedAt"],
         "syncedAt": coverage.get("agentsAt"),
@@ -141,6 +147,14 @@ def device_activity(snapshot):
             for month in snapshot["months"]
         ],
     }
+
+    if "rolling24Hours" in snapshot:
+        entry["rolling24Hours"] = [
+            {**{key: window[key] for key in ("start", "end", "tokens", "tokensKnowledge", "agents", "subagents")},
+             "agentDays": [{key: day[key] for key in ("localDate", "agents", "subagents")} for day in window["agentDays"]]}
+            for window in snapshot["rolling24Hours"]
+        ]
+    return entry
 
 
 def main():
