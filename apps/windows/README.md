@@ -100,6 +100,8 @@ The retained Windows runtime checkout was advanced to `fc347c3`. All 158 workspa
 
 The scheduled `Worklog Website Publisher (windows-pc)` now runs `apps/website/publish-activity.py` from `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`, with that checkout as its working directory. Its Python executable, SSH alias, destination, device slug, triggers, principal, and settings were preserved. A triggered run returned `0`; the live Windows device feed retained all four rolling 24-hour observations and `occurredAt` on every published Git event. Each observation spans exactly 24 hours, ending at a quarter-hour boundary; the four end times are 15 minutes apart. The Mac and Windows feeds shared all four exact start/end pairs during verification. Codex collection retained its partial coverage status.
 
+An intervening unattended publisher run returned `1`; a foreground rerun, scheduled retrigger, and the next automatic run at 23:06 Denver time returned `0`. The windowless task retained no failure detail. A Codex account refresh reported a protocol error, then a requested refresh succeeded without another service restart. Local Codex coverage remained partial throughout.
+
 Update and build this retained checkout before restarting the installed service; changing only the Dropbox source does not update the package's service build or scheduled publisher. Private baseline, ledger backup, and validation records are retained under `%LOCALAPPDATA%\WorklogPreviews\windows-today-runtime-20261117\evidence`, outside Git and Dropbox. Static website publication is tracked separately in the [website handoff](../../WEBSITE-HANDOFF.md).
 
 ## Next implementation
