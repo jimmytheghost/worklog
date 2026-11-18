@@ -106,4 +106,6 @@ Update and build this retained checkout before restarting the installed service;
 
 ## Next implementation
 
+At session close on November 18, the website's Today feature is published and both devices support four aligned 24-hour observations; exact shared windows were verified during release. The closing check found Windows healthy and publishing, with the Mac primary feed stale and no current overlap. The installed native package still includes the November 17 keyboard, offline-cache, and DPI work; the reporting service and publisher remain on the validated `fc347c3` build. Native Day remains a calendar-day summary. No further Windows restart or package update is pending for Today. [Closing handoff and publisher follow-up](../../docs/handoff.md#closing-checkpoint)
+
 The Windows daily heatmap still needs Agents and Subagents modes. The [Windows heatmap handoff](../../docs/windows-heatmap-handoff.md) describes the existing service data, cache compatibility, and Windows verification.

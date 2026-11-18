@@ -4,7 +4,7 @@ Status on 2026-11-17 · All is packaged and verified as the default on Windows. 
 
 ## Native Windows scope
 
-Add **Agents** and **Subagents** to the existing Windows tray heatmap. Keep **All** (the default), **Commit**, **Push**, and **Both** and the 360-unit WPF flyout. Selecting a day should show separate counts for commits, pushes, agents, and subagents, matching the Mac app. [Public heatmap reference](https://www.jimmyweber.com/worklog/)
+Add **Agents** and **Subagents** to the existing Windows tray heatmap. Keep **All** (the default), **Commit**, **Push**, and **Both** and the 360-unit WPF flyout. Preserve the already-implemented selected-day counts for commits, pushes, agents, and subagents. [Public heatmap reference](https://www.jimmyweber.com/worklog/)
 
 Windows already displays agent and subagent totals for the selected range. Its **View on Website** action opens [the public Worklog dashboard](https://jimmyweber.com/worklog). The shared local browser archive remains available at `http://127.0.0.1:4317/?view=history` and provides GitHub links on commit rows when a URL is available.
 
@@ -18,7 +18,7 @@ Windows already displays agent and subagent totals for the selected range. Its *
 
 ## Verify on Windows
 
-1. Extend the [Windows model checks](../apps/windows/Worklog.Tests/Program.cs) to cover the new array, legacy cache fallback, a Codex-only snapshot, zero and null, and a cache round trip that keeps only display fields. [Service integration tests](../apps/service/test/codex-integration.test.ts) already exercise the Codex-only and date-boundary cases.
+1. Extend the [Windows model checks](../apps/windows/Worklog.Tests/Program.cs) for the two additional modes while retaining the existing daily-array, legacy-cache, Codex-only, zero/null, and typed-cache privacy checks. [Service integration tests](../apps/service/test/codex-integration.test.ts) already exercise the Codex-only and date-boundary cases.
 2. Run the shared checks, Windows model checks, and WPF build below. Follow the [Windows update instructions](../apps/windows/README.md#updating) to restart an older service if it is still running.
 
    ```powershell
@@ -44,4 +44,4 @@ The November 17 All changes passed native Windows model checks and WPF build wit
 
 The package's generated configuration points to the retained checkout with a valid service build and native Windows dependencies. The existing service process, ledger, startup setting, and website publisher were preserved. The app was returned to normal tray mode. The follow-up isolated UI harness exercised current and legacy cache rendering with refused and dropped fixture connections. The actual native package was restarted and inspected at 150%/144 DPI and 200%/192 DPI, then returned to 100%. The check found and fixed keyboard focus loss after control rebuilds. [Windows validation record](../apps/windows/README.md#offline-cache-and-display-scale-validation-on-november-17-2026)
 
-On November 16 the current Windows package was rebuilt and its local service and website publishing were verified. Interactive validation of the future Windows heatmap modes remains part of the parity task.
+At session close on November 18, the installed native package still includes the November 17 focus/cache/DPI fix. The one Windows service and scheduled publisher use the retained checkout built at `fc347c3`; its Git metadata is outside Dropbox. The live website's Today preset and rolling-window export are complete and add no native heatmap modes. Use the [current runtime and publisher record](../apps/windows/README.md#rolling-24-hour-publisher-update-on-november-17-2026) and [Git storage notes](git-storage.md) before updating or repackaging. Interactive validation of Agents and Subagents remains part of this future parity task.

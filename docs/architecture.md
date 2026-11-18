@@ -88,13 +88,15 @@ Closing the service explicitly closes active event streams, so relaunches do not
 
 ## Client responsibilities
 
-The macOS popover shows account usage, range totals, recent work, and a grayscale 90-day heatmap. Its five modes are Commit, Push, Both, Agents, and Subagents. The range picker changes totals and recent work independently of the heatmap.
+The macOS popover shows account usage, range totals, recent work, and a grayscale 90-day heatmap. Its six modes are All (the default), Commit, Push, Both, Agents, and Subagents. All sums available activity across the four types. The range picker changes totals and recent work independently of the heatmap.
 
-The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its heatmap currently reads the Git calendar for Commit, Push, and Both. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
+The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its All (the default), Commit, Push, and Both heatmap modes use the nullable `heatmapDays` projection, with a Git-calendar fallback for older snapshots. Selected-day details show all four separate counts; individual Agents and Subagents modes remain pending. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
 
 The local browser dashboard provides the complete monthly archive for its ledger, with search, GitHub commit links where available, and a daily Codex activity table. The public frontend merges the published GitHub events before calculating totals, heatmaps, and project history. It adds Codex aggregates across recording devices and displays the timestamp of each machine's last reported commit, push, and Codex collection. The public feeds carry repository names, commit subjects and links, opaque GitHub deduplication keys, and aggregate Codex usage. [Website handoff](../WEBSITE-HANDOFF.md)
 
 The public palette switch runs in the browser and stores only the palette name under `worklog.palette` in local storage. Selection works for the current page when storage is unavailable. The palette and heatmap intensity are display settings with no effect on the activity feeds or totals.
+
+The website's Today preset uses the latest exact 24-hour interval shared by enrolled devices. Each machine publishes four overlapping observations ending at aligned UTC quarter hours. The frontend filters timestamped Git events and uses Codex aggregates from the matching interval, preserving unavailable, partial, and stale states. Calendar ranges retain their monthly token semantics; native Day remains a calendar-day range. The metric explorer and CSV follow the selected public range without changing the 90-day heatmap. [Today contract](../WEBSITE-HANDOFF.md#today)
 
 ## Reliability and security
 

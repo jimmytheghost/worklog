@@ -1,4 +1,4 @@
-# Git storage and the Windows checkout
+# Git storage and recovery
 
 The Windows Git metadata was moved out of Dropbox on November 17, 2026. Source files and the packaged executable keep their existing paths. Git commands still run from the source checkout without environment overrides.
 
@@ -53,10 +53,16 @@ Keep the active Git directory and the source working files when recovering a mis
 
 Before fetching newer commits, the move preserved every ref, stash entry, reflog, worktree status, and changed/untracked file hash. All original metadata files were archived; only the expected source-path configuration and repaired Git pointers changed in the active copy. `git fsck --full` passed with the same pre-existing dangling objects and no missing or corrupt objects. Fetching from GitHub and fast-forwarding the main checkout also succeeded.
 
-The same single tray process and single service process stayed running. Health, snapshot, and Day-summary requests succeeded. The packaged executable, `checkout.json`, startup registration, and publisher task definition stayed unchanged; the publisher's last result was `0`. The retained runtime worktree and its built service remain available at their existing paths. No app or service code changed.
+During the metadata migration, the same single tray process and single service process stayed running. Health, snapshot, and Day-summary requests succeeded. The packaged executable, `checkout.json`, startup registration, and publisher task definition stayed unchanged; the publisher's last result was `0`. No app or service code changed in that migration. The subsequent Today backend rollout restarted the service once and moved the publisher action to the retained checkout; see the [Windows rollout record](../apps/windows/README.md#rolling-24-hour-publisher-update-on-november-17-2026) for the current runtime.
 
 ## Mac release checkout, November 17, 2026
 
 A Mac linked worktree whose common Git directory remained in Dropbox encountered an unreadable Git object during the Today release. Working source files were preserved, and the release was validated, committed, and pushed from a fresh independent clone at `/tmp/worklog-today-release-source`. This temporary path is the current release checkout, not a durable runtime dependency. The Mac service keeps its existing runtime path and one ledger.
 
 The shared Mac Git metadata was not repaired by the website deployment. Use an independent clone outside Dropbox for subsequent work until that metadata is backed up and deliberately migrated or repaired. Do not copy the Windows Git directory or its machine-specific pointer to the Mac. All released source and documentation are on GitHub `main`.
+
+## Preserved working files at session close
+
+The Windows Dropbox checkout is intentionally not clean. Existing macOS source changes and script changes remain, along with missing tracked files and Dropbox conflict copies for `apps/website/test/heatmap-metrics.test.js`, `docs/portfolio-content.json`, `docs/portfolio-refresh.md`, and `scripts/create-portfolio-artwork.py`. The untracked `img/` directory is also preserved. The tracked versions remain available on GitHub; their absence in this local working tree is not a published deletion.
+
+Compare those files deliberately before reconciling them. Do not delete conflict copies, reset the checkout, or stage unrelated changes as part of the handoff. The source files can still receive Dropbox conflicts even though Windows Git metadata is now local. Start new work from a verified independent checkout outside Dropbox, and keep the existing runtime paths until a deliberate runtime migration is validated. This documentation pass made no service, publisher, startup, or ledger changes.

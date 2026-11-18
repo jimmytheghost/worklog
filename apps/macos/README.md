@@ -12,6 +12,10 @@ Click the header gear to open Settings. **Start on computer startup** uses macOS
 
 The app starts or reuses the local collector. Website publishing uses a separate schedule and the service's allowlisted projection. See the [current MacBook Pro publisher](../../WEBSITE-HANDOFF.md#current-publishers) and [Mac mini enrollment](../../WEBSITE-HANDOFF.md#mac-mini-enrollment).
 
+The November 17 website releases, including Today, are live. Today is a website preset using a shared 24-hour report; the native Day summary remains a local calendar day. The Mac reporting backend and publisher were updated without changing native UI, startup, or the ledger. The last native heatmap validation passed 19 Swift tests; later website-only checks do not claim additional native UI verification. [Release and validation record](../../WEBSITE-HANDOFF.md#release-history)
+
+The shared Mac Git metadata encountered an unreadable object during release. Source was preserved and the release completed from an independent clone outside Dropbox. That shared metadata remains unrepaired. Use an independent checkout for development and retain the packaged app's existing runtime path until deliberately migrating it; the temporary release clone is not a runtime dependency. [Git recovery status](../../docs/git-storage.md#mac-release-checkout-november-17-2026)
+
 ## Develop
 
 ```sh

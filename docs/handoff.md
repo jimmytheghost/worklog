@@ -1,26 +1,29 @@
 # Worklog Handoff
 
-Checkpoint 2026-11-17 · Website release `worklog-today-20261117-01`
-
-## Session close — November 17, 2026
-
-All evening dashboard work is deployed. The current release is `worklog-today-20261117-01`, following `worklog-evening-20261117-01`; the portfolio refresh is also live. [Open Today](https://www.jimmyweber.com/worklog/?range=today). Released frontend source is `14c7eb9`; subsequent documentation is on GitHub `main`.
-
-- Shipped: Today before 7 days, the date presets/custom picker, curved metric explorer, rolling 30D option, chart/table/CSV views, collapse/focus return, and the final canvas/accent low-fi activity scrollbar. The heatmap has no custom scrollbar.
-- Today uses the latest shared, exact 24-hour report across devices, not two full calendar days. Git filters by instant; Codex uses matching aggregate windows. Token counters retain session-start-window semantics. Missing/partial/stale reporting remains qualified, and Today CSV includes UTC window bounds.
-- Validation completed: 173 workspace tests, typecheck/build, both releases' installed/public checks, and live desktop/mobile browser flows at 320/390/1440 px. Release backups and guarded rollback are recorded in the website workspace's `PROJECTS-OPERATIONS.md` and [website handoff](../WEBSITE-HANDOFF.md).
-- The user shut down the Windows desktop at session end. Its retained reports may become stale and Today may show partial coverage while it is offline; this is expected. Do not wake it or treat the planned shutdown as a collector incident. At the next sign-in, verify the existing single service and scheduled publisher resume and the Windows report advances.
-- Both reporting services/publishers were updated; ledgers, native UI/packages, and startup settings were preserved. The Mac service/publisher remain in place. The owned localhost:4178 preview server was stopped; use the public site for the completed release.
-
-Remaining maintenance: the Mac shared Dropbox Git metadata encountered an unreadable object and was not repaired. All released work is pushed. Continue from an independent clone outside Dropbox; the current release checkout is `/tmp/worklog-today-release-source` and may be removed by temporary-file cleanup. If absent, clone GitHub `main` afresh rather than relying on the old linked worktree. Preserve original source edits/conflict copies and back up metadata before any repair. [Git storage and recovery notes](git-storage.md).
-
-The Mac mini enrollment and native Windows individual Agents/Subagents filters remain the previously documented pending work. No website deployment or runtime restart remains pending from this session.
+Session close 2026-11-18 · November 17 website release `worklog-today-20261117-01`
 
 ## Start here
 
 Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each machine runs one local Fastify service and keeps its own SQLite ledger. The local browser provides complete monthly Work History for that ledger. The public dashboard combines the MacBook Pro and Windows PC exports and shows source freshness for each machine. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations](../WEBSITE-HANDOFF.md)
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
+
+## Closing checkpoint
+
+- The evening dashboard, Today follow-up, and portfolio refresh are published. Today uses the latest exact 24-hour window shared by the Mac and Windows feeds. The [website handoff](../WEBSITE-HANDOFF.md) records the release checks and guarded rollback chain.
+- The combined Today release passed 173 workspace tests, type checking, and production builds. The Windows reporting backend at `fc347c3` separately passed 158 workspace tests, type checking, build, and the native SQLite binding check. These are distinct validation runs; no new native UI was introduced by Today.
+- The installed Windows tray includes the `52bfe10` focus/cache/DPI work. Its one running service and scheduled publisher use `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`, built at `fc347c3`. Startup, the ledger, and package paths were preserved. The [Windows notes](../apps/windows/README.md) record both the rollout and recovered publisher/account refresh failures.
+- Windows Git metadata is outside Dropbox. The Mac release used an independent clone outside Dropbox after a shared-object failure; the shared Mac metadata remains unrepaired. Pre-existing Windows source changes, missing tracked files, and conflict copies remain preserved for deliberate reconciliation. [Git storage and recovery](git-storage.md)
+- The November 18 read-only check at 08:09 Denver found one healthy Windows service and tray, a successful scheduled publish, and the expected local Git storage. The primary Mac feed was last generated at 05:20 Denver, while Windows had published at 08:06; their four-window sets no longer overlapped. Check the Mac service/publisher from that machine next session. Preserve the site's stale, partial, and unavailable states until fresh matching reports arrive.
+- The remaining work is listed under [Pending work](#pending-work). No website release or Windows service restart is pending for the shipped Today feature.
+
+This closing pass changes documentation only. Validation covers links, anchors, content, and diff whitespace, plus read-only runtime/feed checks. The earlier release and native test results below retain their original scope.
+
+## Session close — November 17, 2026
+
+Released frontend source is `14c7eb9`; subsequent documentation is on GitHub `main`. The user intentionally shut down the Windows desktop after verification, with no wake-up or overnight monitoring requested. Its hosted website and retained reports remained available independently. The owned localhost:4178 preview server was stopped; use the public site for the completed release. The November 18 closing check above confirms Windows subsequently resumed with its existing single service and scheduled publisher.
+
+The Mac release checkout at `/tmp/worklog-today-release-source` is temporary and may disappear during cleanup. If it is absent, clone GitHub `main` outside Dropbox rather than relying on the damaged linked worktree. Preserve source edits and conflict copies before any Git repair. [Git storage and recovery notes](git-storage.md)
 
 ## What is implemented
 
@@ -77,7 +80,7 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | `GET /api/snapshot` | Current overview, the 365-day Git calendar, and the separate 90-day `heatmapDays` projection |
 | `GET /api/summary?period=day\|week\|month\|year\|all` | Selected-range totals and recent work |
 | `GET /api/history?month=YYYY-MM` | Complete monthly work history and daily observed agent counts |
-| `GET /api/website` | Per-machine public projection of project names, commit subjects and links, aggregate Codex usage, and source freshness |
+| `GET /api/website` | Per-machine public projection with Git event timestamps, monthly history, four aligned rolling 24-hour Codex observations, and source freshness |
 | `GET /api/events` | Live server-sent refresh notifications |
 | `POST /api/sync` | Refresh all collectors |
 | `POST /api/sync/github` | Refresh GitHub only |
@@ -94,6 +97,7 @@ The service listens on `http://127.0.0.1:4317`. The development dashboard listen
 - The package script embeds the repository path in the app bundle. Repackage if the repository moves.
 - The packaged app starts the service if it is not healthy and reuses an existing healthy instance.
 - Windows package: `apps/windows/dist/Worklog.exe` (ignored build artifact), with checkout/Node/native Codex paths recorded in `checkout.json`.
+- Windows service and scheduled publisher checkout: `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`. Update and build this checkout when changing the installed service; updating only the Dropbox source does not update its runtime.
 - Windows Git metadata: `%LOCALAPPDATA%\Worklog\git`, outside Dropbox. The source checkout's `.git` pointer is Dropbox-ignored; retained worktrees were repaired. [Storage layout, migration checks, and recovery](git-storage.md).
 - Windows cache: `%LOCALAPPDATA%\Worklog\snapshot.json`, containing decoded display fields only. Saved-data mode does not reuse stale totals from a different selected range.
 - Windows polls snapshots on open and every 30 seconds, or every two seconds during collection. Both native clients leave the service running when quit.
@@ -131,7 +135,7 @@ Start-Process apps/windows/dist/Worklog.exe
 
 The November 15 macOS heatmap change passed 131 workspace tests, type checking, the production build, and 18 Swift tests. The rebuilt app was relaunched and the heatmap rendered at menu-bar width with live data. Interactive popover inspection timed out.
 
-On November 16 the Windows package was rebuilt and relaunched. The local service, collector output, startup registration, and scheduled publishing were verified. Windows model checks and the WPF build passed. The last recorded interactive Windows tray layout review was October 25.
+On November 16 the Windows package was rebuilt and relaunched. The local service, collector output, startup registration, and scheduled publishing were verified. Windows model checks and the WPF build passed. The November 17 native UI, offline-cache, keyboard, and display-scale checks below supersede the earlier layout review.
 
 The November 16 website releases passed 133 workspace tests, type checking, and production builds. Chromium verified the latest header in all three palettes at 320–1440 px, along with the earlier palette, heatmap, history, and Sync status changes. Both production feeds showed current commit, push, and Codex reports at the evening checkpoint. The Windows publisher's last run returned `0`, and the live device feed listed Windows PC as the only secondary publisher. [Release and verification notes](../WEBSITE-HANDOFF.md)
 
@@ -152,6 +156,8 @@ A follow-up Windows check exercised current and legacy saved-data rendering in a
 
 ## Pending work
 
+- Check the Mac primary service/publisher after its stale report at the closing check. Confirm both feeds have a common exact 24-hour interval before treating Today as a current combined total. [Publisher operations](../WEBSITE-HANDOFF.md#current-publishers)
+- Back up and deliberately migrate or repair the shared Mac Git metadata before reusing its linked worktrees. Use an independent clone outside Dropbox for new work, and reconcile the preserved Windows conflict copies and missing files separately. [Recovery status](git-storage.md)
 - Enroll the Mac mini when it is ready. It has no live feed yet. Use [Mac mini enrollment](../WEBSITE-HANDOFF.md#mac-mini-enrollment) from that machine.
 - The native Windows tray has All, Commit, Push, and Both modes; individual Agents and Subagents filters remain pending. Use the [Windows heatmap handoff](windows-heatmap-handoff.md) when working on native Agents and Subagents parity.
 

@@ -16,7 +16,7 @@ This is the primary daily surface. On macOS the current composition is header, h
 2. Codex account plan, observation time, remaining-use gauges, and reset countdowns.
 3. Six account facts in two columns of small inline label/value pairs: lifetime tokens, peak day, current/best streak, banked resets, and credits.
 4. Day/Week/Month/Year/All buttons, followed by local tokens, commits, pushes, active days, and projects in one row. Agent and subagent range totals appear below.
-5. A trailing 90-day grayscale heatmap, Commit/Push/Both controls, and selected-day counts.
+5. A trailing 90-day grayscale heatmap, All/Commit/Push/Both controls with All selected initially, and all four selected-day counts.
 6. Recent work and source status, freshness, and coverage.
 7. Refresh, View on Website, and quit controls, outside the scrolling content. View on Website opens https://jimmyweber.com/worklog.
 
@@ -31,6 +31,8 @@ The browser window is the complete archive. It can use more space for search, mo
 The fixed daily heatmap and period chart sit side by side on wide screens and stack on narrow screens. Date controls scroll within their charts, and weekday labels stay visible while the heatmap scrolls. Search and expandable project rows expose the merged history with direct GitHub commit links. The top navigation links to History and Sync status. The status table labels each device's source timestamps with Current, Stale, or Unavailable.
 
 The public site uses a monospace masthead and dark surfaces. The top-left home link uses the same skull artwork as Tipoff's home link. Three labelled square buttons select green, neon blue, or grey and show the active palette with a check mark. The home mark follows the accent and appears white in the grey palette. Green is the default. [Public Worklog](https://www.jimmyweber.com/worklog/)
+
+The summary range picker includes Today, calendar presets, months, and custom dates. Today displays the actual shared 24-hour report boundaries. Metric totals open the rounded, curved explorer with range/grouping controls, chart/table views, and CSV export; collapse returns to the overview. The activity chart has persistent canvas-colored scrollbar buttons and thumb with accent arrows/grip and a checkerboard track. The heatmap retains ordinary scrolling. [Published behavior and checks](../WEBSITE-HANDOFF.md)
 
 ## Visual language
 
@@ -51,6 +53,7 @@ Color is never the only carrier of meaning. Icons, labels, selection shapes, and
 - The native heatmap covers the trailing 90 reporting dates when data is available. The public website uses the latest published date as its endpoint.
 - macOS and the public website use Monday-first week columns. Windows uses 15 columns across six chronological rows, with date tooltips and separate selected-day counts.
 - Commit mode scales from daily commit counts.
+- All is the default and sums available commits, pushes, agents, and subagents; unavailable components remain visible in the selected-day detail.
 - Push mode scales from daily push counts.
 - Both mode uses the sum for cell intensity. Selected-day details keep the commit and push counts separate.
 - On macOS and the public website, Agents and Subagents use daily counts of their respective session types. Selecting a date shows all four values.

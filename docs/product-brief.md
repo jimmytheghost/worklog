@@ -17,7 +17,7 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 ### Native Worklog
 
 - Day, Week, Month, Year, and All range selector.
-- Fixed trailing 90-day grayscale heatmap with Commit, Push, and Both modes on both platforms. macOS adds Agents and Subagents modes and shows all four counts when a day is selected. Windows currently shows the selected day's commit and push counts.
+- Fixed trailing 90-day grayscale heatmap with All (the default), Commit, Push, and Both modes on both platforms. macOS also has Agents and Subagents modes. Both apps show the selected day's four separate activity counts, preserving unavailable values.
 - Observed tokens, commits, pushes, active days, projects, agents, and subagents across the selected range.
 - Signed-in Codex rate-limit windows, reset times, token facts, credits, and available banked resets.
 - Recent work with commit subjects and repository/ref push descriptions.
@@ -33,7 +33,7 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 
 ### Public Worklog
 
-- Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, a period chart, and searchable project history with clickable GitHub commit subjects. The period menu offers all recorded activity and individual months.
+- Activity totals, a 90-day heatmap for commits, pushes, agents, and subagents, a period chart, and searchable project history with clickable GitHub commit subjects. The range picker offers Today, 7/30/90 days, This year, All, individual months, and inclusive custom dates. Each total opens a curved metric explorer with chart/table views and aggregate CSV export.
 - Static feeds from enrolled machines supply repository history and aggregate Codex usage. Shared commits and identified pushes count once. The heatmap ends on the latest published reporting date.
 - Sync status shows the last reported GitHub commit, GitHub push, and Codex collection per machine, with distinct current, stale, and unavailable states.
 - The header offers green, neon blue, and grey palettes. The browser remembers the selection, and each palette distinguishes zero and four activity levels in the heatmap.
@@ -49,6 +49,8 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 - **All:** the entire recorded local ledger.
 
 The 90-day heatmap is an independent orientation tool and stays fixed when the summary range changes.
+
+The public website's **Today** is a separate shared 24-hour reporting interval ending at the latest common quarter hour. Its caption and CSV show the exact boundaries. Git events and Codex aggregates use that same window; missing or stale reports remain qualified. Native Day continues to mean the local calendar day. Calendar-based public ranges use whole published months for observed token totals; partial months are unavailable rather than prorated. [Website range semantics](../WEBSITE-HANDOFF.md#today)
 
 ## Product truth rules
 
