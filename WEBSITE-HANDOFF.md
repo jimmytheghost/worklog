@@ -74,3 +74,7 @@ The current production frontend is release `worklog-header-mark-20261116-01`, bu
 ## Link preview
 
 `preview.png` is the existing portfolio Worklog banner center-cropped and resized with Lanczos to 1200 × 630. The initial HTML supplies the canonical URL and Open Graph and Twitter image metadata. Browser and Facebook crawler checks verified `/worklog` and `/worklog/`, the preview image MIME type and dimensions, and the release check verified its checksum. Messages rendering was outside these checks.
+
+## Portfolio page refresh
+
+The [Worklog project page](https://www.jimmyweber.com/pages/projects/worklog/) was updated November 17, 2026 with public-dashboard information, real overview/history screenshots, and a new green banner and social preview. Release `worklog-portfolio-20261117-01` passed live content, asset, metadata, and responsive checks. [Artwork provenance, page content, and verification](docs/portfolio-refresh.md).

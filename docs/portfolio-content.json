@@ -1,0 +1,46 @@
+{
+  "description": "GitHub activity, project history, and Codex usage in a local macOS and Windows app, with a public browser dashboard.",
+  "paragraphs": [
+    "I like GitHub’s activity heat map for keeping track of my progress. Worklog puts that history and Codex usage in my Mac’s menu bar, with a Windows tray app for the same view on my PC. I can check commits and pushes, click through the activity calendar, and see how much Codex usage I have left and when it resets.",
+    "The browser dashboard at JimmyWeber.com/worklog brings together the published activity from my MacBook Pro and Windows PC. Shared GitHub commits and identified pushes count once, while observed Codex activity is added across the recording devices. Each machine keeps its own local ledger and publishes a limited feed for the website."
+  ],
+  "sections": [
+    {
+      "title": "The browser dashboard",
+      "paragraphs": [
+        "The dashboard shows project, commit, push, token, agent, and subagent totals for all recorded activity or a selected month. The 90-day heat map switches between commits, pushes, agents, and subagents, and selecting a day shows all four counts. The chart beside it shows activity over the selected period. Green, neon blue, and grey palettes are available from the header."
+      ],
+      "screenshot": {
+        "image": "/assets/img/projects/worklog/website-overview-v1.jpg",
+        "alt": "The live Worklog browser dashboard with activity totals, the 90-day commit heat map, and monthly activity chart",
+        "width": 1280,
+        "height": 900
+      }
+    },
+    {
+      "paragraphs": [
+        "Project history is searchable by repository and commit subject, including quieter projects that don’t stand out in the calendar. Expanding a project shows its recorded commits and pushes, with commit subjects linking to GitHub. Sync status lists the last successful GitHub and Codex reports from each machine, with stale or unavailable sources marked separately."
+      ],
+      "screenshot": {
+        "image": "/assets/img/projects/worklog/website-history-v1.jpg",
+        "alt": "Worklog project history filtered for worklog, with the project expanded to show dated commit subjects and GitHub links",
+        "width": 1280,
+        "height": 510
+      }
+    },
+    {
+      "title": "The local app",
+      "paragraphs": [
+        "The menu-bar and tray apps keep the daily view close at hand, and a separate local browser view provides complete searchable monthly history. Collection is read-only, and the local ledger stores GitHub activity and allowlisted Codex metadata without retaining source code or AI conversations. The public website includes repository names, commit subjects, and aggregate Codex counts from the published feeds.",
+        "GitHub push history and local Codex records have partial coverage. Observed session tokens are separate from the signed-in Codex account’s usage limits. The source is available on GitHub for building your own copy, shared as-is without a support or release schedule."
+      ],
+      "screenshot": {
+        "image": "/assets/img/projects/worklog-screenshot.png",
+        "alt": "The Worklog macOS menu-bar app showing GitHub activity, Codex account usage, and reset times",
+        "size": "portrait"
+      },
+      "layout": "pair"
+    }
+  ],
+  "screenshots": []
+}
