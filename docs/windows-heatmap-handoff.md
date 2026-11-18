@@ -1,6 +1,6 @@
 # Windows heatmap handoff
 
-Status on 2026-11-17 · All is implemented in source as the default. Native Windows validation and individual Agents/Subagents filters are pending. The Windows PC already publishes daily agent and subagent counts to the public heatmap. The macOS app is the native reference for the two additional modes.
+Status on 2026-11-17 · All is packaged and verified as the default on Windows. Individual Agents/Subagents filters remain pending. The Windows PC already publishes daily agent and subagent counts to the public heatmap. The macOS app is the native reference for the two additional modes.
 
 ## Native Windows scope
 
@@ -40,6 +40,8 @@ Windows already displays agent and subagent totals for the selected range. Its *
 4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the View on Website action. Open the local browser archive separately and follow a GitHub commit link.
 5. Update the Windows README and the [main handoff](handoff.md) once the feature works in the packaged app. Record the actual validation and push the task commit.
 
-The November 17 All changes include daily projection/cache and aggregate checks, but this Mac has no `dotnet` command, so model checks, WPF build, packaging, and interactive Windows review remain unverified.
+The November 17 All changes passed native Windows model checks and WPF build with zero warnings and errors. Shared validation passed 136 tests, type checking, and the production build in a retained Windows checkout outside Dropbox. The package at `apps/windows/dist/Worklog.exe` was inspected with the live local service. All was initially selected. All, Commit, Push, and Both switching preserved the selected date and separate counts. Live days verified Codex-only and measured-zero activity. Unavailable values, an explicitly empty projection, legacy fallback, and cache privacy passed model checks.
+
+The package's generated configuration points to the retained checkout with a valid service build and native Windows dependencies. The existing service process, ledger, startup setting, and website publisher were preserved. The app was returned to normal tray mode. Offline and legacy-cache GUI rendering and increased display scaling remain checks for future UI work. [Windows validation record](../apps/windows/README.md#windows-validation-on-november-17-2026)
 
 On November 16 the current Windows package was rebuilt and its local service and website publishing were verified. Interactive validation of the future Windows heatmap modes remains part of the parity task.

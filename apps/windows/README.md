@@ -62,6 +62,16 @@ git diff --check
 
 Native macOS checks still require macOS and Swift. For Windows UI review, package and launch with `--inspect`, then check tray toggle, focus dismissal, range changes, heatmap selection, View on Website, startup settings, and saved-data behavior with the service stopped.
 
+## Windows validation on November 17, 2026
+
+Source `953ee35` passed 136 workspace tests, type checking, the production build, Windows model checks, and a native WPF build with zero warnings and errors. The package was rebuilt and inspected at the existing `apps/windows/dist/Worklog.exe` path. All was selected initially. All, Commit, Push, and Both switched correctly, retained the selected date, and displayed separate commit, push, agent, and subagent counts. A day with two agents and zero Git activity changed intensity between All and Both. A day with four measured zeros stayed dark.
+
+The model checks covered unavailable values, Codex-only activity, legacy Git-calendar fallback, an explicitly empty daily projection, and the typed cache round trip. Offline and legacy-cache rendering were verified at model level. The packaged UI was inspected with the live service at the current Windows display scale.
+
+Dropbox was synchronizing source and dependency files during validation. The validated Windows checkout is retained at `%LOCALAPPDATA%\WorklogPreviews\windows-all-source-20261117`, with its production service build and Windows dependencies. The generated `checkout.json` points there, while the executable remains at its existing Dropbox path. Preserve this retained checkout when using this package, or repackage from another stable Windows checkout. The native SQLite binding and the built service's external dependencies were resolved successfully there.
+
+The existing service process and ledger remained in use throughout inspection. The startup registration and scheduled website publisher were verified after packaging. The updated executable was returned to normal tray mode.
+
 ## Next implementation
 
 The Windows daily heatmap still needs Agents and Subagents modes. The [Windows heatmap handoff](../../docs/windows-heatmap-handoff.md) describes the existing service data, cache compatibility, and Windows verification.
