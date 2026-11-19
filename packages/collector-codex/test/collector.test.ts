@@ -113,6 +113,23 @@ afterEach(async () => {
 });
 
 describe("CodexCollector", () => {
+  it("backfills increases once across midnight, preserving gaps and resets", async () => {
+    const fixture = await fixtureRoot();
+    const path = join(fixture.root, "sessions", "rollout-primary.jsonl");
+    const instants = ["06:59:01", "07:00:10", "07:00:20", "07:01:00", "07:02:00", "07:03:00"];
+    const totals = [80_000, 95_000, 95_000, null, 100_000, 20];
+    for (const [i, total] of totals.entries()) {
+      const timestamp = `2026-08-31T${instants[i]}Z`;
+      const info = total === null ? null : {total_token_usage: {total_tokens: total}, last_token_usage: {total_tokens: 10}};
+      appendFileSync(path, JSON.stringify({timestamp, type:"event_msg", payload:{type:"token_count", info}}) + "\n");
+    }
+    const result = await new CodexCollector({codexRoot: fixture.root, now: () => NOW}).collect();
+    const buckets = result.tokenBuckets!.filter(row => row.sessionId === "session-primary" && row.instant >= "2026-08-31");
+    expect(buckets.slice(1).map(({tokens,partial}) => [tokens,partial])).toEqual([
+      [15000, false], [null, true], [10, true], [10, true],
+    ]);
+  });
+
   it("normalizes strict metadata while excluding all private content fields", async () => {
     const fixture = await fixtureRoot();
     const before = statSync(fixture.stateDatabase);

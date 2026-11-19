@@ -16,7 +16,7 @@ const EXPECTED_SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 
 type StoragePort = Pick<
   Storage,
-  "upsertSource" | "insertEvents" | "getCoverage" | "upsertCoverage" | "listProjects"
+  "upsertTokenBuckets" | "upsertSource" | "insertEvents" | "getCoverage" | "upsertCoverage" | "listProjects"
 >;
 
 export type CodexCollectorPort = Pick<CodexCollector, "collect">;
@@ -115,6 +115,7 @@ export class CodexSyncCoordinator {
         return repositoryId === undefined ? event : { ...event, repositoryId } as AnyNormalizedEvent;
       });
       const inserted = this.storage.insertEvents(associatedEvents);
+      if (result.tokenBuckets?.length) this.storage.upsertTokenBuckets(result.tokenBuckets);
       const previousAgents = this.storage.getCoverage(CODEX_AGENT_COVERAGE_KEY, this.now());
       const firstActivity = associatedEvents.reduce(
         (earliest, event) => event.eventType === "codex.session.activity_observed" && event.occurredAt < earliest

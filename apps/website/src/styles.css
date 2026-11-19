@@ -520,3 +520,16 @@ footer { margin-top: 24px; padding-block: 16px 24px; }
   .heatmap-detail dl, .chart-detail dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sync-table { font-size: .77rem; }
 }
+
+.week-recap, .explore { margin-top: 24px; }
+.explore { border-block: 1px solid var(--line); }
+.explore > summary { padding-block: 14px; color: var(--accent); font-weight: 650; }
+.explore[open] { padding-bottom: 16px; }
+.explore .charts { grid-template-columns: minmax(0, 1fr); }
+.work-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr)); gap: 12px; margin-top: 12px; }
+.work-card { padding: 12px 15px; background: var(--inset); border-inline-start: 2px solid var(--edge); overflow-wrap: anywhere; }
+.work-card h3 { margin: 0; font: 600 .96rem/1.4 var(--mono); }
+.work-card ul { padding-inline-start: 1.1em; margin: 8px 0 0; font-size: .9rem; }
+.work-card li + li { margin-top: 4px; }
+.heatmap-detail dl { grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr)); }
+.topbar .stale-link { color: var(--stale); }

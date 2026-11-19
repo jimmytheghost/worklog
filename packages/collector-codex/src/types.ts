@@ -77,7 +77,14 @@ export type CumulativeTokenObservation =
   | AvailableCumulativeTokenObservation
   | UnavailableCumulativeTokenObservation;
 
+export interface TokenBucket {
+  instant: string;
+  tokens: number | null;
+  partial: boolean;
+}
+
 export interface RolloutMetadata {
+  tokenBuckets?: TokenBucket[];
   latestTokenObservation?: CumulativeTokenObservation;
   activityMinutes?: string[];
   parentSessionId?: string;
@@ -135,6 +142,7 @@ export interface CodexCollectionWarning {
 }
 
 export interface CodexCollectionResult {
+  tokenBuckets?: Array<TokenBucket & { sessionId: string }>;
   sourceInstanceId: string;
   sourceFormatVersion: string;
   schemaFingerprint: string;

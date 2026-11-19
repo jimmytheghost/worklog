@@ -8,6 +8,10 @@ Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each 
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
 
+## Daily dashboard development
+
+The daily dashboard branch adds token increments by reporting date, selected-day project details and a Monday–Sunday recap. The public site and machine services still use the release described below. Run the updated collector on each recording device and update its publisher to populate the new feed. Retained cumulative checkpoints can supply partial historical subtotals. In a test on a copy of the Mac ledger, 81 of 106 dates with recorded activity had usable token evidence. See the [website handoff](../WEBSITE-HANDOFF.md) for the static asset list.
+
 ## Closing checkpoint
 
 - The evening dashboard, Today follow-up, and portfolio refresh are published. Today uses the latest exact 24-hour window shared by the Mac and Windows feeds. The [website handoff](../WEBSITE-HANDOFF.md) records the release checks and guarded rollback chain.

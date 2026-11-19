@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveRange, selectRange, validDate } from "../src/date-ranges.js";
+import { mergeTokenDays, resolveRange, selectRange, validDate } from "../src/date-ranges.js";
 
 const earliest = "2025-01-01", latest = "2026-11-17";
 test("presets use inclusive reporting dates across years and leap days", () => {
@@ -42,4 +42,20 @@ test("tokens require complete reporting months, including the current month thro
   assert.equal(selectRange(months, days, { start: "2026-11-01", end: latest }, latest).tokens, 50);
   assert.equal(selectRange(months, days, { start: "2026-10-02", end: latest }, latest).tokens, null);
   assert.equal(selectRange(months, days, { start: "2026-10-01", end: "2026-10-30" }, latest).tokens, null);
+});
+
+test("calendar Today has one date, and a mixed-version device contributes unknown daily coverage", () => {
+  assert.deepEqual(resolveRange("today", earliest, latest), {start: latest, end: latest});
+  const source = [{month: "2026-11", tokenDays: [
+    {localDate: latest, tokens: 0, tokensKnowledge: "complete"},
+    {localDate: "2026-11-16", tokens: 19, tokensKnowledge: "partial"},
+  ]}];
+  assert.equal(mergeTokenDays([months]), null);
+  const mixed = mergeTokenDays([source, months]);
+  assert.deepEqual(mixed.get(latest), {tokens: 0, tokensKnowledge: "partial"});
+  const days = [...mixed].map(([date, day]) => ({date, ...day}));
+  const selection = selectRange(months, days, {start: "2026-11-16", end: latest}, latest);
+  assert.equal(selection.tokens, 19);
+  assert.deepEqual(selection.partialMetrics, ["tokens"]);
+  assert.deepEqual(mergeTokenDays([source, source]).get(latest), {tokens: 0, tokensKnowledge: "complete"});
 });

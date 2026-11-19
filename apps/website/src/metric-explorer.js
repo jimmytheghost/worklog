@@ -1,4 +1,4 @@
-import { buildMetricSeries, metricDefinitions, metricSummary, rollingDateRange, seriesCsv } from "./metric-series.js?v=3";
+import { buildMetricSeries, metricDefinitions, metricSummary, rollingDateRange, seriesCsv } from "./metric-series.js?v=4";
 
 const full = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -104,6 +104,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     const target = metrics.querySelector(`[data-explorer-metric="${metric}"]`) ?? opener;
     target?.focus({ preventScroll: true });
   }
+  const legacyTokens = !days.some((day) => Object.hasOwn(day, "tokensKnowledge"));
   function bounds() {
     let start = earliest, end = latestDate;
     if (range === "today" && today) return { start: today.bounds.start, end: today.bounds.end };
@@ -115,7 +116,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
       date.setUTCMonth(date.getUTCMonth() - Number(range) + 1);
       start = dateString(date) < earliest ? earliest : dateString(date);
     }
-    if (metric === "tokens") {
+    if (legacyTokens && metric === "tokens") {
       start = `${start.slice(0, 7)}-01`;
       const monthEnd = utc(`${end.slice(0, 7)}-01`);
       monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1); monthEnd.setUTCDate(0);
@@ -151,7 +152,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     const magnitude = 10 ** Math.floor(Math.log10(max / 4));
     const step = Math.max(1, [1, 2, 2.5, 3, 4, 5, 6, 8, 10].find((value) => value * magnitude >= max / 4) * magnitude);
     const ceiling = step * 4;
-    const rollingTokens = metric === "tokens" && range === "30";
+    const rollingTokens = legacyTokens && metric === "tokens" && range === "30";
     const window = bounds();
     const x = (index) => rollingTokens
       ? left + (right - left) * (+utc(points[index].endDate) - +utc(window.start)) / (+utc(window.end) - +utc(window.start))
@@ -218,7 +219,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
   function render() {
     const isToday = range === "today" && today;
     const windowTokens = isToday && metric === "tokens";
-    const monthlyOnly = metric === "tokens" && !isToday;
+    const monthlyOnly = legacyTokens && metric === "tokens" && !isToday;
     groupControl.disabled = monthlyOnly || windowTokens;
     groupControl.value = windowTokens ? "day" : monthlyOnly ? "month" : group;
     metricControl.value = metric;
@@ -263,7 +264,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     }));
     $(".explorer-coverage").textContent = `${summary.available} observed · ${summary.partial} partial · ${summary.missing} unavailable`;
     $(".explorer-note").textContent = isToday
-      ? `${today.reason ?? "Counts cover the same reported 24-hour window across reporting devices."}${today.partialMetrics?.length ? " Some reports are partial or unavailable." : ""} Tokens reflect observed counters for sessions started in this window, separate from account limits.`
+      ? `${today.reason ?? "Counts cover the same reported 24-hour window across reporting devices."}${today.partialMetrics?.length ? " Some reports are partial or unavailable." : ""} ${today.tokenDescription}`
       : monthlyOnly
       ? range === "30"
         ? "30D places monthly observations at month-end or the latest reporting date within the 30-day window. Points and stats include full published month totals; an exact 30-day token total is unavailable. Daily breakdowns are unavailable, and these counters are separate from account limits."
@@ -322,7 +323,7 @@ export function createMetricExplorer({ months, days, latestDate, metrics, charts
     if (!dimensions) return selected;
     const rect = svg.getBoundingClientRect();
     const plotX = (event.clientX - rect.left) * svg.viewBox.baseVal.width / rect.width;
-    if (metric === "tokens" && range === "30") {
+    if (legacyTokens && metric === "tokens" && range === "30") {
       return coordinates.reduce((nearest, point, index) => Math.abs(point.x - plotX) < Math.abs(coordinates[nearest].x - plotX) ? index : nearest, 0);
     }
     return Math.round((plotX - dimensions.left) / (dimensions.right - dimensions.left) * (points.length - 1));

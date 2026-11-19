@@ -1,3 +1,4 @@
+import { sumTokenDays } from "./token-activity.js";
 import {
   localDateForInstant,
   utcRangeForLocalDate,
@@ -11,7 +12,7 @@ export type SummaryPeriod = (typeof PERIODS)[number];
 
 type PeriodStorage = Pick<
   Storage,
-  "getCoverage" | "listGitActivityEvents" | "listProjects" | "queryCodexObservedTokens" | "queryDailyGitActivity" | "queryDailyCodexAgentActivity"
+  "getCoverage" | "listGitActivityEvents" | "listProjects" | "queryDailyObservedTokens" | "queryDailyGitActivity" | "queryDailyCodexAgentActivity"
 >;
 
 function shiftLocalDate(localDate: string, days: number): string {
@@ -47,7 +48,7 @@ export function buildPeriodSummary(
   const range = { start: bounds.start, end: bounds.end };
   const events = storage.listGitActivityEvents(range);
   const projectNames = new Map(storage.listProjects().map((project) => [project.id, project.name]));
-  const tokenUsage = storage.queryCodexObservedTokens(range);
+  const tokenUsage = sumTokenDays(storage.queryDailyObservedTokens({ ...range, timeZone: options.timeZone }));
   const { agents, subagents } = buildAgentActivity(storage, range, options.timeZone, options.now);
   const activityDays = storage.queryDailyGitActivity({
     startLocalDate: bounds.startLocalDate,
@@ -61,7 +62,8 @@ export function buildPeriodSummary(
     timezone: options.timeZone,
     range,
     metrics: {
-      tokens: tokenUsage.knowledge === "unknown" ? null : tokenUsage.knownSubtotal,
+      tokens: tokenUsage.tokens,
+      tokensKnowledge: tokenUsage.tokensKnowledge,
       agents,
       subagents,
       commits: events.filter((event) => event.eventType === "git.commit.discovered").length,

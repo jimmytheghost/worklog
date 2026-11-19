@@ -1,3 +1,4 @@
+import { sumTokenDays } from "./token-activity.js";
 import {
   localDateForInstant,
   parseMetricResult,
@@ -19,7 +20,7 @@ type SnapshotStorage = Pick<
   | "listProjects"
   | "listGitActivityEvents"
   | "queryDailyGitActivity"
-  | "queryCodexObservedTokens"
+  | "queryDailyObservedTokens"
   | "queryDailyCodexAgentActivity"
   | "listRecentCodexSessions"
   | "getCodexAccountUsage"
@@ -103,10 +104,7 @@ export function buildStorageSnapshot(
     ? activity.filter((day) => day.commits > 0 || day.pushes > 0).length
     : null;
   const codexSessions = storage.listRecentCodexSessions(12);
-  const codexTokenAggregate = storage.queryCodexObservedTokens({
-    start: range.start,
-    end: range.end,
-  });
+  const codexTokenAggregate = sumTokenDays(storage.queryDailyObservedTokens({ ...range, timeZone: options.timeZone }));
   const agentActivity = buildAgentActivity(storage, range, options.timeZone, now);
   const gitDays = new Map(activity.slice(-DAYS_IN_HEATMAP).map((day) => [day.localDate, day]));
   const agentDays = new Map(agentActivity.days.map((day) => [day.localDate, day]));
@@ -158,15 +156,15 @@ export function buildStorageSnapshot(
   const codexTokenMetric = parseMetricResult({
     metric: "codex_observed_tokens",
     value:
-      codexCoverage === undefined || codexTokenAggregate.knowledge === "unknown"
+      codexCoverage === undefined || codexTokenAggregate.tokensKnowledge === "unknown"
         ? null
-        : codexTokenAggregate.knownSubtotal,
+        : codexTokenAggregate.tokens,
     unit: "tokens",
     interval: range,
     dimensions: { usageNamespace: "codex_local" },
     sourceSystems: ["codex_local"],
     completeness:
-      codexCoverage === undefined ? "unavailable" : codexTokenAggregate.knowledge,
+      codexCoverage === undefined ? "unavailable" : codexTokenAggregate.tokensKnowledge,
     ...(codexCoverage?.coverageEnd === undefined ? {} : { coverageEnd: codexCoverage.coverageEnd }),
     ...(codexCoverage?.coverageReason === undefined
       ? {}

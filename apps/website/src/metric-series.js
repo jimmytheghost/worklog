@@ -2,7 +2,7 @@ export const metricDefinitions = Object.freeze({
   projects: { label: "Projects" },
   commits: { label: "Commits" },
   pushes: { label: "Pushes" },
-  tokens: { label: "Observed tokens", monthlyOnly: true },
+  tokens: { label: "Observed tokens" },
   agents: { label: "Agents" },
   subagents: { label: "Subagents" },
 });
@@ -47,12 +47,13 @@ function labelFor(date, endDate, group) {
 export function buildMetricSeries({ months = [], days = [] }, metric, { start, end, group = "day" }) {
   if (!Object.hasOwn(metricDefinitions, metric)) throw new RangeError("Unknown metric");
   if (!["day", "week", "month"].includes(group)) throw new RangeError("Unknown grouping");
-  if (metric === "tokens" && group !== "month") throw new RangeError("Token observations are monthly only");
+  const monthlyTokens = metric === "tokens" && !days.some((day) => Object.hasOwn(day, "tokensKnowledge"));
+  if (monthlyTokens && group !== "month") throw new RangeError("Token observations are monthly only");
   validateDate(start);
   validateDate(end);
   if (start > end) return [];
 
-  if (metric === "tokens") {
+  if (monthlyTokens) {
     const byMonth = new Map(months.map((month) => [month.month, month.tokens]));
     const cursor = instant(`${start.slice(0, 7)}-01`);
     const result = [];

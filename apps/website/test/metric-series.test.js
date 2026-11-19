@@ -133,3 +133,18 @@ test("Today CSV preserves exact UTC window boundaries across reporting dates", (
   assert.equal(seriesCsv(points, "tokens", window), "window_start,window_end,date,end_date,tokens,quality\r\n2026-11-17T05:45:00.000Z,2026-11-18T05:45:00.000Z,2026-11-17,2026-11-17,7,available\r\n");
   assert.throws(() => seriesCsv(points, "tokens", { ...window, startAt: "=unsafe" }), /24-hour UTC window/);
 });
+
+test("daily token series respects selected dates and partial and missing observations", () => {
+  const days = [
+    {date: "2026-11-01", tokens: 1000, tokensKnowledge: "complete"},
+    {date: "2026-11-02", tokens: 30, tokensKnowledge: "partial", partialMetrics: ["tokens"]},
+    {date: "2026-11-03", tokens: 0, tokensKnowledge: "complete"},
+  ];
+  const range = {start: "2026-11-02", end: "2026-11-04"};
+  const points = buildMetricSeries({days}, "tokens", range);
+  assert.deepEqual(points.map(p => [p.value, p.partial]), [[30,true],[0,false],[null,false]]);
+  const [week] = buildMetricSeries({days}, "tokens", {...range, group:"week"});
+  assert.equal(week.value, 30);
+  assert.equal(week.partial, true);
+  assert.match(seriesCsv(points, "tokens"), /2026-11-02,2026-11-02,30,partial/);
+});

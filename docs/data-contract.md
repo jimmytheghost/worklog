@@ -376,10 +376,10 @@ Fixtures or representative sanitized records must demonstrate:
 - Partial pagination and stale sources surface their coverage/freshness state in aggregate results.
 - Logs, observations, database rows, and exports contain none of the prohibited content classes.
 
-## Public Today projection
+## Public Last 24 hours projection
 
 The optional schema-version-1 `rolling24Hours` field contains four aggregate windows ending at UTC quarter-hour boundaries (the current boundary and the previous three). Each is exactly 86,400,000 milliseconds with inclusive `start` and exclusive `end`, independent of reporting timezone and DST. A window contains only `start`, `end`, nullable observed `tokens`, `tokensKnowledge`, nullable `agents`/`subagents`, and aggregate `agentDays` (`localDate`, `agents`, `subagents`). The device publisher retains this nested allowlist. Source session IDs, prompts, responses, tool output, account facts, and credentials are excluded.
 
 The website selects the latest shared window among fresh reporting sources. Git activity uses its normalized `occurredAt` instant; date-only legacy rows are not assigned an invented time. Missing sources and counters qualify known subtotals as partial, while wholly unknown metrics remain null. The reporting window and source freshness remain visible. Projects count distinct repositories with qualifying Git activity. Agent counts retain once-per-active-local-date-per-device semantics within the selected instant range.
 
-Observed tokens use `queryCodexObservedTokens`: sessions are selected by start instant, with trustworthy cumulative usage snapshots inside the half-open window. This is an observed local session-counter subtotal, not an hourly token-allocation estimate, account limit, or billing total. The Today CSV records `window_start` and `window_end` in UTC along with each aggregate row. Calendar day/month ranges keep their existing behavior.
+Updated collectors aggregate observed increases per session and UTC minute. Reporting dates use the configured timezone. Repeated observations and refreshes must not add the same increase twice. Public month entries can include `tokenDays` with `localDate`, nullable `tokens`, and `tokensKnowledge` (complete, partial, or unknown). Only the aggregate leaves the device. Older feeds can omit this field. The rolling-window CSV includes the exact UTC boundaries. Account usage and limits have their own local projection.

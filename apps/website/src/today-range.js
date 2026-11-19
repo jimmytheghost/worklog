@@ -74,8 +74,11 @@ export function selectToday(monthsMerged, primaryFeed, devices = [], timeZone = 
   const partial = new Set();
   if (missingDevices.length) ["agents", "subagents", "tokens"].forEach((key) => partial.add(key));
   const chosen = eligible.map((source) => ({ ...source, window: source.windows.get(selected) }));
-  const tokens = sumKnown(chosen.map(({ window }) => ["complete", "partial"].includes(window.tokensKnowledge) ? window.tokens : null));
-  const tokensKnowledge = tokens === null ? "unknown" : missingDevices.length || chosen.some(({ window }) => !count(window.tokens) || window.tokensKnowledge !== "complete") ? "partial" : "complete";
+  const hasDailyCounters = ({ feed }) => feed.months?.some((month) => Array.isArray(month.tokenDays));
+  const dailyCounters = sources.some(hasDailyCounters);
+  const tokenSources = dailyCounters ? chosen.filter(hasDailyCounters) : chosen;
+  const tokens = sumKnown(tokenSources.map(({ window }) => ["complete", "partial"].includes(window.tokensKnowledge) ? window.tokens : null));
+  const tokensKnowledge = tokens === null ? "unknown" : missingDevices.length || tokenSources.length !== chosen.length || tokenSources.some(({ window }) => !count(window.tokens) || window.tokensKnowledge !== "complete") ? "partial" : "complete";
   if (tokensKnowledge !== "complete") partial.add("tokens");
   const totals = {};
   for (const key of ["agents", "subagents"]) {
@@ -143,5 +146,5 @@ export function selectToday(monthsMerged, primaryFeed, devices = [], timeZone = 
     month, tokens: null, agentDays: days.filter(({ date }) => date.startsWith(month)).map(({ date, agents, subagents }) => ({ localDate: date, agents, subagents })),
     projects: [...projects.values()],
   }));
-  return { bounds, months, days, totals, tokens, tokensKnowledge, projectCount, partialMetrics, missingDevices, reportedAt };
+  return { bounds, months, days, totals, tokens, tokensKnowledge, dailyCounters, projectCount, partialMetrics, missingDevices, reportedAt };
 }

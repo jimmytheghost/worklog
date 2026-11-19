@@ -522,6 +522,95 @@ export class Storage {
     }).sort((left, right) => left.localDate.localeCompare(right.localDate));
   }
 
+  /** Replay-safe numeric observations; one row per active session minute. */
+  upsertTokenBuckets(buckets: readonly { sessionId: string; instant: string; tokens: number | null; partial: boolean }[]): void {
+    const write = this.sqlite.prepare(`
+      INSERT INTO codex_token_minutes(session_id, instant, tokens, partial) VALUES (?, ?, ?, ?)
+      ON CONFLICT(instant, session_id) DO UPDATE SET tokens=excluded.tokens, partial=excluded.partial
+      WHERE tokens IS NOT excluded.tokens OR partial != excluded.partial
+    `);
+    this.sqlite.transaction(() => {
+      for (const bucket of buckets) {
+        assertUtcInstant(bucket.instant, "instant");
+        if (bucket.tokens !== null && (!Number.isSafeInteger(bucket.tokens) || bucket.tokens < 0))
+          throw new RangeError("Invalid token observation");
+        write.run(bucket.sessionId, bucket.instant, bucket.tokens, Number(bucket.partial));
+      }
+    })();
+  }
+
+  queryDailyObservedTokens(query: CodexObservedTokenQuery & { timeZone: string }): {
+    localDate: string; tokens: number | null; tokensKnowledge: "complete" | "partial" | "unknown";
+  }[] {
+    assertUtcInstant(query.start, "start");
+    assertUtcInstant(query.end, "end");
+    if (query.end <= query.start) throw new RangeError("end must be after start");
+    if (query.repositoryIds?.length === 0) return [];
+    const filter = query.repositoryIds === undefined ? "" : `WHERE session_id IN (
+      SELECT session_id FROM normalized_events WHERE event_type='codex.session.started'
+      AND repository_id IN (SELECT value FROM json_each(@repos)))`;
+    // Old ledgers retain occasional session checkpoints. Use same-day differences
+    // only when the original minute observations are unavailable for that session/day.
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM (
+        SELECT session_id, occurred_at AS instant, CASE WHEN event_type='codex.session.started'
+          AND (json_extract(payload_json,'$.agentRole') IS NOT 'primary' OR json_extract(payload_json,'$.parentSessionId') IS NOT NULL)
+          THEN 'activity' ELSE event_type END AS kind,
+          CASE WHEN event_type='codex.usage.recorded'
+            AND json_extract(payload_json,'$.counterKind')='cumulative'
+            AND json_extract(payload_json,'$.countersAvailable') IS NOT 0
+            THEN json_extract(payload_json,'$.totalTokens') END AS tokens, 0 AS partial
+        FROM normalized_events WHERE event_type IN ('codex.session.started','codex.session.activity_observed','codex.usage.recorded')
+          AND occurred_at >= @start AND occurred_at < @end AND session_id IS NOT NULL
+        UNION ALL
+        SELECT session_id, instant, 'minute', tokens, partial FROM codex_token_minutes
+        WHERE instant >= @start AND instant < @end
+      ) ${filter} ORDER BY instant, kind
+    `).iterate({start: query.start, end: query.end, repos: JSON.stringify(query.repositoryIds ?? [])}) as
+      Iterable<{session_id: string; instant: string; kind: string; tokens: number | null; partial: number}>;
+    type Evidence = { tokens: number | null; partial: boolean; minute: boolean; checkpoint: number | null; legacy: number | null };
+    const days = new Map<string, Map<string, Evidence>>();
+    // Modern reporting zones have quarter-hour-aligned offsets. Reuse the
+    // converted date while traversing this chronological quarter-hour bucket.
+    let quarter = "";
+    let date = "";
+    for (const row of rows) {
+      const key = row.instant.slice(0, 14) + Math.floor(Number(row.instant.slice(14, 16)) / 15);
+      if (key !== quarter) {
+        date = localDateForInstant(row.instant, query.timeZone);
+        quarter = key;
+      }
+      const sessions = days.get(date) ?? new Map<string, Evidence>();
+      const observation = sessions.get(row.session_id) ?? {
+        tokens: null, partial: false, minute: false, checkpoint: null, legacy: null,
+      };
+      if (row.kind === "minute") {
+        observation.minute = true;
+        if (row.tokens !== null) observation.tokens = (observation.tokens ?? 0) + row.tokens;
+        if (row.partial) observation.partial = true;
+      } else if (row.kind === "codex.session.started" && observation.checkpoint === null) {
+        observation.checkpoint = 0;
+      } else if (row.kind === "codex.usage.recorded") {
+        if (row.tokens !== null && observation.checkpoint !== null && row.tokens >= observation.checkpoint) {
+          observation.legacy = (observation.legacy ?? 0) + row.tokens - observation.checkpoint;
+        }
+        observation.checkpoint = row.tokens;
+      }
+      sessions.set(row.session_id, observation);
+      days.set(date, sessions);
+    }
+    return [...days.entries()].map(([localDate, sessions]) => {
+      let tokens: number | null = null;
+      let partial = false;
+      for (const observation of sessions.values()) {
+        const subtotal = observation.minute ? observation.tokens : observation.legacy;
+        if (subtotal !== null) tokens = (tokens ?? 0) + subtotal;
+        if (observation.partial || !observation.minute || subtotal === null) partial = true;
+      }
+      return {localDate, tokens, tokensKnowledge: tokens === null ? "unknown" : partial ? "partial" : "complete"};
+    });
+  }
+
   queryCodexObservedTokens(query: CodexObservedTokenQuery): CodexObservedTokenResult {
     assertUtcInstant(query.start, "start");
     assertUtcInstant(query.end, "end");

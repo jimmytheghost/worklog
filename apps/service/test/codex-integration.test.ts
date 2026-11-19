@@ -129,6 +129,9 @@ function bulkCollection(inRangeSessions: number): CodexCollectionResult {
     ...base,
     sessions,
     edges: [],
+    tokenBuckets: events.filter((event) => event.eventType === "codex.session.started").map((event) => ({
+      sessionId: event.sessionId!, instant: event.occurredAt, tokens: event.sessionId === oldSessionId ? 999 : 1, partial: false,
+    })),
     events,
     coverage: {
       ...base.coverage,
@@ -175,6 +178,11 @@ function collection(): CodexCollectionResult {
     sessions: [
       { sourceSessionId: "source-child", startedAt: "2026-08-31T10:00:01.000Z", updatedAt: observedAt, status: "active", model: "gpt-5.6-sol", reasoningEffort: "high", agentRole: "subagent", parentSessionId: "source-parent", workspaceIdentityHash: "a".repeat(64) },
       { sourceSessionId: "source-parent", startedAt: "2026-08-31T10:00:02.000Z", updatedAt: observedAt, status: "active", model: "gpt-5.6-sol", reasoningEffort: "high", agentRole: "primary", workspaceIdentityHash: "a".repeat(64) },
+    ],
+    tokenBuckets: [
+      { sessionId: "session-parent", instant: "2026-08-31T10:30:00.000Z", tokens: 100, partial: false },
+      { sessionId: "session-parent", instant: "2026-08-31T11:00:00.000Z", tokens: 50, partial: false },
+      { sessionId: "session-child", instant: "2026-08-31T10:45:00.000Z", tokens: 40, partial: false },
     ],
     edges: [{ parentSessionId: "source-parent", childSessionId: "source-child", reportedStatus: "open", resolvedStatus: "open" }],
     events,
@@ -372,6 +380,7 @@ describe("Codex service integration", () => {
     const store = storage();
     const missingCounters = collection();
     missingCounters.events = missingCounters.events.filter((item) => item.eventType !== "codex.usage.recorded");
+    missingCounters.tokenBuckets = [];
     missingCounters.coverage.usageSnapshotsObserved = 0;
     missingCounters.coverage.sessionsMissingCounters = missingCounters.sessions.length;
     const app = integratedApp(store, new FixtureCollector(missingCounters));
@@ -389,6 +398,7 @@ describe("Codex service integration", () => {
     partialCounters.events = partialCounters.events.filter((item) =>
       item.eventType !== "codex.usage.recorded" || item.sessionId !== "session-child"
     );
+    partialCounters.tokenBuckets = partialCounters.tokenBuckets!.filter((bucket) => bucket.sessionId !== "session-child");
     partialCounters.coverage.usageSnapshotsObserved = 2;
     partialCounters.coverage.sessionsMissingCounters = 1;
     const app = integratedApp(store, new FixtureCollector(partialCounters));

@@ -3,6 +3,7 @@ import { openStorage, type Storage } from "@agent-dashboard/storage";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CODEX_AGENT_COVERAGE_KEY, CODEX_COVERAGE_KEY, CODEX_SOURCE_ID } from "../src/codex-sync.js";
+import { buildPeriodSummary } from "../src/period-summary.js";
 import { buildPublicActivity } from "../src/public-activity.js";
 
 const stores: Storage[] = [];
@@ -26,6 +27,7 @@ function event(type: string, at: string, sessionId: string, payload: Record<stri
   });
 }
 function session(store: Storage, id: string, start: string, usageAt: string, tokens: number | null) {
+  store.upsertTokenBuckets([{ sessionId: id, instant: usageAt.slice(0, 16) + ":00.000Z", tokens, partial: tokens === null }]);
   store.insertEvents([
     event("codex.session.started", start, id, { sourceSessionId: id, agentRole: "primary" }),
     event("codex.usage.recorded", usageAt, id, {
@@ -70,10 +72,31 @@ describe("public rolling 24-hour observations", () => {
     activity(store, "PRIVATE_END", end);
     const snapshot = buildPublicActivity(store, "America/Denver", new Date("2026-11-17T22:37:00.000Z"));
     expect(snapshot.rolling24Hours[0]).toEqual({
-      start, end, tokens: 30, tokensKnowledge: "complete", agents: 1, subagents: 1,
+      start, end, tokens: 1030, tokensKnowledge: "complete", agents: 1, subagents: 1,
       agentDays: [{ localDate: "2026-11-16", agents: 1, subagents: 0 }, { localDate: "2026-11-17", agents: 0, subagents: 1 }],
     });
+    expect(snapshot.months[0]?.tokenDays).toEqual([
+      { localDate: "2026-11-16", tokens: 1010, tokensKnowledge: "complete" },
+      { localDate: "2026-11-17", tokens: 1020, tokensKnowledge: "complete" },
+    ]);
     expect(JSON.stringify(snapshot)).not.toMatch(/PRIVATE_|sourceSessionId|sessionId|sourceAccountId|prompt|response|credential/);
+  });
+
+  it("assigns a reopened session to both Denver dates in the website and native totals", () => {
+    const store = storage();
+    const now = new Date("2026-11-17T08:00:00.000Z");
+    session(store, "PRIVATE_RESUMED", "2026-11-17T06:00:00.000Z", "2026-11-17T06:59:00.000Z", 80);
+    store.upsertTokenBuckets([{ sessionId: "PRIVATE_RESUMED", instant: "2026-11-17T07:00:00.000Z", tokens: 15, partial: false }]);
+    const timeZone = "America/Denver";
+    const today = buildPeriodSummary(store, { period: "day", timeZone, now });
+    expect(today.metrics).toMatchObject({ tokens: 15, tokensKnowledge: "complete" });
+    expect(buildPublicActivity(store, timeZone, now).months[0]).toMatchObject({
+      tokens: 95,
+      tokenDays: [
+        { localDate: "2026-11-16", tokens: 80, tokensKnowledge: "complete" },
+        { localDate: "2026-11-17", tokens: 15, tokensKnowledge: "complete" },
+      ],
+    });
   });
 
   it("keeps unavailable tokens distinct from observed zero", () => {

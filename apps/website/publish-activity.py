@@ -139,6 +139,11 @@ def device_activity(snapshot):
             {
                 "month": month["month"],
                 "tokens": month["tokens"],
+                **({"tokenDays": [
+                    {key: day[key] for key in ("localDate", "tokens", "tokensKnowledge")}
+                    for day in month["tokenDays"]
+                ]} if "tokenDays" in month else {}),
+                **({"tokensKnowledge": month["tokensKnowledge"]} if "tokensKnowledge" in month else {}),
                 "agentDays": [
                     {key: day[key] for key in ("localDate", "agents", "subagents")}
                     for day in month["agentDays"]
