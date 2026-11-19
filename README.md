@@ -129,7 +129,7 @@ The [Windows heatmap handoff](docs/windows-heatmap-handoff.md) covers the pendin
 - [`packages/collector-github`](packages/collector-github) and [`packages/collector-codex`](packages/collector-codex): source adapters.
 - [`packages/domain`](packages/domain) and [`packages/storage`](packages/storage): event contracts and SQLite ledger.
 
-For browser development, follow the [local preview instructions](WEBSITE-HANDOFF.md#build-and-publish) to serve the public frontend with published feed snapshots or fixtures.
+For browser development, run `pnpm --filter @agent-dashboard/website preview` to serve the public frontend with live published feeds. See the [local preview instructions](WEBSITE-HANDOFF.md#build-and-publish).
 
 To develop the local API:
 

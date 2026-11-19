@@ -22,7 +22,13 @@ The updated source opens on the selected day and includes a weekly recap. Calend
 
 Use the site's existing explicit-file release workflow and retain the production backup. Give changed CSS and JavaScript asset references a new cache version. Verify the deployed assets and browser behavior at desktop and mobile widths. The live JSON feeds are owned by the machine publishers. Keep both out of static releases and Git.
 
-For a local preview, copy the supported build files to a `worklog/` subdirectory in a temporary preview root. Put a schema-version-1 `activity.json` fixture next to `index.html`, with an optional `codex-devices.json` fixture for additional devices. Run `python -m http.server 4177 --bind 127.0.0.1 --directory PREVIEW_ROOT` and open `http://127.0.0.1:4177/worklog/`. Keep preview fixtures outside the static release file list.
+To preview the public dashboard locally, run:
+
+```sh
+pnpm --filter @agent-dashboard/website preview
+```
+
+Open [Worklog on localhost](http://127.0.0.1:4177/worklog/). The preview builds the public frontend, serves it on loopback, and fetches both published feeds from JimmyWeber.com on demand. A visible preview tab checks for new reports every minute and reloads when either feed changes. For offline testing, serve the built files under `/worklog/` with schema-version-1 fixture feeds alongside them. Keep fixtures outside the static release file list.
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
