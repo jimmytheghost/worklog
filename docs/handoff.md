@@ -8,9 +8,11 @@ Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each 
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
 
-## Daily dashboard development
+## Next session priority
 
-The daily dashboard branch adds token increments by reporting date, selected-day project details and a Monday–Sunday recap. The public site and machine services still use the release described below. Run the updated collector on each recording device and update its publisher to populate the new feed. Retained cumulative checkpoints can supply partial historical subtotals. In a test on a copy of the Mac ledger, 81 of 106 dates with recorded activity had usable token evidence. See the [website handoff](../WEBSITE-HANDOFF.md) for the static asset list.
+The local public Worklog preview needs substantial visual and layout work. Start by figuring out how many Codex tokens Worklog can reliably report for a calendar day, then revisit the overview and how the daily numbers are presented.
+
+The merged daily dashboard reads per-device `tokenDays`, but the live MacBook Pro and Windows PC feeds checked on November 18 had no entries with that field. The preview therefore cannot show observed token counts for individual dates from those feeds. A test on a copy of the Mac ledger found usable evidence on 81 of 106 dates with recorded activity. Historical coverage still needs to be measured. [Daily token investigation](../WEBSITE-HANDOFF.md#daily-tokens-first)
 
 ## Closing checkpoint
 
@@ -159,6 +161,7 @@ A follow-up Windows check exercised current and legacy saved-data rendering in a
 
 ## Pending work
 
+- Reconcile per-day Codex token counts from each device's ledger through its public feed and the local preview. Rework the dashboard layout after the daily data and coverage are understood. [Next session priority](#next-session-priority)
 - Check the Mac primary service/publisher after its stale report at the closing check. Confirm both feeds have a common exact 24-hour interval before treating Today as a current combined total. [Publisher operations](../WEBSITE-HANDOFF.md#current-publishers)
 - Back up and deliberately migrate or repair the shared Mac Git metadata before reusing its linked worktrees. Use an independent clone outside Dropbox for new work, and reconcile the preserved Windows conflict copies and missing files separately. [Recovery status](git-storage.md)
 - Enroll the Mac mini when it is ready. It has no live feed yet. Use [Mac mini enrollment](../WEBSITE-HANDOFF.md#mac-mini-enrollment) from that machine.

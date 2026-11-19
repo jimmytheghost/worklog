@@ -10,9 +10,15 @@ The header squares switch between green, neon blue, and grey. Green is the defau
 
 Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
-## Daily dashboard in development
+## Daily tokens first
 
-The updated source opens on the selected day and includes a weekly recap. Calendar Today and Last 24 hours have separate controls. Updated services produce daily token aggregates after their first local Codex refresh. Use the updated secondary publisher to retain daily coverage in its device feed. The release records below describe the previously deployed website.
+The local preview of the public frontend needs substantial visual and layout work. The first task is to establish what a daily token count means and verify that Worklog can report it reliably. The merged preview has a selected-day view and a weekly recap, but neither published device feed contained `tokenDays` when checked on November 18.
+
+- Trace one recent `America/Denver` calendar day from each device's observed Codex counter increases through the local ledger and public feed to the preview's **Observed tokens** row. Identify which collector or publisher needs updating where the field is missing.
+- Check repeat refreshes, reopened sessions, and sessions that cross midnight. Reconcile each device's daily subtotal before combining them. Keep complete, partial, unavailable, and measured zero distinct.
+- Measure historical coverage before deciding what to show for older dates. Keep calendar-day observations, the rolling **Last 24 hours** window, and Codex account usage separate.
+
+Once those numbers and their coverage are understood, revisit the page hierarchy, layout, and daily readout in the local preview. The release records below describe the deployed website. [Daily token data contract](docs/data-contract.md#public-last-24-hours-projection) · [Project handoff](docs/handoff.md#next-session-priority)
 
 ## Build and publish
 
