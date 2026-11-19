@@ -214,7 +214,7 @@ export class CodexCollector {
           metadata = cached.metadata;
         } else {
           this.rolloutCache.delete(rolloutPath);
-          metadata = await readRolloutMetadata(rolloutPath);
+          metadata = await readRolloutMetadata(rolloutPath, thread.id, thread.createdAt);
           rolloutFilesRead += 1;
           const after = await stat(rolloutPath, { bigint: true });
           const afterFingerprint = `${after.dev}:${after.ino}:${after.size}:${after.mtimeNs}:${after.ctimeNs}`;
@@ -328,6 +328,8 @@ export class CodexCollector {
       sourceInstanceId: sourceId,
       sourceFormatVersion: formatVersion,
       schemaFingerprint,
+      tokenBuckets: sessions.flatMap(({ sourceSessionId }) =>
+        (rolloutBySession.get(sourceSessionId)?.tokenBuckets ?? []).map(bucket => ({ ...bucket, sessionId: sourceSessionId }))),
       sessions,
       edges,
       events: deduplicateEvents(events),

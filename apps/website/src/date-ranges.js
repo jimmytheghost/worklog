@@ -21,7 +21,8 @@ export function resolveRange(preset, earliest, latest, start, end) {
     return { start, end };
   }
   end = latest;
-  if (preset === "all") start = earliest;
+  if (preset === "today") start = latest;
+  else if (preset === "all") start = earliest;
   else if (preset === "year") start = `${latest.slice(0, 4)}-01-01`;
   else if (["7", "30", "90"].includes(preset)) {
     const date = utc(latest);
@@ -36,6 +37,34 @@ export function resolveRange(preset, earliest, latest, start, end) {
   } else throw new RangeError("Unknown date range");
   if (start > end || end < earliest) throw new RangeError("Date range is outside recorded history");
   return { start: start < earliest ? earliest : start, end };
+}
+
+/** Each device contributes at most one observed subtotal per reporting date. */
+export function mergeTokenDays(sources) {
+  if (!sources.some((months) => months.some((month) => Array.isArray(month.tokenDays)))) return null;
+  const byDate = new Map();
+  for (const months of sources) {
+    const rows = new Map();
+    for (const month of months) {
+      for (const day of month.tokenDays ?? []) {
+        if (validDate(day.localDate) && day.localDate.startsWith(month.month + "-")) {
+          rows.set(day.localDate, rows.has(day.localDate) ? null : day);
+        }
+      }
+    }
+    for (const [date, row] of rows) {
+      const summary = byDate.get(date) ?? { tokens: null, completeDevices: 0 };
+      if (Number.isSafeInteger(row?.tokens) && row.tokens >= 0 && ["complete", "partial"].includes(row.tokensKnowledge)) {
+        summary.tokens = (summary.tokens ?? 0) + row.tokens;
+        if (row.tokensKnowledge === "complete") summary.completeDevices++;
+      }
+      byDate.set(date, summary);
+    }
+  }
+  return new Map([...byDate].map(([date, row]) => [date, {
+    tokens: row.tokens, tokensKnowledge: row.tokens === null ? "unknown"
+      : row.completeDevices === sources.length ? "complete" : "partial",
+  }]));
 }
 
 /** Filter event records before counting projects; never prorate monthly token observations. */
@@ -59,7 +88,9 @@ export function selectRange(months, days, { start, end }, latest) {
   const last = utc(`${end.slice(0, 7)}-01`);
   last.setUTCMonth(last.getUTCMonth() + 1); last.setUTCDate(0);
   const coversMonths = start.endsWith("-01") && (end === iso(last) || end === latest);
-  const tokens = coversMonths ? sum(selectedMonths.map(({ tokens }) => tokens)) : null;
+  const daily = days.some((day) => Object.hasOwn(day, "tokensKnowledge"));
+  const tokens = daily ? sum(selectedDays.map((day) => day.tokens)) : coversMonths ? sum(selectedMonths.map(({ tokens }) => tokens)) : null;
   const totals = Object.fromEntries(keys.map((key) => [key, sum(selectedDays.map((day) => day[key]))]));
-  return { months: filtered, days: selectedDays, totals, tokens, coversMonths };
+  const partialMetrics = daily && tokens !== null && selectedDays.some((day) => day.tokensKnowledge !== "complete") ? ["tokens"] : [];
+  return { months: filtered, days: selectedDays, totals, tokens, coversMonths, dailyTokens: daily, partialMetrics };
 }

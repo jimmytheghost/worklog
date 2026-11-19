@@ -1,10 +1,11 @@
-import { selectToday } from "./today-range.js?v=1";
+import { weekOf, projectsInPeriod } from "./week-recap.js?v=1";
+import { selectToday } from "./today-range.js?v=2";
 import { attachPlotScrollbar } from "./plot-scrollbar.js?v=1";
-import { resolveRange, selectRange } from "./date-ranges.js?v=1";
+import { mergeTokenDays, resolveRange, selectRange } from "./date-ranges.js?v=2";
 import { mergeGitHubHistory } from "./github-history.js?v=2";
 import { heatmapValue, isPartialActivity } from "./heatmap-metrics.js?v=1";
 
-import { createMetricExplorer } from "./metric-explorer.js?v=5";
+import { createMetricExplorer } from "./metric-explorer.js?v=6";
 
 const status = document.querySelector("#status");
 const dashboard = document.querySelector("#dashboard");
@@ -146,7 +147,7 @@ function renderProjects(projects) {
   if (!matches.length) projectsContainer.append(element("p", query ? "No matching activity." : "No GitHub activity in this period.", "empty"));
 }
 
-function makeMonthlySeries(month, agentCoverage, through) {
+function makeMonthlySeries(month, agentCoverage, through, tokenDays) {
   const dates = new Map(month.agentDays.map((day) => [day.localDate, day]));
   const [year, numberOfMonth] = month.month.split("-").map(Number);
   const length = new Date(Date.UTC(year, numberOfMonth, 0)).getUTCDate();
@@ -158,6 +159,10 @@ function makeMonthlySeries(month, agentCoverage, through) {
     series.push({
       date,
       label: dayLabel(date),
+      ...(tokenDays === null ? {} : {
+        ...(tokenDays.get(date) ?? { tokens: null, tokensKnowledge: "unknown" }),
+        partialMetrics: tokenDays.get(date)?.tokensKnowledge === "partial" ? ["tokens"] : [],
+      }),
       tick: day === 1 || day % 5 === 0 ? String(day) : "",
       commits: through.commits && date <= through.commits ? 0 : null,
       pushes: through.pushes && date <= through.pushes ? 0 : null,
@@ -191,7 +196,34 @@ function renderDayDetails(container, heading, item) {
   container.replaceChildren(heading, totals);
 }
 
-function renderHeatmap(daySeries, latestDate) {
+function renderWorkCards(container, projects, weekly) {
+  if (!container) return;
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
+  container.replaceChildren(...projects.map(({ name, activeDates, rows }) => {
+    const card = element("article", undefined, "work-card");
+    card.append(element("h3", name));
+    const pushes = rows.filter(row => row.kind === "push").length;
+    const commits = rows.filter(row => row.kind === "commit");
+    const stats = [weekly && activeDates.map(date => weekday.format(new Date(date + "T00:00:00Z"))).join(", "),
+      commits.length + (commits.length === 1 ? " commit" : " commits"), pushes + (pushes === 1 ? " push" : " pushes")];
+    card.append(element("p", stats.filter(Boolean).join(" · "), "caption"));
+    if (commits.length) {
+      const list = element("ul");
+      for (const event of weekly ? commits.slice(0, 3) : commits) {
+        const row = element("li");
+        if (typeof event.url === "string" && githubCommitUrl.test(event.url)) {
+          const link = element("a", event.subject); link.href = event.url; row.append(link);
+        } else row.textContent = event.subject;
+        list.append(row);
+      }
+      card.append(list);
+    }
+    return card;
+  }));
+  if (!projects.length) container.append(element("p", "No project activity in the available GitHub records.", "caption"));
+}
+
+function renderHeatmap(daySeries, latestDate, months) {
   // Cached visits can briefly have the previous HTML while assets are deployed.
   if (!heatmapGrid) return;
   const byDate = new Map(daySeries.map((day) => [day.date, day]));
@@ -224,7 +256,21 @@ function renderHeatmap(daySeries, latestDate) {
     buttons[index].tabIndex = 0;
     const date = element("time", dates[index]);
     date.dateTime = days[index].date;
-    renderDayDetails(heatmapDetail, date, days[index]);
+    const day = days[index];
+    renderDayDetails(heatmapDetail, date, day);
+    const tokens = element("div");
+    const count = day.tokens == null ? "Unavailable" : number.format(day.tokens);
+    tokens.append(element("dt", "Observed tokens"), element("dd", count + (day.tokensKnowledge === "partial" ? " (partial)" : "")));
+    heatmapDetail.querySelector("dl").append(tokens);
+    renderWorkCards(document.querySelector("#day-projects"), projectsInPeriod(months, day.date, day.date), false);
+    const week = weekOf(day.date);
+    const weekDates = document.querySelector("#week-dates");
+    if (weekDates && weekDates.dataset.start !== week.start) {
+      weekDates.dataset.start = week.start;
+      const end = week.end < latestDate ? week.end : latestDate;
+      weekDates.textContent = dayLabel(week.start) + " – " + dayLabel(end);
+      renderWorkCards(document.querySelector("#week-projects"), projectsInPeriod(months, week.start, end), true);
+    }
   }
 
   const buttons = days.map((day, index) => {
@@ -379,15 +425,15 @@ async function loadDevices(timeZone) {
     const response = await fetch(new URL("./codex-devices.json", import.meta.url), {
       cache: "no-cache", signal: AbortSignal.timeout(5000),
     });
-    if (response.status === 404) return [];
+    if (response.status === 404) return { devices: [], available: true };
     if (!response.ok) throw new Error("Device activity request failed");
     const feed = await response.json();
     if (feed.schemaVersion !== 1 || feed.timeZone !== timeZone || !feed.devices) {
       throw new Error("Unsupported device activity file");
     }
-    return Object.entries(feed.devices);
+    return { devices: Object.entries(feed.devices), available: true };
   } catch {
-    return [];
+    return { devices: [], available: false };
   }
 }
 
@@ -432,6 +478,11 @@ function renderSyncStatus(primary, devices, timeZone) {
     }
     return row;
   }));
+  const syncLink = document.querySelector('a[href="#sync-title"]');
+  if (syncLink && syncDevices.querySelector('[data-state="stale"]')) {
+    syncLink.textContent = "Sync status · Stale";
+    syncLink.classList.add("stale-link");
+  }
 }
 
 function combineDeviceMonths(primaryMonths, devices) {
@@ -469,7 +520,10 @@ async function showDashboard() {
   if (data.schemaVersion !== 1 || !Array.isArray(data.months) || !data.months.length) {
     throw new Error("Unsupported activity file");
   }
-  const devices = await loadDevices(data.timeZone);
+  const { devices, available: deviceFeedAvailable } = await loadDevices(data.timeZone);
+  const deviceMonths = [data.months, ...devices.map(([, device]) => device.months)];
+  if (!deviceFeedAvailable) deviceMonths.push([]);
+  const tokenDays = mergeTokenDays(deviceMonths);
   const monthsWithActivity = combineDeviceMonths(data.months, devices);
   const newest = (instants) => instants.reduce((latest, instant) =>
     instant && (!latest || Date.parse(instant) > Date.parse(latest)) ? instant : latest, null);
@@ -495,7 +549,7 @@ async function showDashboard() {
   renderSyncStatus(data.coverage, devices, data.timeZone);
   period.append(new Option("Select month…", ""), ...monthsWithActivity.map((month) => new Option(monthLabel(month.month), month.month)));
   const byMonth = new Map(monthsWithActivity.map((month) => {
-    const days = makeMonthlySeries(month, agentCoverage, through);
+    const days = makeMonthlySeries(month, agentCoverage, through, tokenDays);
     return [month.month, { days, totals: totalsForSeries(days) }];
   }));
   const allDays = [...byMonth.values()].flatMap(({ days }) => days);
@@ -508,9 +562,17 @@ async function showDashboard() {
   const caption = document.querySelector("#range-caption");
   for (const input of [startInput, endInput]) { input.min = earliest; input.max = through.today; }
   const todayView = selectToday(monthsWithActivity, data, devices, data.timeZone);
+  if (!deviceFeedAvailable) {
+    todayView.partialMetrics = [...new Set([...todayView.partialMetrics, "agents", "subagents", "tokens"])];
+    if (todayView.tokens !== null) todayView.tokensKnowledge = "partial";
+  }
+  todayView.tokenDescription = todayView.dailyCounters ? "Tokens count observed usage during this window."
+    : "Legacy tokens cover sessions started during this window.";
   todayView.stale = Date.now() - Date.parse(todayView.bounds.endAt) > staleAfterMinutes * 60_000;
   todayView.label = `${todayView.stale ? "Reported 24-hour window (stale)" : "Last 24 hours"} · ${updateFormat.format(new Date(todayView.bounds.startAt))} – ${updateFormat.format(new Date(todayView.bounds.endAt))}`;
-  const resolveSelection = (next, start, end) => next === "today" ? todayView.bounds
+  const calendarToday = dateInZone(Date.now(), data.timeZone);
+  const resolveSelection = (next, start, end) => next === "24h" ? todayView.bounds
+    : next === "today" ? resolveRange("today", earliest, calendarToday)
     : resolveRange(next, earliest, through.today, start, end);
   let selection = "all";
   let bounds = resolveSelection("all");
@@ -520,7 +582,7 @@ async function showDashboard() {
       bounds = resolveSelection("custom", params.get("start"), params.get("end"));
       selection = "custom";
     } else {
-      const requested = params.get("range") ?? params.get("month") ?? "all";
+      const requested = params.get("range") ?? params.get("month") ?? "today";
       bounds = resolveSelection(requested);
       selection = requested;
     }
@@ -530,13 +592,13 @@ async function showDashboard() {
   const chartViewport = document.querySelector(".activity .plot-scroll");
   if (chartViewport) attachPlotScrollbar(chartViewport, "Activity over time");
   const explorer = createMetricExplorer({
-    months: monthsWithActivity, days: allDays, latestDate: through.today, metrics, today: todayView,
+    months: monthsWithActivity, days: allDays, latestDate: calendarToday, metrics, today: todayView,
     charts: document.querySelector(".charts"),
   });
   let projects = [];
   let series = [];
   function renderPeriod() {
-    const isToday = selection === "today";
+    const isToday = selection === "24h";
     const selected = isToday ? todayView : selectRange(monthsWithActivity, allDays, bounds, through.today);
     projects = combineProjects(selected.months);
     const monthly = selection === "all" || selected.days.length > 93;
@@ -553,11 +615,15 @@ async function showDashboard() {
     } else series = selected.days;
     const label = isToday
       ? todayView.label
+      : selection === "today" ? `Today · ${dayLabel(calendarToday)} · ${data.timeZone}`
       : `${heatmapDateFormat.format(new Date(`${bounds.start}T00:00:00Z`))} – ${heatmapDateFormat.format(new Date(`${bounds.end}T00:00:00Z`))}`;
     const partial = selected.partialMetrics?.length ? ` · Partial reports: ${selected.partialMetrics.map((key) => key === "tokens" ? "tokens" : chartLabels[key]?.toLowerCase() ?? key).join(", ")}.` : "";
+    const staleSources = [data.coverage.agentsAt, ...devices.map(([, device]) => device.syncedAt)]
+      .some((at) => !at || Date.now() - Date.parse(at) >= staleAfterMinutes * 60_000);
+    const freshness = selection === "today" && (!deviceFeedAvailable || staleSources) ? " · Some device reports are stale or unavailable." : "";
     caption.textContent = isToday
-      ? `${label}${selected.reason ? ` · ${selected.reason}` : partial} · Tokens reflect observed counters for sessions started in this window.`
-      : `${label}${selected.coversMonths ? "" : " · Observed tokens require whole reporting months."}`;
+      ? `${label}${selected.reason ? ` · ${selected.reason}` : partial} · ${todayView.tokenDescription}`
+      : `${label}${freshness}${selected.dailyTokens ? partial : selected.coversMonths ? " · Legacy monthly token observations." : " · Daily token observations unavailable."}`;
     chartPeriod.textContent = `${monthly ? "Monthly" : "Daily"} totals · ${label}`;
     period.value = monthsWithActivity.some(({ month }) => month === selection) ? selection : "";
     for (const button of presets) {
@@ -579,7 +645,7 @@ async function showDashboard() {
       for (const key of ["month", "range", "start", "end"]) url.searchParams.delete(key);
       if (selection === "custom") {
         url.searchParams.set("start", bounds.start); url.searchParams.set("end", bounds.end);
-      } else if (["today", "7", "30", "90", "year"].includes(selection)) url.searchParams.set("range", selection);
+      } else if (["all", "today", "24h", "7", "30", "90", "year"].includes(selection)) url.searchParams.set("range", selection);
       else if (selection !== "all") url.searchParams.set("month", selection);
       history.replaceState(null, "", url);
       renderPeriod();
@@ -600,7 +666,12 @@ async function showDashboard() {
   search.addEventListener("input", () => renderProjects(projects));
   dashboard.hidden = false;
   renderPeriod();
-  renderHeatmap([...byMonth.values()].flatMap(({ days }) => days), through.today);
+  const explore = document.querySelector("#explore");
+  if (explore) {
+    explore.open = ["range", "start", "end", "month"].some(key => params.has(key)) || location.hash === "#explore";
+    document.querySelector('a[href="#explore"]')?.addEventListener("click", () => { explore.open = true; });
+  }
+  renderHeatmap(allDays, calendarToday, monthsWithActivity);
   status.hidden = true;
   document.querySelectorAll("[data-dashboard-link]").forEach((link) => { link.hidden = false; });
   if (location.hash === "#history-title" || location.hash === "#sync-title") {

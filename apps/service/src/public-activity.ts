@@ -1,10 +1,10 @@
 import { localDateForInstant, type EventPayloads } from "@agent-dashboard/domain";
-import type { CodexTokenKnowledge, Storage } from "@agent-dashboard/storage";
+import type { Storage } from "@agent-dashboard/storage";
 
 import { buildAgentActivity } from "./agent-activity.js";
 import { CODEX_COVERAGE_KEY } from "./codex-sync.js";
 import { GITHUB_SOURCE_ID } from "./github-sync.js";
-import { monthBounds } from "./history.js";
+import { sumTokenDays } from "./token-activity.js";
 import { boundsForPeriod } from "./period-summary.js";
 
 interface PublicProject {
@@ -22,17 +22,21 @@ function rolling24Hours(storage: Storage, timeZone: string, now: Date) {
   return Array.from({ length: 4 }, (_, offset) => {
     const end = new Date(latestEnd - offset * quarterHour).toISOString();
     const start = new Date(Date.parse(end) - 24 * 60 * 60 * 1_000).toISOString();
-    const usage = storage.queryCodexObservedTokens({ start, end });
+    const days = storage.queryDailyObservedTokens({ start, end, timeZone });
+    const usage = sumTokenDays(days);
     const hasReport = coverage?.lastSucceededAt !== undefined
       && Date.parse(coverage.lastSucceededAt) >= Date.parse(start);
-    const observedZero = usage.sessionsObserved === 0 && hasReport;
-    const tokens = usage.sessionsKnown > 0 || observedZero ? usage.knownSubtotal : null;
-    const tokensKnowledge: CodexTokenKnowledge = tokens === null ? "unknown"
-      : observedZero && (coverage?.completeness !== "complete"
-        || Date.parse(coverage.coverageEnd ?? coverage.lastSucceededAt ?? "") < Date.parse(end))
-        ? "partial" : usage.knowledge;
+    const observedZero = days.length === 0 && hasReport;
+    if (observedZero) {
+      usage.tokens = 0;
+      usage.tokensKnowledge = coverage?.completeness === "complete" ? "complete" : "partial";
+    }
+    const reportedThrough = coverage?.coverageEnd ?? coverage?.lastSucceededAt;
+    if (usage.tokens !== null && (reportedThrough === undefined || reportedThrough < end)) {
+      usage.tokensKnowledge = "partial";
+    }
     const agents = buildAgentActivity(storage, { start, end }, timeZone, now);
-    return { start, end, tokens, tokensKnowledge, agents: agents.agents,
+    return { start, end, ...usage, agents: agents.agents,
       subagents: agents.subagents, agentDays: agents.days };
   });
 }
@@ -81,7 +85,16 @@ export function buildPublicActivity(storage: Storage, timeZone: string, now: Dat
     agentDaysByMonth.set(month, monthlyDays);
   }
 
-  const firstMonth = [currentMonth, ...byMonth.keys(), ...agentDaysByMonth.keys()].sort()[0]!;
+  const tokenDays = storage.queryDailyObservedTokens({ ...range, timeZone });
+  const tokensByMonth = new Map<string, typeof tokenDays>();
+  for (const day of tokenDays) {
+    const month = day.localDate.slice(0, 7);
+    const rows = tokensByMonth.get(month) ?? [];
+    rows.push(day);
+    tokensByMonth.set(month, rows);
+  }
+
+  const firstMonth = [currentMonth, ...byMonth.keys(), ...agentDaysByMonth.keys(), ...tokensByMonth.keys()].sort()[0]!;
   const months: string[] = [];
   const cursor = new Date(`${firstMonth}-01T00:00:00.000Z`);
   for (let month = firstMonth; month <= currentMonth; month = cursor.toISOString().slice(0, 7)) {
@@ -103,11 +116,11 @@ export function buildPublicActivity(storage: Storage, timeZone: string, now: Dat
     },
     months: months.reverse().map((month) => {
       const agentDays = agentDaysByMonth.get(month) ?? [];
-      const bounds = monthBounds(month, timeZone);
-      const observedTokens = storage.queryCodexObservedTokens(bounds);
+      const tokenDays = tokensByMonth.get(month) ?? [];
       return {
         month,
-        tokens: observedTokens.sessionsKnown === 0 ? null : observedTokens.knownSubtotal,
+        ...sumTokenDays(tokenDays),
+        tokenDays,
         agentDays,
         projects: [...(byMonth.get(month)?.values() ?? [])].sort((left, right) =>
           right.commits - left.commits || right.pushes - left.pushes || left.name.localeCompare(right.name),

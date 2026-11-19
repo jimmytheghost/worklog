@@ -10,9 +10,13 @@ The header squares switch between green, neon blue, and grey. Green is the defau
 
 Worklog counts each top-level Codex session or spawned subagent once per reporting date with observed activity. Range totals sum those daily counts. Historical coverage depends on retained metadata. Commit subjects open their exact GitHub commit when the export includes a URL. [Local API contract](docs/data-contract.md)
 
+## Daily dashboard in development
+
+The updated source opens on the selected day and includes a weekly recap. Calendar Today and Last 24 hours have separate controls. Updated services produce daily token aggregates after their first local Codex refresh. Use the updated secondary publisher to retain daily coverage in its device feed. The release records below describe the previously deployed website.
+
 ## Build and publish
 
-1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `plot-scrollbar.js`, `date-ranges.js`, `today-range.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
+1. Run `pnpm --filter @agent-dashboard/website build`. Publish only `index.html`, `styles.css`, `activity.js`, `week-recap.js`, `plot-scrollbar.js`, `date-ranges.js`, `today-range.js`, `github-history.js`, `heatmap-metrics.js`, `metric-explorer.js`, `metric-series.js`, `metric-explorer.css`, `jimmyweber-skull.svg`, and `preview.png` from `apps/website/dist` to the site's `/worklog/` directory.
 2. Run the local Worklog service and allow its GitHub and Codex syncs to finish. The loopback endpoint `GET /api/website` produces the public data feed.
 3. The primary publisher runs `python3 apps/website/publish-activity.py SSH_ALIAS ABSOLUTE_WEB_DIRECTORY`. An additional device passes `--device DEVICE-SLUG`. The static frontend reads `activity.json` and `codex-devices.json` alongside `index.html`.
 

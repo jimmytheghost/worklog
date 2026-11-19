@@ -1,10 +1,11 @@
+import { sumTokenDays } from "./token-activity.js";
 import { utcRangeForLocalDate, type EventPayloads } from "@agent-dashboard/domain";
 import type { Storage } from "@agent-dashboard/storage";
 import { buildAgentActivity } from "./agent-activity.js";
 
 type HistoryStorage = Pick<
   Storage,
-  "getCoverage" | "listProjects" | "listGitActivityEvents" | "queryCodexObservedTokens" | "queryDailyCodexAgentActivity"
+  "getCoverage" | "listProjects" | "listGitActivityEvents" | "queryDailyObservedTokens" | "queryDailyCodexAgentActivity"
 >;
 
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
@@ -57,8 +58,8 @@ export function buildMonthlyHistory(
       commits,
       pushes,
       tokens: (() => {
-        const usage = storage.queryCodexObservedTokens({ ...range, repositoryIds: [projectId] });
-        return usage.sessionsObserved === 0 || usage.knowledge === "unknown" ? null : usage.knownSubtotal;
+        const usage = sumTokenDays(storage.queryDailyObservedTokens({ ...range, timeZone: options.timeZone, repositoryIds: [projectId] }));
+        return usage.tokens;
       })(),
       lastActivityAt: projectEvents[0]!.occurredAt,
       activity: projectEvents.map((event) => {
@@ -98,7 +99,7 @@ export function buildMonthlyHistory(
     right.lastActivityAt.localeCompare(left.lastActivityAt) || left.name.localeCompare(right.name),
   );
 
-  const tokenUsage = storage.queryCodexObservedTokens(range);
+  const tokenUsage = sumTokenDays(storage.queryDailyObservedTokens({ ...range, timeZone: options.timeZone }));
   const { agents, subagents, days, coverage } = buildAgentActivity(storage, range, options.timeZone);
   return {
     schemaVersion: 1,
@@ -109,7 +110,8 @@ export function buildMonthlyHistory(
       projects: projectRows.length,
       commits: projectRows.reduce((sum, project) => sum + project.commits, 0),
       pushes: projectRows.reduce((sum, project) => sum + project.pushes, 0),
-      tokens: tokenUsage.knowledge === "unknown" ? null : tokenUsage.knownSubtotal,
+      tokens: tokenUsage.tokens,
+      tokensKnowledge: tokenUsage.tokensKnowledge,
       agents,
       subagents,
     },
@@ -117,7 +119,7 @@ export function buildMonthlyHistory(
     projects: projectRows,
     sources: [
       { source: "github", completeness: "partial" },
-      { source: "codex_local", completeness: tokenUsage.knowledge },
+      { source: "codex_local", completeness: tokenUsage.tokensKnowledge },
       { source: "codex_agent_activity", completeness: coverage?.completeness ?? "unavailable" },
     ],
   };

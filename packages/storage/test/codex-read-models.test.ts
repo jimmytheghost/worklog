@@ -363,6 +363,44 @@ describe("Codex read models", () => {
     });
   });
 
+  it("splits observed increments at Denver midnight and keeps legacy gaps unknown", () => {
+    const start = "2026-11-18T06:58:00.000Z";
+    const end = "2026-11-20T07:01:00.000Z";
+    storage.insertEvents([
+      codexEvent("codex.session.started", start, {sourceSessionId: "s", agentRole: "primary"}, {sessionId: "s"}),
+      codexEvent("codex.session.started", "2026-11-20T07:00:00.000Z", {sourceSessionId: "legacy", agentRole: "primary"}, {sessionId: "legacy"}),
+    ]);
+    const rows = [
+      {sessionId: "s", instant: start, tokens: 80_000, partial: false},
+      {sessionId: "s", instant: "2026-11-18T07:00:00.000Z", tokens: 15_000, partial: false},
+      {sessionId: "s", instant: "2026-11-19T07:00:00.000Z", tokens: 0, partial: false},
+    ];
+    storage.upsertTokenBuckets(rows);
+    storage.upsertTokenBuckets(rows);
+    expect(storage.queryDailyObservedTokens({start, end, timeZone: "America/Denver"})).toEqual([
+      {localDate: "2026-11-17", tokens: 80000, tokensKnowledge: "complete"},
+      {localDate: "2026-11-18", tokens: 15000, tokensKnowledge: "complete"},
+      {localDate: "2026-11-19", tokens: 0, tokensKnowledge: "complete"},
+      {localDate: "2026-11-20", tokens: null, tokensKnowledge: "unknown"},
+    ]);
+  });
+
+  it("recovers only differences bounded by the same date from legacy checkpoints", () => {
+    storage.insertEvents([
+      codexEvent("codex.session.started", "2026-08-31T10:00:00.000Z",
+        {sourceSessionId: "s", agentRole: "primary"}, {sessionId: "s"}),
+      cumulativeUsage("s", "s", "2026-08-31T12:00:00.000Z", 80000),
+      cumulativeUsage("s", "s", "2026-09-01T12:00:00.000Z", 95000),
+      cumulativeUsage("s", "s", "2026-09-01T13:00:00.000Z", 96000),
+    ]);
+    expect(storage.queryDailyObservedTokens({
+      start: "2026-08-31T00:00:00.000Z", end: "2026-09-02T00:00:00.000Z", timeZone: "UTC",
+    })).toEqual([
+      {localDate: "2026-08-31", tokens: 80000, tokensKnowledge: "partial"},
+      {localDate: "2026-09-01", tokens: 1000, tokensKnowledge: "partial"},
+    ]);
+  });
+
   it("validates the token query as a non-empty half-open UTC interval", () => {
     expect(() =>
       storage.queryCodexObservedTokens({

@@ -143,3 +143,11 @@ test("filtered project activity preserves distinct repositories and excludes out
   assert.equal(result.months[0].tokens, null);
   assert.equal(result.projectCount, 2);
 });
+
+test("rolling totals omit legacy session-start counters when a daily-counter source reports", () => {
+  const upgraded = primary([window({tokens: 7})], {months: [{month: "2026-11", tokenDays: []}]});
+  const result = select([], upgraded, [["windows", device([window({tokens: 99})])]]);
+  assert.equal(result.tokens, 7);
+  assert.equal(result.tokensKnowledge, "partial");
+  assert.equal(result.dailyCounters, true);
+});

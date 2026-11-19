@@ -16,7 +16,9 @@ window = {"start":"2026-11-16T22:30:00.000Z", "end":"2026-11-17T22:30:00.000Z", 
 expected = {key: value for key, value in window.items() if key != "PRIVATE_WINDOW"}
 expected["agentDays"] = [{key:value for key,value in day.items() if key != "PRIVATE_DAY"} for day in window["agentDays"]]
 snapshot = dict(legacy, rolling24Hours=[window], PRIVATE_ACCOUNT="excluded", credentials="excluded")
+snapshot["months"] = [dict(legacy["months"][0], tokenDays=[{"localDate":"2026-11-17","tokens":0,"tokensKnowledge":"partial","PRIVATE":"excluded"}])]
 entry = p.device_activity(snapshot)
+assert entry["months"][0]["tokenDays"] == [{"localDate":"2026-11-17","tokens":0,"tokensKnowledge":"partial"}]
 assert entry["rolling24Hours"] == [expected]
 assert "PRIVATE_ACCOUNT" not in entry and "credentials" not in entry
 entry["PRIVATE_ACCOUNT"] = "excluded again"
