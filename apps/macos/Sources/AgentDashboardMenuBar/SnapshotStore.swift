@@ -198,7 +198,6 @@ final class SnapshotStore: ObservableObject {
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-l", launcher.path]
         process.currentDirectoryURL = URL(fileURLWithPath: projectRoot)
-        process.environment = environment.merging(["DASHBOARD_OPEN_BROWSER": "0"]) { _, new in new }
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try process.run()

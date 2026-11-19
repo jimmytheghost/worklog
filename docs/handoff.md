@@ -4,7 +4,7 @@ Session close 2026-11-18 · November 17 website release `worklog-today-20261117-
 
 ## Start here
 
-Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each machine runs one local Fastify service and keeps its own SQLite ledger. The local browser provides complete monthly Work History for that ledger. The public dashboard combines the MacBook Pro and Windows PC exports and shows source freshness for each machine. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations](../WEBSITE-HANDOFF.md)
+Worklog has a native macOS menu-bar popover and a Windows WPF tray flyout. Each machine runs one local Fastify service and keeps its own SQLite ledger. The service provides complete monthly history through its local API. The public website is the sole browser dashboard. It combines the MacBook Pro and Windows PC exports and shows source freshness for each machine. [Live Worklog](https://www.jimmyweber.com/worklog/) · [Website operations](../WEBSITE-HANDOFF.md)
 
 Keep the product small. It is a personal work ledger, not an agent-control center, team analytics platform, or general project-management suite.
 
@@ -41,7 +41,7 @@ The Mac release checkout at `/tmp/worklog-today-release-source` is temporary and
 - Observed token, commit, push, active-day, and project totals.
 - Daily counts of distinct top-level Codex sessions and spawned subagents. Range totals sum those daily counts.
 - Recent commit subjects and repository/ref push descriptions.
-- Complete searchable monthly Work History in the local browser, with daily Codex activity and GitHub links on commit rows where available.
+- Complete monthly Work History through the local API, with daily Codex activity and GitHub links on commit rows where available.
 - Static public dashboard with Today (an exact shared 24-hour reporting window), date presets/custom ranges, a curved metric explorer with chart/table views and CSV export, persistent activity-chart scrolling, activity totals, a 90-day heatmap with All (the default), Both, and four individual metrics, a period chart, searchable project history, and per-device Sync status. Visitors can switch between green, neon blue, and grey. The header skull follows the selected palette, and each palette uses five heatmap tones with hatching for unavailable days. GitHub events are merged across machines and aggregate Codex activity is added across recording devices. [Website handoff](../WEBSITE-HANDOFF.md)
 - Read-only GitHub collection across accessible owned, collaborator, and organization-member repositories.
 - Experimental privacy-safe local Codex metadata/token collection.
@@ -66,7 +66,6 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | Snapshot/history aggregation | `apps/service/src/snapshot.ts`, `apps/service/src/history.ts` |
 | GitHub synchronization | `apps/service/src/github-sync.ts` |
 | Codex synchronization | `apps/service/src/codex-sync.ts`, `apps/service/src/codex-account-sync.ts` |
-| Browser UI | `apps/dashboard/src` |
 | Public activity frontend and publisher | `apps/website`, `apps/service/src/public-activity.ts` |
 | Website header, palettes, and heatmap | `apps/website/src/index.html`, `apps/website/src/styles.css`, `apps/website/src/activity.js` |
 | Website date ranges and exact Today selection | `apps/website/src/date-ranges.js`, `apps/website/src/today-range.js` |
@@ -90,7 +89,7 @@ The Windows Core project decodes display fields, App owns tray, service, cache, 
 | `POST /api/sync/github` | Refresh GitHub only |
 | `POST /api/sync/codex` | Refresh Codex only |
 
-The service listens on `http://127.0.0.1:4317`. The development dashboard listens on `http://127.0.0.1:5173`.
+The service listens on `http://127.0.0.1:4317`. For browser development, [preview the public frontend locally](../WEBSITE-HANDOFF.md#build-and-publish).
 
 ## Local state and runtime
 

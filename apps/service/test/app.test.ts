@@ -1,19 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Storage } from "@agent-dashboard/storage";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 import { buildApp } from "../src/app.js";
 
 const apps: ReturnType<typeof buildApp>[] = [];
-const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
-  for (const directory of temporaryDirectories.splice(0)) {
-    rmSync(directory, { recursive: true, force: true });
-  }
 });
 
 describe("local service", () => {
@@ -96,25 +89,15 @@ describe("local service", () => {
     expect((await reader?.read())?.done).toBe(true);
   });
 
-  it("serves built dashboard assets and uses the index for client-side routes", async () => {
-    const dashboardPath = mkdtempSync(join(tmpdir(), "agent-dashboard-service-"));
-    temporaryDirectories.push(dashboardPath);
-    writeFileSync(join(dashboardPath, "index.html"), "<!doctype html><title>Work ledger</title>");
-    writeFileSync(join(dashboardPath, "app.js"), "globalThis.dashboardLoaded = true;");
-    const app = buildApp({ dashboardPath });
+  it("serves only the API, including for old dashboard URLs", async () => {
+    const app = buildApp();
     apps.push(app);
 
-    const root = await app.inject({ method: "GET", url: "/" });
-    const asset = await app.inject({ method: "GET", url: "/app.js" });
-    const historyRoute = await app.inject({ method: "GET", url: "/history/2026-08" });
-
-    expect(root.statusCode).toBe(200);
-    expect(root.headers["content-type"]).toContain("text/html");
-    expect(root.headers["cache-control"]).toBe("no-cache");
-    expect(root.body).toContain("Work ledger");
-    expect(asset.headers["content-type"]).toContain("text/javascript");
-    expect(asset.headers["cache-control"]).toContain("immutable");
-    expect(historyRoute.body).toBe(root.body);
+    for (const url of ["/", "/?view=history", "/assets/dashboard.js"]) {
+      const response = await app.inject({ method: "GET", url });
+      expect(response.statusCode).toBe(404);
+      expect(response.headers["content-type"]).toContain("application/json");
+    }
   });
 
   it("reports combined synchronization as unavailable when collectors are not configured", async () => {

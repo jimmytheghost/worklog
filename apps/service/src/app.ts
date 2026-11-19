@@ -2,9 +2,7 @@ import type { CodexAccountCollector, CodexCollector } from "@agent-dashboard/col
 import type { GitHubCollector } from "@agent-dashboard/collector-github";
 import type { Storage } from "@agent-dashboard/storage";
 import Fastify, { type FastifyInstance } from "fastify";
-import { createReadStream, existsSync, statSync } from "node:fs";
 import type { ServerResponse } from "node:http";
-import { extname, join, normalize, resolve, sep } from "node:path";
 
 import { ServiceEventHub } from "./events.js";
 import { CodexAccountSyncCoordinator } from "./codex-account-sync.js";
@@ -20,7 +18,6 @@ type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silen
 
 type BuildAppOptions = {
   logger?: false | { level: LogLevel };
-  dashboardPath?: string;
   sseHeartbeatMs?: number;
   /** Allows a bounded stream in tests without changing the public endpoint contract. */
   sseMaxHeartbeats?: number;
@@ -324,46 +321,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     for (const stream of activeEventStreams) stream.end();
     activeEventStreams.clear();
   });
-
-  if (options.dashboardPath !== undefined) {
-    const dashboardRoot = resolve(options.dashboardPath);
-    const contentTypes: Record<string, string> = {
-      ".css": "text/css; charset=utf-8",
-      ".html": "text/html; charset=utf-8",
-      ".ico": "image/x-icon",
-      ".js": "text/javascript; charset=utf-8",
-      ".json": "application/json; charset=utf-8",
-      ".map": "application/json; charset=utf-8",
-      ".png": "image/png",
-      ".svg": "image/svg+xml",
-      ".webp": "image/webp",
-      ".woff": "font/woff",
-      ".woff2": "font/woff2",
-    };
-
-    app.get("/api/*", async (_request, reply) => {
-      return reply.code(404).send({ error: "API endpoint not found" });
-    });
-
-    app.get("/*", async (request, reply) => {
-      const requestedPath = normalize(decodeURIComponent(request.url.split("?", 1)[0] ?? "/"));
-      const relativePath = requestedPath === "/" ? "index.html" : requestedPath.replace(/^\/+/, "");
-      const candidate = resolve(join(dashboardRoot, relativePath));
-      const withinDashboard = candidate === dashboardRoot || candidate.startsWith(`${dashboardRoot}${sep}`);
-      const filePath =
-        withinDashboard && existsSync(candidate) && statSync(candidate).isFile()
-          ? candidate
-          : join(dashboardRoot, "index.html");
-
-      if (!existsSync(filePath)) {
-        return reply.code(404).send({ error: "Dashboard assets are unavailable" });
-      }
-
-      reply.header("cache-control", filePath.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable");
-      reply.type(contentTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream");
-      return reply.send(createReadStream(filePath));
-    });
-  }
 
   return app;
 }

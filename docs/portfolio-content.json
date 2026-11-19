@@ -31,7 +31,7 @@
     {
       "title": "The local app",
       "paragraphs": [
-        "The menu-bar and tray apps keep the daily view close at hand, and a separate local browser view provides complete searchable monthly history. Collection is read-only, and the local ledger stores GitHub activity and allowlisted Codex metadata without retaining source code or AI conversations. The public website includes repository names, commit subjects, and aggregate Codex counts from the published feeds.",
+        "The menu-bar and tray apps keep the daily view close at hand, and the public website offers searchable project history. Collection is read-only, and the local ledger stores GitHub activity and allowlisted Codex metadata without retaining source code or AI conversations. The public website includes repository names, commit subjects, and aggregate Codex counts from the published feeds.",
         "GitHub push history and local Codex records have partial coverage. Observed session tokens are separate from the signed-in Codex account’s usage limits. The source is available on GitHub for building your own copy, shared as-is without a support or release schedule."
       ],
       "screenshot": {

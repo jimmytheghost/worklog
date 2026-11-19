@@ -4,11 +4,10 @@ Status: implemented local-first desktop application with a static public view
 
 ## Product shape
 
-Worklog uses one local service per machine for the native client and browser archive. A separate static site combines published projections from enrolled machines.
+Worklog uses one local service per machine for native clients and monthly history. The public static site is the sole browser dashboard and combines published projections from enrolled machines.
 
 - `apps/macos`: the primary daily surface, a native macOS menu-bar popover.
 - `apps/windows`: a native C# / WPF notification-area app using the shared service and contracts with a local ledger.
-- `apps/dashboard`: the fuller browser view used for monthly Work History and deeper inspection.
 - `apps/website`: the public activity frontend and SSH publisher. The static build packages HTML, CSS, JavaScript, the header skull, and the link-preview image. The frontend reads the independently published `activity.json` and `codex-devices.json` feeds from the static web host.
 - `apps/service`: one Fastify process that collects, stores, aggregates, and serves data on loopback.
 - `packages/domain`: source-neutral event contracts and aggregation rules.
@@ -16,17 +15,17 @@ Worklog uses one local service per machine for the native client and browser arc
 - `packages/collector-github`: read-only GitHub normalization.
 - `packages/collector-codex`: official Codex app-server account usage plus experimental, metadata-only local session normalization.
 
-There is no fleet of background agents. The packaged app starts one production service when needed and reuses it. The browser and native clients never read credentials, repositories, or Codex state directly.
+There is no fleet of background agents. The packaged app starts one production service when needed and reuses it. The native clients read the loopback API. The website reads only the published feeds.
 
 ## Runtime
 
 - The service binds to `127.0.0.1:4317` by default.
 - SQLite at `~/.agent-dashboard/agent-dashboard.sqlite` is the durable source of truth.
-- Server-sent events notify the browser after synchronization. Windows polls snapshots on open and every 30 seconds, switching to two-second polling while collectors are running.
+- The API offers server-sent refresh notifications. Windows polls snapshots on open and every 30 seconds, switching to two-second polling while collectors are running.
 - Both native apps cache the last successful snapshot so reopening remains useful during a transient service failure. Windows caches only decoded display fields at `%LOCALAPPDATA%\Worklog\snapshot.json` and leaves selected-range totals unavailable until the service responds.
 - The macOS app has no Dock icon; Windows uses a tray icon and a flyout that hides on focus loss. Both start or reuse the local service from the checkout recorded at package time, and both leave the service running when quit.
 - Windows packaging records absolute checkout, Node, and available native Codex executable paths in `checkout.json`. The launcher checks Worklog's health identity before reusing port 4317. It starts Node without a console window and drains stdout/stderr without retaining them.
-- `launch.command` remains the macOS browser launcher and development fallback.
+- `launch.command` starts the macOS background service.
 
 ## Data flow
 
@@ -39,7 +38,7 @@ GitHub + Codex app-server + local Codex metadata
               |
        append-only SQLite ledger
               |
-              +-- loopback API --> macOS / Windows / local browser archive
+              +-- loopback API --> macOS / Windows
               |
               +-- website projection --> scheduled SSH publisher --> static feeds --> public Worklog
 ```
@@ -92,7 +91,7 @@ The macOS popover shows account usage, range totals, recent work, and a grayscal
 
 The Windows flyout uses a 360-unit charcoal/mint design shared with Tipoff. Six account facts use small inline pairs in two columns. Local tokens, commits, pushes, active days, and projects share a row, with agent and subagent range totals below. Its All (the default), Commit, Push, and Both heatmap modes use the nullable `heatmapDays` projection, with a Git-calendar fallback for older snapshots. Selected-day details show all four separate counts; individual Agents and Subagents modes remain pending. The gear page holds startup registration and explains local tokens and partial push and agent coverage. Windows uses an opt-in current-user Run registry entry and a session mutex for a single tray instance. [Windows heatmap handoff](windows-heatmap-handoff.md)
 
-The local browser dashboard provides the complete monthly archive for its ledger, with search, GitHub commit links where available, and a daily Codex activity table. The public frontend merges the published GitHub events before calculating totals, heatmaps, and project history. It adds Codex aggregates across recording devices and displays the timestamp of each machine's last reported commit, push, and Codex collection. The public feeds carry repository names, commit subjects and links, opaque GitHub deduplication keys, and aggregate Codex usage. [Website handoff](../WEBSITE-HANDOFF.md)
+The loopback monthly history API provides the complete archive for its ledger, with GitHub commit links where available and daily Codex activity. The public frontend merges the published GitHub events before calculating totals, heatmaps, and project history. It adds Codex aggregates across recording devices and displays the timestamp of each machine's last reported commit, push, and Codex collection. The public feeds carry repository names, commit subjects and links, opaque GitHub deduplication keys, and aggregate Codex usage. [Website handoff](../WEBSITE-HANDOFF.md)
 
 The public palette switch runs in the browser and stores only the palette name under `worklog.palette` in local storage. Selection works for the current page when storage is unavailable. The palette and heatmap intensity are display settings with no effect on the activity feeds or totals.
 

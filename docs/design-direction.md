@@ -24,7 +24,7 @@ The popover should remain roughly task-bar sized. A vertical scroll area is acce
 
 ### 2. Work History
 
-The browser window is the complete archive. It can use more space for search, month navigation, project grouping, links, and detailed event rows. It should complement the popover rather than duplicate every control.
+The local history API provides a complete archive by month. The public site offers search, project grouping, links, and detailed event rows for published activity.
 
 ### 3. Public website
 
@@ -72,7 +72,7 @@ Changing the range updates metric cards and recent work without changing the 90-
 - Refresh is manual and automatic, but never blocks opening the popover.
 - Healthy status stays quiet; failures explain what is stale and preserve the last successful data.
 - Exact counts are available through selection even when abbreviated in cards.
-- Links open the relevant GitHub item or Work History view.
+- Links open the relevant GitHub item or the public website.
 - Motion is brief and functional. Respect reduced-motion preferences.
 - Keyboard focus and VoiceOver labels should cover every control and heatmap cell.
 

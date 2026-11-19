@@ -26,9 +26,9 @@ The primary experience should feel like a task-bar utility: click the macOS menu
 
 ### Work History
 
-- Complete month-by-month archive rather than a “top projects” ranking.
-- Searchable work rows with dates, repositories, commit subjects, push descriptions, and links where available.
-- Monthly agent and subagent totals, with a daily table for observed activity.
+- The local API returns the complete archive by month.
+- Work rows include dates, repositories, commit subjects, push descriptions, and links where available.
+- Monthly agent and subagent totals include a daily breakdown of observed activity.
 - All projects represented when they have qualifying recorded work.
 
 ### Public Worklog

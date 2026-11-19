@@ -15,7 +15,7 @@ The macOS menu-bar app with my current data, captured October 20, 2026.
 - Keeps a local SQLite ledger of commits and push activity across repositories accessible to your GitHub CLI account.
 - Shows Day, rolling Week, rolling Month, Year, and All summaries in a native macOS menu-bar popover or Windows tray flyout.
 - Includes a clickable 90-day heatmap. All is the default and sums observed commits, pushes, agents, and subagents. Both combines commits and pushes. macOS also has individual Commit, Push, Agents, and Subagents modes; Windows has Commit and Push. Both apps show all four selected-day counts, with unavailable values kept separate from zero.
-- Opens the public dashboard with **View on Website**. A searchable monthly Work History is also available in the local browser dashboard.
+- Opens the public Worklog dashboard with **View on Website**. The local API retains complete monthly history at `GET /api/history?month=YYYY-MM`.
 - Records local Codex session metadata and observed token counters, with repository attribution when a GitHub remote can be resolved.
 - Counts top-level Codex sessions and spawned subagents once per active local day. Range totals sum those daily counts, with historical backfill from retained records.
 - Shows the signed-in Codex account's available rate-limit windows, reset countdowns, usage facts, credits, and banked resets.
@@ -71,7 +71,7 @@ The package script builds a native app for your machine and signs it ad hoc. It 
 
 The app starts or reuses the service at `http://127.0.0.1:4317`. It refreshes GitHub every 15 minutes and Codex every five minutes by default. Click Refresh to request an update sooner. GitHub's first import can take a while for accounts with many repositories.
 
-Double-click `launch.command` to open the browser dashboard directly. It installs and builds missing dependencies on first launch. The native app's Settings include an option to start at login. See [the native app notes](apps/macos/README.md) for more detail.
+`launch.command` starts the local service if needed. It installs and builds missing dependencies on first launch. The native app's Settings include an option to start at login. See [the native app notes](apps/macos/README.md) for more detail.
 
 To update, quit Worklog from its popover, pull the changes, and repeat the install, build, and package commands. Quitting the menu-bar app leaves the background service running. Stop the service process recorded in `~/.agent-dashboard/service.pid` before restarting if you need updated service code to take effect; check that the PID still belongs to Worklog first.
 
@@ -124,19 +124,20 @@ The [Windows heatmap handoff](docs/windows-heatmap-handoff.md) covers the pendin
 
 - [`apps/macos/Sources/AgentDashboardMenuBar`](apps/macos/Sources/AgentDashboardMenuBar): native popover, heatmap, settings, and cached API state.
 - [`apps/windows`](apps/windows): Windows WPF tray flyout, service launcher, snapshot cache, and startup settings.
-- [`apps/dashboard/src`](apps/dashboard/src): local browser dashboard and monthly history.
 - [`apps/website`](apps/website): public dashboard, static build, and SSH publisher.
 - [`apps/service/src`](apps/service/src): local routes, refresh coordination, and summaries.
 - [`packages/collector-github`](packages/collector-github) and [`packages/collector-codex`](packages/collector-codex): source adapters.
 - [`packages/domain`](packages/domain) and [`packages/storage`](packages/storage): event contracts and SQLite ledger.
 
-For browser development:
+For browser development, follow the [local preview instructions](WEBSITE-HANDOFF.md#build-and-publish) to serve the public frontend with published feed snapshots or fixtures.
+
+To develop the local API:
 
 ```sh
 pnpm dev
 ```
 
-The dashboard runs at `http://127.0.0.1:5173`; the API remains at `http://127.0.0.1:4317`. To request an initial import during development:
+The API listens at `http://127.0.0.1:4317`. To request an initial import during development:
 
 ```sh
 curl --request POST http://127.0.0.1:4317/api/sync/github

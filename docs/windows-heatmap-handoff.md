@@ -6,7 +6,7 @@ Status on 2026-11-17 · All is packaged and verified as the default on Windows. 
 
 Add **Agents** and **Subagents** to the existing Windows tray heatmap. Keep **All** (the default), **Commit**, **Push**, and **Both** and the 360-unit WPF flyout. Preserve the already-implemented selected-day counts for commits, pushes, agents, and subagents. [Public heatmap reference](https://www.jimmyweber.com/worklog/)
 
-Windows already displays agent and subagent totals for the selected range. Its **View on Website** action opens [the public Worklog dashboard](https://jimmyweber.com/worklog). The shared local browser archive remains available at `http://127.0.0.1:4317/?view=history` and provides GitHub links on commit rows when a URL is available.
+Windows already displays agent and subagent totals for the selected range. Its **View on Website** action opens [the public Worklog dashboard](https://jimmyweber.com/worklog). The local monthly history API provides GitHub links on commit rows when a URL is available.
 
 ## Data and implementation
 
@@ -37,7 +37,7 @@ Windows already displays agent and subagent totals for the selected range. Its *
    Start-Process apps/windows/dist/Worklog.exe -ArgumentList '--inspect'
    ```
 
-4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the View on Website action. Open the local browser archive separately and follow a GitHub commit link.
+4. Check all modes and select a day with the mouse and keyboard. Verify the counts against the local snapshot, the compact layout at normal and increased display scaling, and the saved snapshot when the service is unavailable. Check startup or refresh on an older cache with Git-only cells. Verify the View on Website action. Open Project history on the website and follow a GitHub commit link.
 5. Update the Windows README and the [main handoff](handoff.md) once the feature works in the packaged app. Record the actual validation and push the task commit.
 
 The November 17 All changes passed native Windows model checks and WPF build with zero warnings and errors. Shared validation passed 136 tests, type checking, and the production build in a retained Windows checkout outside Dropbox. The package at `apps/windows/dist/Worklog.exe` was inspected with the live local service. All was initially selected. All, Commit, Push, and Both switching preserved the selected date and separate counts. Live days verified Codex-only and measured-zero activity. Unavailable values, an explicitly empty projection, legacy fallback, and cache privacy passed model checks.

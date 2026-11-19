@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm --recursive --if-present run build",
-    "dev": "pnpm --parallel --filter @agent-dashboard/service --filter @agent-dashboard/dashboard run dev",
+    "dev": "pnpm --filter @agent-dashboard/service run dev",
     "test": "pnpm --recursive --if-present run test",
     "typecheck": "pnpm --recursive --if-present run typecheck"
   }

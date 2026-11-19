@@ -3,9 +3,7 @@
 set -u
 
 PROJECT_DIR="${0:A:h}"
-DASHBOARD_URL="${DASHBOARD_URL:-http://127.0.0.1:4317}"
-DASHBOARD_OPEN_BROWSER="${DASHBOARD_OPEN_BROWSER:-1}"
-SERVICE_HEALTH_URL="$DASHBOARD_URL/health"
+SERVICE_HEALTH_URL="${DASHBOARD_URL:-http://127.0.0.1:4317}/health"
 LOCK_DIR="${TMPDIR:-/tmp}/agent-dashboard-${UID}.launch-lock"
 STARTUP_ATTEMPTS=60
 
@@ -15,14 +13,9 @@ pause_before_close() {
   fi
 }
 
-open_dashboard() {
-  [[ "$DASHBOARD_OPEN_BROWSER" == "0" ]] || open "$DASHBOARD_URL"
-}
-
 service_is_ready() {
   curl --silent --fail --max-time 2 "$SERVICE_HEALTH_URL" 2>/dev/null \
-    | grep -q '"service":"@agent-dashboard/service"' \
-    && curl --silent --fail --max-time 2 "$DASHBOARD_URL/" >/dev/null 2>&1
+    | grep -q '"service":"@agent-dashboard/service"'
 }
 
 release_launch_lock() {
@@ -37,7 +30,6 @@ acquire_launch_lock() {
       return 0
     fi
     if service_is_ready; then
-      open_dashboard
       exit 0
     fi
     sleep 0.1
@@ -51,15 +43,11 @@ acquire_launch_lock() {
 
 production_build_required() {
   local service_entry="apps/service/dist/server.js"
-  local dashboard_entry="apps/dashboard/dist/index.html"
 
-  [[ -f "$service_entry" && -f "$dashboard_entry" ]] || return 0
+  [[ -f "$service_entry" ]] || return 0
   find apps/service/src packages -type f -newer "$service_entry" -print -quit 2>/dev/null | grep -q . && return 0
-  find apps/dashboard/src -type f -newer "$dashboard_entry" -print -quit 2>/dev/null | grep -q . && return 0
   [[ apps/service/package.json -nt "$service_entry" ]] && return 0
   [[ apps/service/tsup.config.ts -nt "$service_entry" ]] && return 0
-  [[ apps/dashboard/package.json -nt "$dashboard_entry" ]] && return 0
-  [[ apps/dashboard/vite.config.ts -nt "$dashboard_entry" ]] && return 0
   return 1
 }
 
@@ -75,7 +63,6 @@ wait_until_ready() {
 cd "$PROJECT_DIR" || exit 1
 
 if service_is_ready; then
-  open_dashboard
   exit 0
 fi
 
@@ -115,7 +102,6 @@ if [[ -f "$SERVICE_PID_FILE" ]]; then
     && kill -0 "$SERVICE_PID" >/dev/null 2>&1; then
     echo "Agent Dashboard is still starting (process $SERVICE_PID)."
     if wait_until_ready; then
-      open_dashboard
       exit 0
     fi
     echo "The existing service did not become ready."
@@ -162,7 +148,6 @@ if (( NEEDS_BUILD == 1 )); then
 fi
 
 export NODE_ENV="production"
-export SERVICE_DASHBOARD_PATH="$PROJECT_DIR/apps/dashboard/dist"
 export GITHUB_SYNC_ON_START="${GITHUB_SYNC_ON_START:-1}"
 export CODEX_SYNC_ON_START="${CODEX_SYNC_ON_START:-1}"
 export GITHUB_SYNC_INTERVAL_MS="${GITHUB_SYNC_INTERVAL_MS:-900000}"
@@ -175,7 +160,6 @@ print -r -- "$SERVICE_PID|$PROJECT_DIR" > "$SERVICE_PID_FILE"
 disown "$SERVICE_PID" 2>/dev/null || true
 
 if wait_until_ready; then
-  open_dashboard
   echo "Agent Dashboard is ready."
   echo "It will keep itself current in the background."
   exit 0

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DEFAULT_DASHBOARD_PATH,
   DEFAULT_DATABASE_PATH,
   DEFAULT_GITHUB_IDENTITIES_PATH,
   DEFAULT_MIGRATIONS_PATH,
@@ -15,7 +14,6 @@ describe("service configuration", () => {
       host: "127.0.0.1",
       port: 4317,
       databasePath: DEFAULT_DATABASE_PATH,
-      dashboardPath: DEFAULT_DASHBOARD_PATH,
       migrationsPath: DEFAULT_MIGRATIONS_PATH,
       timeZone: "America/Denver",
       githubSyncOnStart: false,
@@ -35,7 +33,6 @@ describe("service configuration", () => {
         SERVICE_HOST: "::1",
         SERVICE_PORT: "5000",
         SERVICE_DATABASE_PATH: ":memory:",
-        SERVICE_DASHBOARD_PATH: "/tmp/dashboard-build",
         SERVICE_MIGRATIONS_PATH: "/tmp/storage-migrations",
         SERVICE_TIMEZONE: "UTC",
         GITHUB_SYNC_ON_START: "true",
@@ -51,7 +48,6 @@ describe("service configuration", () => {
       host: "::1",
       port: 5000,
       databasePath: ":memory:",
-      dashboardPath: "/tmp/dashboard-build",
       migrationsPath: "/tmp/storage-migrations",
       timeZone: "UTC",
       githubSyncOnStart: true,

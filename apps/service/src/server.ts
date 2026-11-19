@@ -21,7 +21,6 @@ async function start(): Promise<void> {
   });
   const app = buildApp({
     logger: { level: config.logLevel },
-    dashboardPath: config.dashboardPath,
     sseHeartbeatMs: config.sseHeartbeatMs,
     storage,
     githubCollector: new GitHubCollector({ authorIdentities }),

@@ -11,11 +11,6 @@ export const DEFAULT_DATABASE_PATH = join(
 );
 export const DEFAULT_GITHUB_IDENTITIES_PATH = join(homedir(), ".agent-dashboard", "github-identities.json");
 
-export const DEFAULT_DASHBOARD_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../dashboard/dist",
-);
-
 export const DEFAULT_MIGRATIONS_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../../packages/storage/drizzle",
@@ -49,7 +44,6 @@ const configSchema = z.object({
   SERVICE_HOST: z.string().trim().min(1).default("127.0.0.1"),
   SERVICE_PORT: z.coerce.number().int().min(1).max(65_535).default(4317),
   SERVICE_DATABASE_PATH: z.string().trim().min(1).default(DEFAULT_DATABASE_PATH),
-  SERVICE_DASHBOARD_PATH: z.string().trim().min(1).default(DEFAULT_DASHBOARD_PATH),
   SERVICE_MIGRATIONS_PATH: z.string().trim().min(1).default(DEFAULT_MIGRATIONS_PATH),
   SERVICE_TIMEZONE: timeZone.default("America/Denver"),
   GITHUB_SYNC_ON_START: booleanFromEnvironment,
@@ -68,7 +62,6 @@ export type ServiceConfig = {
   host: string;
   port: number;
   databasePath: string;
-  dashboardPath: string;
   migrationsPath: string;
   timeZone: string;
   githubSyncOnStart: boolean;
@@ -96,7 +89,6 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Servic
     host: parsed.data.SERVICE_HOST,
     port: parsed.data.SERVICE_PORT,
     databasePath: parsed.data.SERVICE_DATABASE_PATH,
-    dashboardPath: parsed.data.SERVICE_DASHBOARD_PATH,
     migrationsPath: parsed.data.SERVICE_MIGRATIONS_PATH,
     timeZone: parsed.data.SERVICE_TIMEZONE,
     githubSyncOnStart: parsed.data.GITHUB_SYNC_ON_START,
