@@ -22,9 +22,9 @@
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
   <meta name="twitter:image:alt" content="Worklog app icon and wordmark">
   <meta name="theme-color" content="#101410">
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=13">
   <link rel="stylesheet" href="./metric-explorer.css?v=2">
-  <script type="module" src="./activity.js?v=16"></script>
+  <script type="module" src="./activity.js?v=17"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -79,12 +79,26 @@
           <i data-level="0" aria-hidden="true"></i><i data-level="1" aria-hidden="true"></i><i data-level="2" aria-hidden="true"></i><i data-level="3" aria-hidden="true"></i><i data-level="4" aria-hidden="true"></i>
           <span>Most</span><i class="heatmap-missing" aria-hidden="true"></i><span>Unavailable</span>
         </div>
+      </section>
+      <section class="daily-work panel" aria-labelledby="day-title">
+        <div class="section-header">
+          <div><h2 id="day-title">Selected day</h2><p id="day-date" class="caption"></p></div>
+          <div class="day-navigation" role="group" aria-label="Selected day">
+            <button type="button" id="day-previous" aria-label="Previous day">←</button>
+            <button type="button" id="day-today">Today</button>
+            <button type="button" id="day-next" aria-label="Next day">→</button>
+          </div>
+        </div>
         <div class="heatmap-detail" id="heatmap-detail" aria-live="polite" aria-atomic="true"></div>
+        <p id="day-coverage" class="caption coverage-note"></p>
         <div id="day-projects" class="work-cards"></div>
       </section>
-      <section class="week-recap" aria-labelledby="week-title">
-        <h2 id="week-title">Weekly highlights</h2>
-        <p id="week-dates" class="caption"></p>
+      <section class="week-recap panel" aria-labelledby="week-title">
+        <div class="section-header">
+          <div><h2 id="week-title">Selected week</h2><p id="week-dates" class="caption"></p></div>
+          <p id="week-tokens" class="week-tokens"></p>
+        </div>
+        <p id="week-coverage" class="caption"></p>
         <div id="week-projects" class="work-cards"></div>
       </section>
 

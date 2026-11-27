@@ -39,6 +39,13 @@ export function resolveRange(preset, earliest, latest, start, end) {
   return { start: start < earliest ? earliest : start, end };
 }
 
+/** Windows is an expected recording device, including when its feed is unavailable. */
+export function tokenDaySources(primaryMonths, devices, available = true) {
+  const sources = [primaryMonths, ...devices.map(([, device]) => device.months ?? [])];
+  if (!available || !devices.some(([id]) => id === "windows-pc")) sources.push([]);
+  return sources;
+}
+
 /** Each device contributes at most one observed subtotal per reporting date. */
 export function mergeTokenDays(sources) {
   if (!sources.some((months) => months.some((month) => Array.isArray(month.tokenDays)))) return null;
