@@ -617,18 +617,16 @@ async function showDashboard() {
     const isToday = selection === "24h";
     const selected = isToday ? todayView : selectRange(monthsWithActivity, allDays, bounds, through.today);
     projects = combineProjects(selected.months);
-    const monthly = selection === "all" || selected.days.length > 93;
-    if (monthly) {
-      const grouped = new Map();
-      for (const day of selected.days) {
-        const key = day.date.slice(0, 7);
-        const days = grouped.get(key) ?? [];
-        days.push(day); grouped.set(key, days);
-      }
-      series = [...grouped].map(([month, days]) => ({
-        ...totalsForSeries(days), label: monthLabel(month), tick: monthLabel(month).slice(0, 3),
-      }));
-    } else series = selected.days;
+    // Keep the overview monthly while Explore has its own selected date range.
+    const grouped = new Map();
+    for (const day of allDays.filter(day => day.date.startsWith(calendarToday.slice(0, 4)))) {
+      const key = day.date.slice(0, 7);
+      const days = grouped.get(key) ?? [];
+      days.push(day); grouped.set(key, days);
+    }
+    series = [...grouped].sort(([left], [right]) => left.localeCompare(right)).map(([month, days]) => ({
+      ...totalsForSeries(days), label: monthLabel(month), tick: monthLabel(month).slice(0, 3),
+    }));
     const label = isToday
       ? todayView.label
       : selection === "today" ? `Today · ${dayLabel(calendarToday)} · ${data.timeZone}`
@@ -640,7 +638,7 @@ async function showDashboard() {
     caption.textContent = isToday
       ? `${label}${selected.reason ? ` · ${selected.reason}` : partial} · ${todayView.tokenDescription}`
       : `${label}${freshness}${selected.dailyTokens ? partial : selected.coversMonths ? " · Legacy monthly token observations." : " · Daily token observations unavailable."}`;
-    chartPeriod.textContent = `${monthly ? "Monthly" : "Daily"} totals · ${label}`;
+    chartPeriod.textContent = `Monthly totals · ${calendarToday.slice(0, 4)} · ${data.timeZone}`;
     period.value = monthsWithActivity.some(({ month }) => month === selection) ? selection : "";
     for (const button of presets) {
       button.setAttribute("aria-pressed", String(button.dataset.period === selection));

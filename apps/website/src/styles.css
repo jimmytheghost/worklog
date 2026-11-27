@@ -492,7 +492,6 @@ footer { margin-top: 24px; padding-block: 16px 24px; }
 
 @media (max-width: 980px) {
   .shell { width: calc(100% - 48px); }
-  .charts { grid-template-columns: minmax(0, 1fr); }
   .chart-detail { margin-top: 8px; }
 }
 
@@ -525,7 +524,7 @@ footer { margin-top: 24px; padding-block: 16px 24px; }
 .explore { border-block: 1px solid var(--line); }
 .explore > summary { padding-block: 14px; color: var(--accent); font-weight: 650; }
 .explore[open] { padding-bottom: 16px; }
-.explore .charts { grid-template-columns: minmax(0, 1fr); }
+
 .work-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr)); gap: 12px; margin-top: 12px; }
 .work-card { padding: 12px 15px; background: var(--inset); border-inline-start: 2px solid var(--edge); overflow-wrap: anywhere; }
 .work-card h3 { margin: 0; font: 600 .96rem/1.4 var(--mono); }
@@ -556,4 +555,17 @@ footer { margin-top: 24px; padding-block: 16px 24px; }
   .daily-work .heatmap-detail dl > div { padding: 10px 0; }
   .daily-work .heatmap-detail dl > div + div { border-inline-start: 0; border-top: 1px solid var(--line); }
   .week-recap .section-header { align-items: start; }
+}
+
+.collapsible-panel { display: block; }
+.collapsible-panel > summary.section-header { margin-bottom: 0; list-style: none; }
+.collapsible-panel > summary::-webkit-details-marker { display: none; }
+.collapsible-panel > summary::after { content: "▸"; color: var(--accent); }
+.collapsible-panel[open] > summary::after { content: "▾"; }
+.collapsible-panel:not([open]) { padding-bottom: 0; }
+.collapsible-panel[open] > summary { margin-bottom: 12px; }
+.collapsible-panel .day-navigation { margin-bottom: 12px; }
+
+@media (max-width: 760px) {
+  .charts { grid-template-columns: minmax(0, 1fr); }
 }

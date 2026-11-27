@@ -59,6 +59,10 @@ After the output-path review fix, `pnpm test`: **186 passed** (website 44, domai
 
 Actual Brave browser checks verified the exact November 25 count, November 26 Unavailable, November 27 Today, weekly subtotal/day coverage, day navigation, separate Today/Last 24 hours captions/counts, and stale Windows. Desktop plus emulated 390- and 320-pixel layouts were visually inspected. No application JavaScript errors appeared; the preview's root favicon request returned 404. Initial IAB access was unavailable and Safari inspection timed out; Brave completed validation.
 
+## Layout follow-up
+
+The monthly current-year chart is alongside the heatmap above 760 px, independently of Explore's selected date range. On narrower screens it stacks below the heatmap. Selected day and Selected week use native disclosures, closed on page load; mouse and keyboard toggling reveal the existing counts and coverage notes. Browser validation checked the desktop placement, ascending January–November bars, both default-closed panels, reopening by mouse and closing by keyboard, and a 390-pixel layout without page overflow. The same frozen feeds and historical/device limits above still apply. This changes only the local preview and task branch, not production.
+
 ## Proposed rollout and rollback (not executed)
 
 1. Review and merge the task branch. Fetch the resulting revision into a durable independent clone outside Dropbox; run the checks above there. Record exact source and bundle hashes. Keep the currently running service and publishers unchanged until the maintenance step below.
