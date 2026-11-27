@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mergeTokenDays, resolveRange, selectRange, validDate } from "../src/date-ranges.js";
+import { mergeTokenDays, tokenDaySources, resolveRange, selectRange, validDate } from "../src/date-ranges.js";
 
 const earliest = "2025-01-01", latest = "2026-11-17";
 test("presets use inclusive reporting dates across years and leap days", () => {
@@ -58,4 +58,14 @@ test("calendar Today has one date, and a mixed-version device contributes unknow
   assert.equal(selection.tokens, 19);
   assert.deepEqual(selection.partialMetrics, ["tokens"]);
   assert.deepEqual(mergeTokenDays([source, source]).get(latest), {tokens: 0, tokensKnowledge: "complete"});
+});
+
+
+test("missing expected Windows and failed device feeds retain incomplete combined daily coverage", () => {
+  const primary = [{month: "2026-11", tokenDays: [{localDate: latest, tokens: 0, tokensKnowledge: "complete"}]}];
+  const windows = ["windows-pc", {months: primary}];
+  assert.equal(mergeTokenDays(tokenDaySources(primary, [])).get(latest).tokensKnowledge, "partial");
+  assert.equal(mergeTokenDays(tokenDaySources(primary, [windows])).get(latest).tokensKnowledge, "complete");
+  assert.equal(mergeTokenDays(tokenDaySources(primary, [windows], false)).get(latest).tokensKnowledge, "partial");
+  assert.equal(mergeTokenDays(tokenDaySources(primary, [["mac-mini", {months: primary}]] )).get(latest).tokensKnowledge, "partial");
 });
