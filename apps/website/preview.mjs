@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname } from "node:path";
+import { extname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 const publicWorklog = "https://www.jimmyweber.com/worklog/";
@@ -15,13 +15,27 @@ const contentTypes = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
 };
-const { values } = parseArgs({ options: { port: { type: "string", default: "4177" } } });
+const { values } = parseArgs({ options: {
+  port: { type: "string", default: "4177" },
+  "feed-dir": { type: "string" },
+} });
 const port = Number(values.port);
 if (!/^\d+$/.test(values.port) || !Number.isInteger(port) || port > 65535) {
   throw new Error("Preview port must be between 0 and 65535.");
 }
 
 async function serveFeed(name, method, response) {
+  if (values["feed-dir"]) {
+    // Private snapshots stay outside dist and can never enter the release payload.
+    try {
+      const body = await readFile(resolve(values["feed-dir"], name));
+      response.writeHead(200, { "Content-Type": "application/json", "Content-Length": body.length })
+        .end(method === "GET" ? body : undefined);
+    } catch (error) {
+      response.writeHead(error.code === "ENOENT" ? 404 : 500).end();
+    }
+    return;
+  }
   const upstream = await fetch(new URL(name, publicWorklog), {
     method,
     cache: "no-store",

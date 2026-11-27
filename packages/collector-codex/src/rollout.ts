@@ -120,12 +120,14 @@ export async function readRolloutMetadata(filename: string, sessionId: string, s
       belongsToSession = metadata.id === sessionId;
       if (belongsToSession) sawSessionStart = true;
 
-      if (typeof metadata.parent_thread_id === "string" && metadata.parent_thread_id.length > 0) {
+      if (belongsToSession && typeof metadata.parent_thread_id === "string" && metadata.parent_thread_id.length > 0) {
         parentSessionId = metadata.parent_thread_id;
       }
       continue;
     }
-    if (envelope.type !== "event_msg" || typeof metadata.type !== "string") continue;
+    // Forked rollouts can contain replayed envelopes from another session.
+    // None of that session's activity, lifecycle, or counters belongs to this one.
+    if (!belongsToSession || envelope.type !== "event_msg" || typeof metadata.type !== "string") continue;
 
     if (["token_count", "task_started", "task_complete", "turn_aborted"].includes(metadata.type)) {
       const instant = isoInstant(envelope.timestamp);

@@ -1,6 +1,6 @@
 # Worklog Handoff
 
-Session close 2026-11-18 · November 17 website release `worklog-today-20261117-01`
+Current isolated validation: 2026-11-27. Historical release checkpoint below: 2026-11-18 · November 17 website release `worklog-today-20261117-01`
 
 ## Start here
 
@@ -10,9 +10,11 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 ## Next session priority
 
-The local public Worklog preview needs substantial visual and layout work. Start by figuring out how many Codex tokens Worklog can reliably report for a calendar day, then revisit the overview and how the daily numbers are presented.
+The November 27 isolated daily-token pass reuses the merged implementation and verifies collector → ledger → feed → browser. The task branch adds inherited-session filtering, empty-window zero protection, missing-device qualification, and a clearer daily/weekly view. Review [daily validation and proposed rollout](daily-token-validation.md) before changing runtime state.
 
-The merged daily dashboard reads per-device `tokenDays`, but the live MacBook Pro and Windows PC feeds checked on November 18 had no entries with that field. The preview therefore cannot show observed token counts for individual dates from those feeds. A test on a copy of the Mac ledger found usable evidence on 81 of 106 dates with recorded activity. Historical coverage still needs to be measured. [Daily token investigation](../WEBSITE-HANDOFF.md#daily-tokens-first)
+The isolated Mac copy has usable token subtotals on 85 of 110 activity dates, with 25 unknown. Only eight of 823 indexed rollouts were readable; these counts describe partial historical reconstruction, not complete device coverage. A closed November 25 day reconciles to 36,021,592 tokens. Windows remains stale and has no daily feed fields, so the browser correctly labels combined tokens partial. The live Mac service/feed and public frontend remain older. No service, ledger, publisher, native app, startup job or production release was changed. The previous Mac freshness incident below is historical; the November 27 public Mac report was fresh.
+
+The audit tool now requires a new output file, reserved before database/collector work, and rejects aliases to either ledger. Ten synthetic safety regressions preserve protected ledger bytes; the full suite passes 186 tests. The preview runs on loopback port 4186 with frozen isolated feeds. Remaining work is review, rollout approval and Windows reconciliation when the device is normally available. Detailed counts, checks and rollback are in the validation record above.
 
 ## Closing checkpoint
 

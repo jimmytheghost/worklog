@@ -22,9 +22,9 @@
   <meta name="twitter:image" content="https://www.jimmyweber.com/worklog/preview.png">
   <meta name="twitter:image:alt" content="Worklog app icon and wordmark">
   <meta name="theme-color" content="#101410">
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=15">
   <link rel="stylesheet" href="./metric-explorer.css?v=2">
-  <script type="module" src="./activity.js?v=16"></script>
+  <script type="module" src="./activity.js?v=19"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to worklog</a>
@@ -56,37 +56,74 @@
     <p id="status" role="status">Loading work history…</p>
     <noscript><p>Enable JavaScript to browse the work history.</p></noscript>
     <div id="dashboard" hidden>
-      <section class="panel heatmap" aria-labelledby="heatmap-title">
-        <div class="section-header">
-          <div>
-            <h2 id="heatmap-title">Activity heatmap</h2>
-            <p class="caption">Last 90 days</p>
+      <div class="charts">
+        <section class="panel heatmap" aria-labelledby="heatmap-title">
+          <div class="section-header">
+            <div>
+              <h2 id="heatmap-title">Activity heatmap</h2>
+              <p class="caption">Last 90 days</p>
+            </div>
+            <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
+              <button type="button" data-metric="all" aria-pressed="true">All</button>
+              <button type="button" data-metric="commits" aria-pressed="false">Commits</button>
+              <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
+              <button type="button" data-metric="both" aria-pressed="false">Both</button>
+              <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
+              <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
+            </div>
           </div>
-          <div class="heatmap-metrics" role="group" aria-label="Heatmap metric">
-            <button type="button" data-metric="all" aria-pressed="true">All</button>
-            <button type="button" data-metric="commits" aria-pressed="false">Commits</button>
-            <button type="button" data-metric="pushes" aria-pressed="false">Pushes</button>
-            <button type="button" data-metric="both" aria-pressed="false">Both</button>
-            <button type="button" data-metric="agents" aria-pressed="false">Agents</button>
-            <button type="button" data-metric="subagents" aria-pressed="false">Subagents</button>
+          <div class="plot-scroll">
+            <div class="heatmap-grid" id="heatmap-grid" role="group" aria-label="Daily activity, Monday through Sunday"></div>
           </div>
-        </div>
-        <div class="plot-scroll">
-          <div class="heatmap-grid" id="heatmap-grid" role="group" aria-label="Daily activity, Monday through Sunday"></div>
-        </div>
-        <div class="heatmap-legend" role="group" aria-label="Heatmap shading from zero to highest activity, with hatching for unavailable data">
-          <span>0</span>
-          <i data-level="0" aria-hidden="true"></i><i data-level="1" aria-hidden="true"></i><i data-level="2" aria-hidden="true"></i><i data-level="3" aria-hidden="true"></i><i data-level="4" aria-hidden="true"></i>
-          <span>Most</span><i class="heatmap-missing" aria-hidden="true"></i><span>Unavailable</span>
-        </div>
+          <div class="heatmap-legend" role="group" aria-label="Heatmap shading from zero to highest activity, with hatching for unavailable data">
+            <span>0</span>
+            <i data-level="0" aria-hidden="true"></i><i data-level="1" aria-hidden="true"></i><i data-level="2" aria-hidden="true"></i><i data-level="3" aria-hidden="true"></i><i data-level="4" aria-hidden="true"></i>
+            <span>Most</span><i class="heatmap-missing" aria-hidden="true"></i><span>Unavailable</span>
+          </div>
+        </section>
+        <section class="panel activity" aria-labelledby="chart-title">
+          <div class="section-header">
+            <div>
+              <h2 id="chart-title">Activity over time</h2>
+              <p class="caption" id="chart-period"></p>
+            </div>
+            <label class="field">Metric
+              <select id="chart-metric">
+                <option value="commits">Commits</option>
+                <option value="pushes">Pushes</option>
+                <option value="agents">Agents</option>
+                <option value="subagents">Subagents</option>
+              </select>
+            </label>
+          </div>
+          <div class="plot-scroll">
+            <div class="chart" id="chart" role="group" aria-label="Choose a date to inspect"></div>
+          </div>
+          <div class="chart-detail" id="chart-detail" aria-live="polite" aria-atomic="true"></div>
+        </section>
+      </div>
+      <details class="daily-work panel collapsible-panel" aria-labelledby="day-title">
+        <summary class="section-header">
+          <div><h2 id="day-title">Selected day</h2><p id="day-date" class="caption"></p></div>
+          <div class="day-navigation" role="group" aria-label="Selected day">
+            <button type="button" id="day-previous" aria-label="Previous day">←</button>
+            <button type="button" id="day-today">Today</button>
+            <button type="button" id="day-next" aria-label="Next day">→</button>
+          </div>
+        </summary>
+
         <div class="heatmap-detail" id="heatmap-detail" aria-live="polite" aria-atomic="true"></div>
+        <p id="day-coverage" class="caption coverage-note"></p>
         <div id="day-projects" class="work-cards"></div>
-      </section>
-      <section class="week-recap" aria-labelledby="week-title">
-        <h2 id="week-title">Weekly highlights</h2>
-        <p id="week-dates" class="caption"></p>
+      </details>
+      <details class="week-recap panel collapsible-panel" aria-labelledby="week-title">
+        <summary class="section-header">
+          <div><h2 id="week-title">Selected week</h2><p id="week-dates" class="caption"></p></div>
+        </summary>
+        <p id="week-tokens" class="week-tokens"></p>
+        <p id="week-coverage" class="caption"></p>
         <div id="week-projects" class="work-cards"></div>
-      </section>
+      </details>
 
       <details class="explore" id="explore">
         <summary>Explore activity</summary>
@@ -117,30 +154,6 @@
           <dl class="metrics" id="metrics"></dl>
           <p class="context">Each Codex session counts once per active day on its recording device. Pushes and Codex usage reflect available records.</p>
         </section>
-
-        <div class="charts">
-          <section class="panel activity" aria-labelledby="chart-title">
-            <div class="section-header">
-              <div>
-                <h2 id="chart-title">Activity over time</h2>
-                <p class="caption" id="chart-period"></p>
-              </div>
-              <label class="field">Metric
-                <select id="chart-metric">
-                  <option value="commits">Commits</option>
-                  <option value="pushes">Pushes</option>
-                  <option value="agents">Agents</option>
-                  <option value="subagents">Subagents</option>
-                </select>
-              </label>
-            </div>
-            <div class="plot-scroll">
-              <div class="chart" id="chart" role="group" aria-label="Choose a date to inspect"></div>
-            </div>
-            <div class="chart-detail" id="chart-detail" aria-live="polite" aria-atomic="true"></div>
-          </section>
-        </div>
-
       </details>
 
       <section class="history" aria-labelledby="history-title">

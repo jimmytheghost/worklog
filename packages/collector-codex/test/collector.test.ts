@@ -1,4 +1,4 @@
-import { appendFileSync, copyFileSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import { appendFileSync, copyFileSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp } from "node:fs/promises";
@@ -12,6 +12,7 @@ import {
   isPrivacySafeCodexEvent,
 } from "../src/index.js";
 import { readCodexIndex } from "../src/sqlite.js";
+import { readRolloutMetadata } from "../src/rollout.js";
 
 const FIXTURES = new URL("./fixtures/", import.meta.url);
 const NOW = new Date("2026-08-31T12:00:00Z");
@@ -113,6 +114,35 @@ afterEach(async () => {
 });
 
 describe("CodexCollector", () => {
+  it("excludes inherited session activity, lifecycle, parents, and cumulative snapshots", async () => {
+    const fixture = await fixtureRoot();
+    const path = join(fixture.root, "sessions", "replayed.jsonl");
+    const meta = (id: string, parent_thread_id?: string) => ({
+      type: "session_meta", payload: {id, parent_thread_id},
+    });
+    const usage = (timestamp: string, total: number) => ({timestamp, type: "event_msg", payload: {
+      type: "token_count", info: {total_token_usage: {
+        input_tokens: total, cached_input_tokens: 0, cache_write_input_tokens: 0,
+        output_tokens: 0, reasoning_output_tokens: 0, total_tokens: total,
+      }},
+    }});
+    writeFileSync(path, [
+      meta("inherited", "inherited-parent"),
+      usage("2026-11-26T06:59:00Z", 900),
+      meta("current"),
+      usage("2026-11-26T07:00:00Z", 10),
+      meta("inherited", "another-parent"),
+      usage("2026-11-27T07:00:00Z", 1000),
+      {timestamp: "2026-11-27T07:01:00Z", type: "event_msg", payload: {type: "task_complete"}},
+    ].map(record => JSON.stringify(record)).join("\n") + "\n");
+    const result = await readRolloutMetadata(path, "current", "2026-11-26T07:00:00.000Z");
+    expect(result.tokenBuckets).toEqual([{instant: "2026-11-26T07:00:00.000Z", tokens: 10, partial: false}]);
+    expect(result.activityMinutes).toEqual(["2026-11-26T07:00:00.000Z"]);
+    expect(result.latestTokenObservation).toMatchObject({observedAt: "2026-11-26T07:00:00.000Z", totalTokens: 10});
+    expect(result.parentSessionId).toBeUndefined();
+    expect(result.terminalStatus).toBeUndefined();
+  });
+
   it("backfills increases once across midnight, preserving gaps and resets", async () => {
     const fixture = await fixtureRoot();
     const path = join(fixture.root, "sessions", "rollout-primary.jsonl");
