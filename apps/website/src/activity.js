@@ -212,7 +212,7 @@ function renderWorkCards(container, projects, weekly) {
       for (const event of weekly ? commits.slice(0, 3) : commits) {
         const row = element("li");
         if (typeof event.url === "string" && githubCommitUrl.test(event.url)) {
-          const link = element("a", event.subject); link.href = event.url; row.append(link);
+          const link = element("a", event.subject); link.href = event.url; link.className = "event-subject"; row.append(link);
         } else row.textContent = event.subject;
         list.append(row);
       }
@@ -267,7 +267,10 @@ function renderHeatmap(daySeries, latestDate, months, reportingNote) {
     if (nextDay) nextDay.disabled = index === days.length - 1;
     const tokens = element("div");
     const count = day.tokens == null ? "Unavailable" : number.format(day.tokens);
-    tokens.append(element("dt", "Observed tokens"), element("dd", count + (day.tokensKnowledge === "partial" ? " (partial)" : "")));
+    const amount = element("dd", count);
+    amount.toggleAttribute("data-unavailable", day.tokens == null);
+    if (day.tokensKnowledge === "partial") amount.append(element("span", " (partial)", "token-qualification"));
+    tokens.append(element("dt", "Observed tokens"), amount);
     tokens.className = "day-tokens";
     heatmapDetail.querySelector("dl").prepend(tokens);
     renderWorkCards(document.querySelector("#day-projects"), projectsInPeriod(months, day.date, day.date), false);
