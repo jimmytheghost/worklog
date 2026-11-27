@@ -110,7 +110,7 @@ The public dashboard combines GitHub history and observed Codex usage from the M
 
 Open **Explore** for range totals, charts, searchable history and CSV export. **Today** follows the reporting calendar (Denver by default). **Last 24 hours** uses the latest shared rolling window published by the reporting devices. **Sync status** shows when each source last reported.
 
-Updated publishers provide daily observed token totals. A resumed session contributes the increase recorded on that day. Days with incomplete evidence show the observed subtotal as partial, and days without usable observations can be unavailable. Older feeds may provide only a monthly figure. Local session counters and official account limits remain separate.
+Updated publishers provide daily observed token totals. A resumed session contributes the increase recorded on that day. Days with incomplete evidence show the observed subtotal as partial, and days without usable observations can be unavailable. Older feeds may provide only a monthly figure. Local session counters and official account limits remain separate. The November 27 isolated daily validation and layout changes are pending rollout; the production feeds still lack daily token rows. [Validation and rollout record](docs/daily-token-validation.md).
 
 The header squares switch between green, neon blue, and grey. The browser remembers your choice. The heatmap uses five tones from zero to highest activity, and hatching marks unavailable days.
 

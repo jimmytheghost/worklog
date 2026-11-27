@@ -1,6 +1,6 @@
 # Worklog website
 
-Session close 2026-11-18: production is `worklog-today-20261117-01`, following `worklog-evening-20261117-01`. The portfolio refresh is also live. No static release is pending for these features. [Runtime and remaining work](docs/handoff.md#closing-checkpoint)
+Production checkpoint from 2026-11-18: production is `worklog-today-20261117-01`, following `worklog-evening-20261117-01`. The portfolio refresh is also live. No static release is pending for these features. [Runtime and remaining work](docs/handoff.md#closing-checkpoint)
 
 The MacBook Pro and Windows PC publish to the [live Worklog dashboard](https://www.jimmyweber.com/worklog/). The top navigation links to **History** and **Sync status**. The 90-day heatmap uses the latest published date, while the activity chart follows the selected period. The default All filter sums available commits, pushes, agents, and subagents. Both combines commits and pushes; the four individual filters remain available. All labels partially observed totals as partial, and selected-day details keep unavailable counts distinct from zero. Select a date to see all four counts. Hatching marks unavailable days for the selected heatmap metric. Searchable project history includes direct GitHub commit links where available.
 
@@ -12,13 +12,9 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Daily tokens first
 
-The local preview of the public frontend needs substantial visual and layout work. The first task is to establish what a daily token count means and verify that Worklog can report it reliably. The merged preview has a selected-day view and a weekly recap, but neither published device feed contained `tokenDays` when checked on November 18.
+November 27: the isolated daily pipeline and revised dashboard are working on task branch `daily-pipeline-20261127`. They are pending review and rollout. The live Mac ledger has no minute-token table, and both fetched public feeds still lack `tokenDays`. The Mac report is fresh; Windows is stale from November 23. Do not wake Windows or present Mac-only observations as complete combined coverage.
 
-- Trace one recent `America/Denver` calendar day from each device's observed Codex counter increases through the local ledger and public feed to the preview's **Observed tokens** row. Identify which collector or publisher needs updating where the field is missing.
-- Check repeat refreshes, reopened sessions, and sessions that cross midnight. Reconcile each device's daily subtotal before combining them. Keep complete, partial, unavailable, and measured zero distinct.
-- Measure historical coverage before deciding what to show for older dates. Keep calendar-day observations, the rolling **Last 24 hours** window, and Codex account usage separate.
-
-Once those numbers and their coverage are understood, revisit the page hierarchy, layout, and daily readout in the local preview. The release records below describe the deployed website. [Daily token data contract](docs/data-contract.md#public-last-24-hours-projection) · [Project handoff](docs/handoff.md#next-session-priority)
+The local preview shows exact selected-day tokens, date navigation, project activity and weekly token subtotal with observed-day coverage. November 25 reconciles to 36,021,592 local observed tokens, displayed as partial with the legacy Windows feed. Calendar Today, rolling Last 24 hours and account limits stay separate. [Evidence, exact checks, coverage limits and rollout/rollback](docs/daily-token-validation.md).
 
 ## Build and publish
 
@@ -34,7 +30,7 @@ To preview the public dashboard locally, run:
 pnpm --filter @agent-dashboard/website preview
 ```
 
-Open [Worklog on localhost](http://127.0.0.1:4177/worklog/). The preview builds the public frontend, serves it on loopback, and fetches both published feeds from JimmyWeber.com on demand. A visible preview tab checks for new reports every minute and reloads when either feed changes. For offline testing, serve the built files under `/worklog/` with schema-version-1 fixture feeds alongside them. Keep fixtures outside the static release file list.
+Open [Worklog on localhost](http://127.0.0.1:4177/worklog/). The preview builds the public frontend, serves it on loopback, and fetches both published feeds from JimmyWeber.com on demand. A visible preview tab checks for new reports every minute and reloads when either feed changes. For isolated or offline testing, run `node apps/website/preview.mjs --port 4186 --feed-dir /absolute/private/feeds` after building. It serves `activity.json` and `codex-devices.json` only from that directory, with no public fallback. Missing local device feeds stay missing. Keep private feeds outside `dist` and the static release file list.
 
 The data export carries repository names, commit subjects, and GitHub commit links, including activity from private repositories, and aggregate counts. GitHub handles repository access when visitors follow a commit link. The export excludes Codex session identifiers and account details, commit bodies, and credentials. Keep the export, database, and SSH config out of Git. The host serves static files and Worklog's collectors run locally.
 
@@ -48,13 +44,13 @@ Each activity total opens an animated line-chart explorer with rounded controls 
 
 Controls include a rolling 30-day preset, 3/6/12-calendar-month presets, all history, custom dates, daily/weekly/monthly grouping, chart/table views, area fill, points, and aggregate CSV download. The 30D preset includes the latest reported date and the previous 29 calendar days; longer month presets include the latest recorded month through its latest published day. Hover/touch, click-to-pin, arrow keys, and previous/next buttons inspect intervals. Range stats show observed total, average per observed interval, peak, and coverage. Project totals count distinct repositories across the range. Missing intervals remain gaps, observed zero stays zero, and intervals mixing known and unavailable days are partial. Push and Codex observations retain the existing feed coverage limits and Sync status.
 
-Outside Today, tokens remain monthly only. In the 30D view, monthly observations appear at their reporting dates and retain their full-month values; the stats explicitly say Published month totals, since an exact 30-day token subtotal is unavailable. Custom ranges expand to whole published months, with the current month ending at the latest report. The explorer consumes the existing public feeds and adds no collector, storage, or account-limit data. CSV contains only dates, the selected aggregate, and its coverage label.
+In the currently deployed older frontend, outside its rolling Today control, tokens remain monthly only. Current source uses calendar Today and separate Last 24 hours, and updated feeds support daily tokens. In the 30D view, monthly observations appear at their reporting dates and retain their full-month values; the stats explicitly say Published month totals, since an exact 30-day token subtotal is unavailable. Custom ranges expand to whole published months, with the current month ending at the latest report. The explorer consumes the existing public feeds and adds no collector, storage, or account-limit data. CSV contains only dates, the selected aggregate, and its coverage label.
 
 Validated locally with the published feed snapshot: all six totals matched, chart/table and export worked, empty/reversed custom dates remained recoverable, period changes and collapse preserved the overview, and keyboard/touch inspection worked. Responsive checks covered 320, 390, and 1440 px and the three existing palettes. Model tests cover missing/zero/partial values, distinct projects, Monday-based weeks, and monthly tokens. Published in `worklog-evening-20261117-01`; all three new assets are included in the release.
 
-## Today
+## Today release (historical production behavior)
 
-Today appears before 7 days and selects one exact, half-open 24-hour window shared by reporting devices. Each machine exports four aggregate snapshots ending at aligned UTC quarter hours, so independently scheduled publishers can use the latest common window. The caption shows its actual reporting times; the window is 24 elapsed hours across daylight-saving changes. The 90-day heatmap remains fixed.
+The deployed older Today control appears before 7 days and selects one exact, half-open 24-hour window shared by reporting devices. Each machine exports four aggregate snapshots ending at aligned UTC quarter hours, so independently scheduled publishers can use the latest common window. The caption shows its actual reporting times; the window is 24 elapsed hours across daylight-saving changes. The 90-day heatmap remains fixed.
 
 Git events are filtered by their exported `occurredAt` instant before totals and project history are built. Shared events still deduplicate across devices, preserving a timestamp when one source is older. Codex agents/subagents and observed token counters come from that same window. Tokens retain the existing local-counter semantics: sessions started within the window, with trustworthy usage snapshots inside it. No sessions or account identifiers are exported. A missing or stale device report never substitutes an entire calendar day or a monthly token value. Known subtotals are qualified as partial; entirely unavailable metrics stay unavailable. The Today explorer and CSV use the same window, with UTC boundaries included in CSV.
 

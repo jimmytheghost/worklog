@@ -119,11 +119,13 @@ describe("public rolling 24-hour observations", () => {
     expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: 45, tokensKnowledge: "partial" });
   });
 
-  it("qualifies a zero from incomplete or not-yet-current coverage as partial", () => {
+  it("keeps empty intervals unknown with incomplete or not-yet-current coverage", () => {
     const store = storage(), at = new Date("2026-11-17T22:37:00.000Z");
     coverage(store, "2026-11-17T22:29:00.000Z");
-    expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: 0, tokensKnowledge: "partial" });
+    expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: null, tokensKnowledge: "unknown" });
     coverage(store, at.toISOString(), "partial");
-    expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: 0, tokensKnowledge: "partial" });
+    expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: null, tokensKnowledge: "unknown" });
+    session(store, "PRIVATE_MEASURED_ZERO", "2026-11-17T12:00:00.000Z", "2026-11-17T12:01:00.000Z", 0);
+    expect(buildPublicActivity(store, "UTC", at).rolling24Hours[0]).toMatchObject({ tokens: 0, tokensKnowledge: "complete" });
   });
 });

@@ -24,9 +24,11 @@ function rolling24Hours(storage: Storage, timeZone: string, now: Date) {
     const start = new Date(Date.parse(end) - 24 * 60 * 60 * 1_000).toISOString();
     const days = storage.queryDailyObservedTokens({ start, end, timeZone });
     const usage = sumTokenDays(days);
-    const hasReport = coverage?.lastSucceededAt !== undefined
-      && Date.parse(coverage.lastSucceededAt) >= Date.parse(start);
-    const observedZero = days.length === 0 && hasReport;
+    // A successful experimental scan can still have missing rollouts/counters.
+    // Only exhaustive coverage of this entire interval establishes an empty zero.
+    const observedZero = days.length === 0 && coverage?.completeness === "complete"
+      && coverage.coverageStart !== undefined && coverage.coverageStart <= start
+      && coverage.coverageEnd !== undefined && coverage.coverageEnd >= end;
     if (observedZero) {
       usage.tokens = 0;
       usage.tokensKnowledge = coverage?.completeness === "complete" ? "complete" : "partial";

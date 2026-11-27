@@ -59,6 +59,14 @@ Push totals use observations from GitHub. Historical reconstruction from commit 
 - **Banked resets and credits:** values returned by the Codex account source. Missing is unknown, never zero.
 - **Lifetime usage facts:** lifetime and peak daily tokens, streaks, and longest-running turn as returned by the Codex account source. These facts are not summed with local session counters.
 
+### Daily observed token evidence
+
+`codex_token_minutes` stores only session ID, UTC minute, numeric token delta (or null) and a partial flag. A replay upserts the session/minute key. Resumed sessions contribute deltas on each observed date; inherited foreign-session sections are excluded. Legacy same-day checkpoints can contribute a partial lower bound when original minute evidence is unavailable. Missing evidence stays null, and a numeric measured zero stays zero.
+
+Daily `tokensKnowledge: complete` describes the represented sessions on that date: each has trustworthy nonpartial minute evidence. It does not certify exhaustive retention, source collection, device reporting, or account usage. The experimental Codex source remains partial. `partial` is a known subtotal with incomplete evidence; `unknown` has no usable numeric subtotal. Freshness is independent.
+
+Each public month includes optional `tokenDays` containing only `localDate`, `tokens` and `tokensKnowledge`. Combined daily totals require evidence from every expected reporting device to be complete; legacy or missing Windows reports leave a known Mac subtotal partial. The weekly view counts dates with numeric observations and preserves unknown elapsed dates. Empty rolling windows require complete coverage spanning the entire interval before zero can be inferred; a recent partial scan alone cannot establish zero. [Isolated validation and rollout](daily-token-validation.md).
+
 ### Deferred OpenAI API usage design
 
 - **API tokens:** usage returned by official organization usage endpoints, grouped by the dimensions present in the response (for example model, project, user, or API key).
@@ -201,7 +209,7 @@ Events are immutable. Corrections append a superseding event or update a canonic
 
 ## Conceptual entity and table model
 
-The implemented schema stores `sources`, `projects`, `normalized_events`, `sync_cursors`, `source_coverage`, and `codex_account_state`. This design reference describes logical responsibilities, including projections and deferred concepts. [Implemented SQLite schema](../packages/storage/src/schema.ts)
+The implemented schema stores `sources`, `projects`, `normalized_events`, `sync_cursors`, `source_coverage`, and `codex_account_state`, and `codex_token_minutes`. This design reference describes logical responsibilities, including projections and deferred concepts. [Implemented SQLite schema](../packages/storage/src/schema.ts)
 
 - **source_accounts:** configured GitHub/OpenAI/local sources, non-secret identity, enabled state, and sync policy.
 - **repositories:** canonical repository identity, GitHub ID or local namespace, current metadata, and ownership/inclusion state.
