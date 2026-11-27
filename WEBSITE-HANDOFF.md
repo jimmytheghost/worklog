@@ -12,7 +12,7 @@ Worklog counts each top-level Codex session or spawned subagent once per reporti
 
 ## Daily tokens first
 
-November 27: the isolated daily pipeline and revised dashboard are working on task branch `daily-pipeline-20261127`. They are pending review and rollout. The live Mac ledger has no minute-token table, and both fetched public feeds still lack `tokenDays`. The Mac report is fresh; Windows is stale from November 23. Do not wake Windows or present Mac-only observations as complete combined coverage.
+November 27: the isolated daily pipeline and revised dashboard are working on task branch `daily-pipeline-20261127`. They are pending review and rollout. The live Mac ledger has no minute-token table, and both fetched public feeds still lack `tokenDays`. The Mac report is fresh; Windows is stale from November 23. Only eight of 823 indexed Mac rollouts were readable, so the 85 dates with known token subtotals are partial historical reconstruction. Do not wake Windows or present Mac-only observations as complete combined coverage.
 
 The local preview shows exact selected-day tokens, date navigation, project activity and weekly token subtotal with observed-day coverage. November 25 reconciles to 36,021,592 local observed tokens, displayed as partial with the legacy Windows feed. Calendar Today, rolling Last 24 hours and account limits stay separate. [Evidence, exact checks, coverage limits and rollout/rollback](docs/daily-token-validation.md).
 

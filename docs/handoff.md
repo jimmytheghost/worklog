@@ -12,9 +12,9 @@ Keep the product small. It is a personal work ledger, not an agent-control cente
 
 The November 27 isolated daily-token pass reuses the merged implementation and verifies collector → ledger → feed → browser. The task branch adds inherited-session filtering, empty-window zero protection, missing-device qualification, and a clearer daily/weekly view. Review [daily validation and proposed rollout](daily-token-validation.md) before changing runtime state.
 
-The isolated Mac copy has usable token subtotals on 85 of 110 activity dates, with 25 unknown. A closed November 25 day reconciles to 36,021,592 tokens. Windows remains stale and has no daily feed fields, so the browser correctly labels combined tokens partial. The live Mac service/feed and public frontend remain older. No service, ledger, publisher, native app, startup job or production release was changed. The previous Mac freshness incident below is historical; the November 27 public Mac report was fresh.
+The isolated Mac copy has usable token subtotals on 85 of 110 activity dates, with 25 unknown. Only eight of 823 indexed rollouts were readable; these counts describe partial historical reconstruction, not complete device coverage. A closed November 25 day reconciles to 36,021,592 tokens. Windows remains stale and has no daily feed fields, so the browser correctly labels combined tokens partial. The live Mac service/feed and public frontend remain older. No service, ledger, publisher, native app, startup job or production release was changed. The previous Mac freshness incident below is historical; the November 27 public Mac report was fresh.
 
-The preview runs on loopback port 4186 with frozen isolated feeds. Remaining work is review, rollout approval and Windows reconciliation when the device is normally available. Detailed counts, checks and rollback are in the validation record above.
+The audit tool now requires a new output file, reserved before database/collector work, and rejects aliases to either ledger. Ten synthetic safety regressions preserve protected ledger bytes; the full suite passes 186 tests. The preview runs on loopback port 4186 with frozen isolated feeds. Remaining work is review, rollout approval and Windows reconciliation when the device is normally available. Detailed counts, checks and rollback are in the validation record above.
 
 ## Closing checkpoint
 
