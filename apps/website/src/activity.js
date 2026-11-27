@@ -257,11 +257,14 @@ function renderHeatmap(daySeries, latestDate, months, reportingNote) {
     const date = element("time", dates[index]);
     date.dateTime = days[index].date;
     const day = days[index];
-    document.querySelector("#day-date").replaceChildren(date);
-    renderDayDetails(heatmapDetail, null, day);
-    document.querySelector("#day-coverage").textContent = reportingNote;
-    document.querySelector("#day-previous").disabled = index === 0;
-    document.querySelector("#day-next").disabled = index === days.length - 1;
+    const dateHeading = document.querySelector("#day-date");
+    if (dateHeading) dateHeading.replaceChildren(date);
+    renderDayDetails(heatmapDetail, dateHeading ? null : date, day);
+    const coverageNote = document.querySelector("#day-coverage");
+    if (coverageNote) coverageNote.textContent = reportingNote;
+    const previousDay = document.querySelector("#day-previous"), nextDay = document.querySelector("#day-next");
+    if (previousDay) previousDay.disabled = index === 0;
+    if (nextDay) nextDay.disabled = index === days.length - 1;
     const tokens = element("div");
     const count = day.tokens == null ? "Unavailable" : number.format(day.tokens);
     tokens.append(element("dt", "Observed tokens"), element("dd", count + (day.tokensKnowledge === "partial" ? " (partial)" : "")));
@@ -275,9 +278,10 @@ function renderHeatmap(daySeries, latestDate, months, reportingNote) {
       const end = week.end < latestDate ? week.end : latestDate;
       weekDates.textContent = dayLabel(week.start) + " – " + dayLabel(end);
       const recap = tokenRecap(daySeries, week.start, end);
-      document.querySelector("#week-tokens").textContent = recap.tokens === null ? "Observed tokens unavailable"
+      const weekTokens = document.querySelector("#week-tokens"), weekCoverage = document.querySelector("#week-coverage");
+      if (weekTokens) weekTokens.textContent = recap.tokens === null ? "Observed tokens unavailable"
         : `${number.format(recap.tokens)} observed tokens${recap.tokensKnowledge === "partial" ? " (partial)" : ""}`;
-      document.querySelector("#week-coverage").textContent = `Token observations on ${recap.measuredDays} of ${recap.totalDays} days. ${reportingNote}`;
+      if (weekCoverage) weekCoverage.textContent = `Token observations on ${recap.measuredDays} of ${recap.totalDays} days. ${reportingNote}`;
       renderWorkCards(document.querySelector("#week-projects"), projectsInPeriod(months, week.start, end), true);
     }
   }
@@ -338,9 +342,9 @@ function renderHeatmap(daySeries, latestDate, months, reportingNote) {
   heatmapMetrics.forEach((control) => {
     control.addEventListener("click", () => showMetric(control.dataset.metric));
   });
-  document.querySelector("#day-previous").addEventListener("click", () => select(Math.max(0, selected - 1)));
-  document.querySelector("#day-next").addEventListener("click", () => select(Math.min(days.length - 1, selected + 1)));
-  document.querySelector("#day-today").addEventListener("click", () => select(days.length - 1));
+  document.querySelector("#day-previous")?.addEventListener("click", () => select(Math.max(0, selected - 1)));
+  document.querySelector("#day-next")?.addEventListener("click", () => select(Math.min(days.length - 1, selected + 1)));
+  document.querySelector("#day-today")?.addEventListener("click", () => select(days.length - 1));
   showMetric("all");
   select(selected);
   const scroll = heatmapGrid.parentElement;
